@@ -1,18 +1,14 @@
-<?xml version="1.0" encoding="UTF-8"?><project name="Untitled Gantt Project" company="" webLink="http://" view-date="2025-09-19" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.3.3311" locale="de_AT">
+<?xml version="1.0" encoding="UTF-8"?><project name="Untitled Gantt Project" company="" webLink="http://" view-date="2025-09-10" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.2.3247" locale="de_DE">
     <description/>
     <view zooming-state="default:2" id="gantt-chart">
-        <field id="tpd3" name="Name" width="200" order="0"/>
-        <field id="tpd4" name="Begin date" width="75" order="1"/>
-        <field id="tpd5" name="End date" width="75" order="2"/>
-        <field id="tpd15" name="Notes" width="20" order="3"/>
+        <field id="tpd3" name="Vorgang" width="200" order="0"/>
+        <field id="tpd4" name="Anfang" width="75" order="1"/>
+        <field id="tpd5" name="Ende" width="75" order="2"/>
         <option id="filter.completedTasks" value="false"/>
-        <option id="filter.dueTodayTasks" value="false"/>
-        <option id="filter.overdueTasks" value="false"/>
-        <option id="filter.inProgressTodayTasks" value="false"/>
     </view>
     <view id="resource-table">
-        <field id="0" name="Name" width="210" order="0"/>
-        <field id="1" name="Default role" width="86" order="1"/>
+        <field id="0" name="Ressource" width="210" order="0"/>
+        <field id="1" name="Rolle" width="86" order="1"/>
     </view>
     <!-- -->
     <calendars>
@@ -38,8 +34,13 @@
             <taskproperty id="tpd8" name="coordinator" type="default" valuetype="text"/>
             <taskproperty id="tpd9" name="predecessorsr" type="default" valuetype="text"/>
         </taskproperties>
+        <task id="0" name="Projektdauer" color="#8cb6ce" meeting="false" start="2025-09-10" duration="148" complete="0" thirdDate="2025-09-19" thirdDate-constraint="0" expand="true"/>
     </tasks>
-    <resources/>
+    <resources>
+        <resource id="0" name="Jonas Aberger" function="Default:1" contacts="jonas.aberger@htl-saalfelden.at" phone=""/>
+        <resource id="1" name="Fabian Haslinger" function="Default:0" contacts="fabian.haslinger@htl-saalfelden.at" phone=""/>
+        <resource id="2" name="Tim Hechenberger" function="Default:0" contacts="tim.hechenberger@htl-saalfelden.at" phone=""/>
+    </resources>
     <allocations/>
     <vacations/>
     <previous/>
