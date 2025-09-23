@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?><project name="Untitled Gantt Project" company="" webLink="http://" view-date="2025-09-10" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.2.3247" locale="de_DE">
+<?xml version="1.0" encoding="UTF-8"?><project name="Untitled Gantt Project" company="" webLink="http://" view-date="2025-09-23" view-index="0" gantt-divider-location="351" resource-divider-location="300" version="3.2.3247" locale="de_DE">
     <description/>
     <view zooming-state="default:2" id="gantt-chart">
         <field id="tpd3" name="Vorgang" width="200" order="0"/>
@@ -35,6 +35,14 @@
             <taskproperty id="tpd9" name="predecessorsr" type="default" valuetype="text"/>
         </taskproperties>
         <task id="0" name="Projektdauer" color="#8cb6ce" meeting="false" start="2025-09-10" duration="148" complete="0" thirdDate="2025-09-19" thirdDate-constraint="0" expand="true"/>
+        <task id="3" name="Muss-Ziele" meeting="false" start="2025-09-23" duration="1" complete="0" expand="false">
+            <task id="4" name="Kommunikationsschnittstelle für IOT-Geräte" meeting="false" start="2025-09-23" duration="1" complete="0" expand="true"/>
+            <task id="5" name="Kommunikationsschnittstelle für Handy-App" color="#8cb6ce" meeting="false" start="2025-09-23" duration="1" complete="0" thirdDate="2025-09-23" thirdDate-constraint="0" expand="true"/>
+            <task id="6" name="Handy-App" meeting="false" start="2025-09-23" duration="1" complete="0" expand="true"/>
+        </task>
+        <task id="7" name="Soll-Ziele" meeting="false" start="2025-09-23" duration="1" complete="0" expand="true">
+            <task id="8" name="Aktuelle Ladepriorität" color="#8cb6ce" meeting="false" start="2025-09-23" duration="1" complete="0" thirdDate="2025-09-23" thirdDate-constraint="0" expand="true"/>
+        </task>
     </tasks>
     <resources>
         <resource id="0" name="Jonas Aberger" function="Default:1" contacts="jonas.aberger@htl-saalfelden.at" phone=""/>
