@@ -36,11 +36,16 @@ class PV_Bridge:
             inverter = data['Body']['Data']['Inverters'].get('1', {}) 
             
             return {
-                "pv_power": self.safe_decimal(site.get('P_PV')),
+                 "pv_power": self.safe_decimal(site.get('P_PV')),
                 "grid_power": self.safe_decimal(site.get('P_Grid')),
                 "load_power": self.safe_decimal(site.get('P_Load')),
                 "battery_power": self.safe_decimal(site.get('P_Akku')),
-                "soc": self.safe_decimal(inverter.get('SOC'))
+                "soc": self.safe_decimal(inverter.get('SOC')),
+                "e_day": self.safe_decimal(site.get('E_Day')),
+                "e_year": self.safe_decimal(site.get('E_Year')),
+                "e_total": self.safe_decimal(site.get('E_Total')),
+                "rel_autonomy": self.safe_decimal(site.get('rel_Autonomy')),
+                "rel_selfconsumption": self.safe_decimal(site.get('rel_SelfConsumption')),
             }
         except Exception as e:
             print(f"Fehler beim Parsen der PV-Daten: {e}")
