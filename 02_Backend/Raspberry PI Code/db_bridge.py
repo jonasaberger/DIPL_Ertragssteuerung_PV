@@ -19,7 +19,6 @@ class DB_Bridge:
         )
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
         self.query_api = self.client.query_api()
-
     
     # Check the connection to the database
     def check_connection(self):
