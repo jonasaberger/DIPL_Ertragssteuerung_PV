@@ -1,0 +1,96 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36" version="28.2.5">
+  <diagram name="Seite-1" id="leibeaptkg5Hp3O_3Fon">
+    <mxGraphModel dx="2911" dy="1176" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="hAyx1vVXRjQRRQZymnux-1" value="PV - Ertragssteuerung" style="swimlane;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-180" y="140" width="780" height="490" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="hAyx1vVXRjQRRQZymnux-1" source="hAyx1vVXRjQRRQZymnux-2" target="hAyx1vVXRjQRRQZymnux-3" edge="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="310" y="195" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-2" value="IoT-Geräte" style="swimlane;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-1" vertex="1">
+          <mxGeometry x="30" y="90" width="180" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-10" value="Raspberry Pi" style="rounded=0;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-2" vertex="1">
+          <mxGeometry x="30" y="100" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-11" value="Warmwasserboiler" style="rounded=0;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-2" vertex="1">
+          <mxGeometry x="30" y="160" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-22" value="E-GO Wallbox" style="rounded=0;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-2" vertex="1">
+          <mxGeometry x="30" y="40" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="hAyx1vVXRjQRRQZymnux-1" source="hAyx1vVXRjQRRQZymnux-3" target="hAyx1vVXRjQRRQZymnux-4" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-3" value="Backend" style="swimlane;whiteSpace=wrap;html=1;startSize=23;" parent="hAyx1vVXRjQRRQZymnux-1" vertex="1">
+          <mxGeometry x="300" y="90" width="180" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-5" value="InfluxDB" style="rounded=0;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-3" vertex="1">
+          <mxGeometry x="30" y="90" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-33" value="FLASK" style="rounded=0;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-3" vertex="1">
+          <mxGeometry x="30" y="160" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-4" value="Frontend" style="swimlane;whiteSpace=wrap;html=1;startSize=23;" parent="hAyx1vVXRjQRRQZymnux-1" vertex="1">
+          <mxGeometry x="570" y="90" width="180" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-6" value="REACT Native" style="rounded=0;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-4" vertex="1">
+          <mxGeometry x="30" y="90" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-19" value="Sendet Daten" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="hAyx1vVXRjQRRQZymnux-1" vertex="1">
+          <mxGeometry x="220" y="200" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-7" value="Plattformen" style="swimlane;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-1" vertex="1">
+          <mxGeometry x="570" y="340" width="180" height="127.5" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-8" value="Github" style="rounded=0;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-7" vertex="1">
+          <mxGeometry x="30" y="40" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-9" value="OpenAi" style="rounded=0;whiteSpace=wrap;html=1;" parent="hAyx1vVXRjQRRQZymnux-7" vertex="1">
+          <mxGeometry x="30" y="90" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="_AbDvf9fUcrrnonD3nlL-1" value="Verwendet Daten" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="hAyx1vVXRjQRRQZymnux-1" vertex="1">
+          <mxGeometry x="500" y="200" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="hAyx1vVXRjQRRQZymnux-14" value="PV-Anlage" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-780" y="300" width="170" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="_AbDvf9fUcrrnonD3nlL-2" value="Wechselrichter / Speicher (Batterie)" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="-490" y="310" width="150" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="_AbDvf9fUcrrnonD3nlL-3" value="" style="endArrow=none;html=1;rounded=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="_AbDvf9fUcrrnonD3nlL-2" target="hAyx1vVXRjQRRQZymnux-14" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-250" y="430" as="sourcePoint" />
+            <mxPoint x="-200" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="_AbDvf9fUcrrnonD3nlL-4" value="liefert Strom" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="-580" y="350" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="_AbDvf9fUcrrnonD3nlL-5" value="" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" parent="1" source="_AbDvf9fUcrrnonD3nlL-2" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="-180" y="330" as="sourcePoint" />
+            <mxPoint x="-150" y="345" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="_AbDvf9fUcrrnonD3nlL-7" value="Auftraggeber" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" parent="1" vertex="1">
+          <mxGeometry x="710" y="305" width="30" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="_AbDvf9fUcrrnonD3nlL-8" value="" style="endArrow=none;html=1;rounded=0;exitX=0.5;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;" parent="1" source="_AbDvf9fUcrrnonD3nlL-7" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="240" y="440" as="sourcePoint" />
+            <mxPoint x="600" y="335" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="_AbDvf9fUcrrnonD3nlL-9" value="benutzt" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="630" y="340" width="60" height="30" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
