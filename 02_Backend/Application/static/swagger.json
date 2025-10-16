@@ -1,0 +1,97 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "DIPL_Ertragssteuerung_PV API",
+    "version": "1.0.0",
+    "description": "API for accessing PV measurements and historical PV data"
+  },
+  "paths": {
+    "/api/latest": {
+      "get": {
+        "summary": "Get latest PV data",
+        "description": "Returns the most recent PV measurements from InfluxDB",
+        "responses": {
+          "200": {
+            "description": "Latest PV measurement",
+            "content": {
+              "application/json": {
+                "example": {
+                  "pv_power": 1147.7,
+                  "grid_power": -56.5,
+                  "load_power": -375.46,
+                  "battery_power": -660.34,
+                  "soc": 93.9,
+                  "e_day": 0,
+                  "e_year": 0,
+                  "e_total": 20084390.95,
+                  "rel_autonomy": 100,
+                  "rel_selfconsumption": 86.92
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/history/daily": {
+      "get": {
+        "summary": "Get 24h PV data",
+        "description": "Returns averaged PV data from 12:00 of the previous day to 12:00 of the current day",
+        "responses": {
+          "200": {
+            "description": "24-hour PV history",
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "time": "2025-10-09T12:00:00",
+                    "pv_power": 1100,
+                    "grid_power": -100,
+                    "load_power": -350,
+                    "battery_power": -700,
+                    "soc": 50,
+                    "e_day": 5000,
+                    "e_year": 150000,
+                    "e_total": 20090000,
+                    "rel_autonomy": 95,
+                    "rel_selfconsumption": 70
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/history/weekly": {
+      "get": {
+        "summary": "Get weekly PV data",
+        "description": "Returns averaged PV data for the last 7 days",
+        "responses": {
+          "200": {
+            "description": "Weekly PV history",
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "date": "2025-10-03",
+                    "pv_power": 1050,
+                    "grid_power": -120,
+                    "load_power": -360,
+                    "battery_power": -680,
+                    "soc": 52,
+                    "e_day": 4800,
+                    "e_year": 149500,
+                    "e_total": 20080000,
+                    "rel_autonomy": 96,
+                    "rel_selfconsumption": 72
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
