@@ -36,7 +36,7 @@ class PV_Bridge:
             inverter = data['Body']['Data']['Inverters'].get('1', {}) 
             
             return {
-                 "pv_power": self.safe_decimal(site.get('P_PV')),
+                "pv_power": self.safe_decimal(site.get('P_PV')),
                 "grid_power": self.safe_decimal(site.get('P_Grid')),
                 "load_power": self.safe_decimal(site.get('P_Load')),
                 "battery_power": self.safe_decimal(site.get('P_Akku')),
