@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Image } from 'expo-image';
 import { Platform, StyleSheet } from 'react-native';
 
