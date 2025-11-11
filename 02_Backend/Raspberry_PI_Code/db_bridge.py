@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 class DB_Bridge:
     def __init__(self):
         load_dotenv()
-        self.url = os.getenv("INFLUX_URL")
+        self.url = os.getenv("INFLUX_URL")          # http://100.120.107.71:8086
         self.token = os.getenv("INFLUX_TOKEN")
         self.org = os.getenv("INFLUX_ORG")
         self.bucket = os.getenv("INFLUX_BUCKET")
@@ -28,24 +28,13 @@ class DB_Bridge:
         except Exception as e:
             print(f"Connection error: {e}" )
 
-    # Write PV data into InfluxDB
-    def write_pv_data(self, data):
+    # Generic method to write any type of data to InfluxDB
+    def write_data(self, measurement: str, fields: dict):
         try:
-            point = (
-                Point("pv_measurements")
-                .field("pv_power", float(data.get("pv_power", 0)))
-                .field("load_power", float(data.get("load_power", 0)))
-                .field("grid_power", float(data.get("grid_power", 0)))
-                .field("battery_power", float(data.get("battery_power", 0)))
-                .field("soc", float(data.get("soc", 0)))
-                .field("e_day", float(data.get("e_day", 0)))
-                .field("e_year", float(data.get("e_year", 0)))
-                .field("e_total", float(data.get("e_total", 0)))
-                .field("rel_autonomy", float(data.get("rel_autonomy", 0)))
-                .field("rel_selfconsumption", float(data.get("rel_selfconsumption", 0)))
-            )
+            point = Point(measurement)
+            for key, value in fields.items():
+                point.field(key, value)
             self.write_api.write(bucket=self.bucket, org=self.org, record=point)
-            print("Data written to InfluxDB")
+            print(f"{measurement} data written to InfluxDB.")
         except Exception as e:
-            print(f"Data has not been written to InfluxDB: {e}")
-  
+            print(f"Failed to write {measurement} data: {e}")
