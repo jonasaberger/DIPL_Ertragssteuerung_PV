@@ -1,16 +1,25 @@
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from influxdb_client import InfluxDBClient
 from datetime import datetime, timedelta, time
 import pytz
 
 class DB_Bridge:
     def __init__(self):
-        load_dotenv()
+        
+        # Load environment variables from .env file
+        env_path = find_dotenv()
+        if not env_path:
+         raise FileNotFoundError("No .env file found - please create one")
+        load_dotenv(env_path)
+
         self.url = os.getenv("INFLUX_URL")
         self.token = os.getenv("INFLUX_TOKEN")
         self.org = os.getenv("INFLUX_ORG")
         self.bucket = os.getenv("INFLUX_BUCKET")
+
+        if not all([self.url, self.token, self.org, self.bucket]):
+            raise ValueError("Missing InfluxDB environment variables")
 
         self.client = InfluxDBClient(
             url=self.url,
@@ -129,3 +138,55 @@ class DB_Bridge:
         except Exception as e:
             print(f"Error querying weekly PV data: {e}")
             return None
+        
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Query Wallbox data from InfluxDB                                    #
+# This Part contains methods to retrive E-Go Wallbox system data      #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+    def get_latest_wallbox_data(self):
+    # Flux query to retrieve the most recent Wallbox data
+
+        query = f'''
+        from(bucket: "{self.bucket}")
+        |> range(start: -1h)              
+        |> filter(fn: (r) => r["_measurement"] == "wallbox_measurements")
+        |> filter(fn: (r) =>
+            r["_field"] == "amp" or         // charging current in amperes
+            r["_field"] == "car" or         // car connection state (1 = connected, 0 = not connected)
+            r["_field"] == "eto" or         // total energy charged since installation (Wh or kWh)
+            r["_field"] == "wst" or         // wallbox status code (depends on manufacturer)
+            r["_field"] == "alw" or         // allow charging flag (1 = charging allowed)
+            r["_field"] == "pha_L1" or      // phase L1 active (1 = on, 0 = off)
+            r["_field"] == "pha_L2" or      // phase L2 active (1 = on, 0 = off)
+            r["_field"] == "pha_L3" or      // phase L3 active (1 = on, 0 = off)
+            r["_field"] == "pha_count" or   // number of active phases (1-3)
+            r["_field"] == "charging"       // current charging state (1 = charging, 0 = idle)
+        )
+        |> aggregateWindow(every: 1m, fn: last, createEmpty: false) 
+        |> last()                                                  
+        |> timeShift(duration: 2h)                                 
+        |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        '''
+
+        try:
+            tables = self.query_api.query(query, org=self.org)
+            if tables and len(tables[0].records) > 0:
+                return tables[0].records[0].values
+            else:
+                print("No wallbox data found in the last hour.")
+                return None
+        except Exception as e:
+            print(f"Error while querying latest wallbox data: {e}")
+            return None
+        
+    def get_wallbox_history(self):
+        query = f'''
+        from(bucket: "{self.bucket}")
+          |> range(start: 0)  // all available data from the beginning of the bucket
+          |> filter(fn: (r) => r["_measurement"] == "wallbox_measurements")
+          |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+          |> sort(columns: ["_time"], desc: false)
+        '''
+        tables = self.query_api.query(query, org=self.org)
+        return [r.values for t in tables for r in t.records]

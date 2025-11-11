@@ -12,4 +12,6 @@ def main():
     
     dbbridge.check_connection()
     service_manager.start_server()
-main()
+
+if __name__ == "__main__":
+    main()

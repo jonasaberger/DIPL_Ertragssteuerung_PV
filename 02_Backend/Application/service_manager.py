@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
 from db_bridge import DB_Bridge
@@ -7,11 +7,7 @@ SWAGGER_URL = '/swagger'
 API_URL = '/static/swagger.json'
 
 swaggerui_blueprint = get_swaggerui_blueprint(
-    SWAGGER_URL,
-    API_URL,
-    config={
-        'app_name': "PV_Backend_Service"
-    }
+    SWAGGER_URL, API_URL, config={'app_name': "PV_Backend_Service"}
 )
 
 class ServiceManager:
@@ -24,49 +20,52 @@ class ServiceManager:
         # Register Swagger UI
         self.app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
-        # Initialize DB Bridge
+        # Initialize database connection
         self.db_bridge = DB_Bridge()
 
+        # Configure all routes
         self.configure_routes()
 
     def start_server(self):
         self.app.run(host=self.host_ip, port=self.server_port)
 
     def configure_routes(self):
-        # DB Connection-check
+        # Health / connection check
         self.app.add_url_rule('/connection', 'connection', self.check_connection, methods=['GET'])
 
-        # PV Data endpoints
+        # PV endpoints
         self.app.add_url_rule('/api/latest', 'latest', self.get_latest, methods=['GET'])
         self.app.add_url_rule('/api/history/daily', 'daily', self.get_daily, methods=['GET'])
         self.app.add_url_rule('/api/history/weekly', 'weekly', self.get_weekly, methods=['GET'])
 
-    # Endpoint implementations
+        # Wallbox endpoints
+        self.app.add_url_rule('/api/wallbox/latest', 'wallbox_latest', self.get_wallbox_latest, methods=['GET'])
+        self.app.add_url_rule('/api/wallbox/history', 'wallbox_history', self.get_wallbox_history, methods=['GET'])
+
+    # ----- Route Handlers -----
     def check_connection(self):
         try:
             self.db_bridge.check_connection()
             return jsonify({"status": "ok"})
         except Exception as e:
             return jsonify({"status": "error", "message": str(e)}), 500
-   
+
     def get_latest(self):
         data = self.db_bridge.get_latest_pv_data()
-        if data:
-            return jsonify(data)
-        return jsonify({"message": "No data found"}), 404
+        return (jsonify(data), 200) if data else (jsonify({"message": "No PV data found"}), 404)
 
     def get_daily(self):
         data = self.db_bridge.get_daily_pv_data()
-        if data:
-            return jsonify(data)
-        return jsonify({"message": "No daily data found"}), 404
+        return (jsonify(data), 200) if data else (jsonify({"message": "No daily data found"}), 404)
 
     def get_weekly(self):
         data = self.db_bridge.get_weekly_pv_data()
-        if data:
-            return jsonify(data)
-        return jsonify({"message": "No weekly data found"}), 404
+        return (jsonify(data), 200) if data else (jsonify({"message": "No weekly data found"}), 404)
 
-if __name__ == "__main__":
-    service_manager = ServiceManager()
-    service_manager.start_server()
+    def get_wallbox_latest(self):
+        data = self.db_bridge.get_latest_wallbox_data()
+        return (jsonify(data), 200) if data else (jsonify({"message": "No Wallbox data found"}), 404)
+
+    def get_wallbox_history(self):
+        data = self.db_bridge.get_wallbox_history()
+        return (jsonify(data), 200) if data else (jsonify({"message": "No Wallbox history found"}), 404)
