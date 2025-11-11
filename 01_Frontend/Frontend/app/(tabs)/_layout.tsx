@@ -1,60 +1,92 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
-
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { TouchableOpacity, View } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const ICON_SIZE = 50;
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
 
   return (
     <Tabs
-      screenOptions={{
-         tabBarActiveTintColor: '#1EAFF3',   
-        tabBarInactiveTintColor: '#474646',  
+      screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarActiveTintColor: '#1EAFF3',
+        tabBarInactiveTintColor: '#474646',
+
+        tabBarButton: (props) => {
+          const {
+            children,
+            onPress,
+            onLongPress,
+            accessibilityState,
+            accessibilityLabel,
+            testID,
+            style,
+            delayLongPress,
+          } = props;
+
+          return (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={onPress}
+              {...(typeof onLongPress === 'function' ? { onLongPress } : {})}
+              {...(typeof delayLongPress === 'number' ? { delayLongPress } : {})}
+              accessibilityState={accessibilityState}
+              accessibilityLabel={accessibilityLabel}
+              testID={testID}
+              style={[style, { height: '100%', alignItems: 'center', justifyContent: 'center' }]}
+            >
+              {children}
+            </TouchableOpacity>
+          );
+        },
 
         tabBarStyle: {
-          height: 100 + insets.bottom,   
           backgroundColor: '#FFFFFF',
-          paddingTop: 20,                
-          paddingBottom: insets.bottom,  
-          justifyContent: 'center',    
-          borderTopWidth: 2,              
-          borderTopColor: '#474646',  
+          height: 110 + insets.bottom,
+          paddingBottom: 8 + insets.bottom,
+          paddingTop: 6,
+          borderTopWidth: 2.5,
+          borderTopColor: '#474646',
         },
-
         tabBarLabelStyle: {
-          fontSize: 13,
-          fontWeight: '600',
-          paddingTop: 5,
+          fontSize: 14,
+          fontWeight: 'bold',
+          marginTop: 1,
+        },
+        // HIER: den 24x24-Wrapper übersteuern
+        tabBarIconStyle: {
+          width: ICON_SIZE,
+          height: ICON_SIZE,
         },
 
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Überblick',
-          tabBarIcon: ({ color }) => <IconSymbol size={45} name="house.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="diagram"
-        options={{
-          title: 'Diagramm',
-          tabBarIcon: ({ color }) => <IconSymbol size={45} name="chart.bar.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Einstellungen',
-          tabBarIcon: ({ color }) => <IconSymbol size={45} name="cpu.fill" color={color} />,
-        }}
-      />
+        tabBarIcon: ({ color }) => {
+          let iconName: keyof typeof MaterialIcons.glyphMap = 'home';
+          if (route.name === 'index') iconName = 'home';
+          else if (route.name === 'diagram') iconName = 'bar-chart';
+          else if (route.name === 'settings') iconName = 'memory';
+
+          return (
+            <View
+              style={{
+                width: ICON_SIZE,
+                height: ICON_SIZE,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <MaterialIcons name={iconName} size={ICON_SIZE} color={color} />
+            </View>
+          );
+        },
+      })}
+    >
+      <Tabs.Screen name="index" options={{ title: 'Überblick' }} />
+      <Tabs.Screen name="diagram" options={{ title: 'Diagramm' }} />
+      <Tabs.Screen name="settings" options={{ title: 'Einstellungen' }} />
     </Tabs>
   );
 }
