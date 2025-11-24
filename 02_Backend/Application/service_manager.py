@@ -2,6 +2,9 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
 from db_bridge import DB_Bridge
+from wallbox_bridge import Wallbox_Bridge
+from dotenv import load_dotenv, find_dotenv
+import os
 
 SWAGGER_URL = '/swagger'
 API_URL = '/static/swagger.json'
@@ -12,6 +15,11 @@ swaggerui_blueprint = get_swaggerui_blueprint(
 
 class ServiceManager:
     def __init__(self, server_port=5050, host_ip='0.0.0.0'):
+        # Load env so wallbox urls are available
+        env_path = find_dotenv()
+        if env_path:
+            load_dotenv(env_path)
+
         self.server_port = server_port
         self.host_ip = host_ip
         self.app = Flask(__name__, static_folder='static')
@@ -22,6 +30,9 @@ class ServiceManager:
 
         # Initialize database connection
         self.db_bridge = DB_Bridge()
+
+        # Initialize wallbox bridge (live GETs)
+        self.wallbox_bridge = Wallbox_Bridge()
 
         # Configure all routes
         self.configure_routes()
@@ -38,9 +49,8 @@ class ServiceManager:
         self.app.add_url_rule('/api/history/daily', 'daily', self.get_daily, methods=['GET'])
         self.app.add_url_rule('/api/history/weekly', 'weekly', self.get_weekly, methods=['GET'])
 
-        # Wallbox endpoints
+        # Wallbox endpoint
         self.app.add_url_rule('/api/wallbox/latest', 'wallbox_latest', self.get_wallbox_latest, methods=['GET'])
-        self.app.add_url_rule('/api/wallbox/history', 'wallbox_history', self.get_wallbox_history, methods=['GET'])
 
     # ----- Route Handlers -----
     def check_connection(self):
@@ -63,9 +73,9 @@ class ServiceManager:
         return (jsonify(data), 200) if data else (jsonify({"message": "No weekly data found"}), 404)
 
     def get_wallbox_latest(self):
-        data = self.db_bridge.get_latest_wallbox_data()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No Wallbox data found"}), 404)
+        try:
+            data = self.wallbox_bridge.fetch_data()
+            return (jsonify(data), 200) if data else (jsonify({"message": "No Wallbox data found"}), 404)
+        except Exception as e:
+            return jsonify({"error": "Failed to fetch wallbox data", "detail": str(e)}), 502
 
-    def get_wallbox_history(self):
-        data = self.db_bridge.get_wallbox_history()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No Wallbox history found"}), 404)

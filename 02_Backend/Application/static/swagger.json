@@ -3,7 +3,7 @@
   "info": {
     "title": "DIPL_Ertragssteuerung_PV API",
     "version": "1.2.0",
-    "description": "API for accessing PV and Wallbox measurements and historical data"
+    "description": "API for accessing PV and Wallbox measurements and historical PV data"
   },
   "paths": {
     "/connection": {
@@ -123,7 +123,7 @@
     "/api/wallbox/latest": {
       "get": {
         "summary": "Get latest Wallbox data",
-        "description": "Returns the most recent wallbox measurements (read-only).",
+        "description": "Returns the most recent wallbox measurements (read-only, live from the device).",
         "responses": {
           "200": {
             "description": "Latest Wallbox measurement",
@@ -147,41 +147,6 @@
             }
           },
           "404": { "description": "No wallbox data found" }
-        }
-      }
-    },
-    "/api/wallbox/history": {
-      "get": {
-        "summary": "Get full Wallbox history",
-        "description": "Returns the entire wallbox dataset available in the bucket. Data is pivoted so each item contains all fields at a timestamp.",
-        "responses": {
-          "200": {
-            "description": "Array of wallbox records (possibly large).",
-            "content": {
-              "application/json": {
-                "schema": { "type": "array", "items": { "$ref": "#/components/schemas/WallboxLatest" } },
-                "examples": {
-                  "sample": {
-                    "value": [
-                      {
-                        "_time": "2025-10-09T12:00:00Z",
-                        "amp": 12.3,
-                        "car": 1,
-                        "alw": 1,
-                        "wst": 0,
-                        "eto": 123100.0,
-                        "pha_L1": 1,
-                        "pha_L2": 1,
-                        "pha_L3": 1,
-                        "pha_count": 3,
-                        "charging": 1
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-          }
         }
       }
     }

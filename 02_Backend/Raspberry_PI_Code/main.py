@@ -22,9 +22,5 @@ def main():
     else:
         print("No PV data to write")
 
-    # Wallbox data
-    wallbox = Wallbox_Bridge()
-    wallbox.write_to_db()
-
 if __name__ == "__main__":
     main()
