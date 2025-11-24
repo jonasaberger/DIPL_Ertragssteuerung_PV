@@ -1,25 +1,27 @@
 import os
 import requests
 from decimal import Decimal
-from dotenv import load_dotenv
-from db_bridge import DB_Bridge
+from dotenv import load_dotenv, find_dotenv
 
 class Wallbox_Bridge:
     def __init__(self):
-        load_dotenv()
+
+        # Load environment variables from .env file
+        env_path = find_dotenv()
+        if not env_path:
+            raise FileNotFoundError("No .env file found - please create one")
+        load_dotenv(env_path)
+
         self.status_url = os.getenv("WALLBOX_URL_STATUS")   #  http://192.168.0.2:25000/status
         self.api_status_url = os.getenv("WALLBOX_URL_API")  #  http://192.168.0.2:25000/api/status
 
-        self.db = DB_Bridge()
-
-    # Safely convert a value to Decimal (avoids None or invalid numbers) 
+     # Safely convert a value to Decimal (avoids None or invalid numbers) 
     def safe_decimal(self, value):
         try:
             return Decimal(value)
         except (TypeError, ValueError, ArithmeticError):
             return Decimal(0)
         
-  
     # Fetch and combine data from both Wallbox endpoints
     def fetch_data(self):
     
@@ -55,13 +57,4 @@ class Wallbox_Bridge:
 
         except Exception as e:
             print(f"Error fetching Wallbox data: {e}")
-            return None
-
-
-    def write_to_db(self):
-        """Fetch data and write it to InfluxDB."""
-        data = self.fetch_data()
-        if data:
-            self.db.write_data("wallbox_measurements", data)
-        else:
-            print("No Wallbox data to write.")
+            raise
