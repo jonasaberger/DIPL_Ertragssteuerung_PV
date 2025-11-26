@@ -2,12 +2,16 @@ import React from 'react'
 import { View, StyleSheet, Dimensions, Platform, ViewStyle } from 'react-native'
 
 interface CardProps {
-  children: React.ReactNode
+  // Die Card ist ein Container
+  children: React.ReactNode   
+  //Optionale Höhe einer Card
   height?: number
+  //Wenn zusätzlich Styles übergeben werden sollen
   style?: ViewStyle
 }
 
 export default function Card({ children, height, style }: CardProps) {
+  //Damit es auf vielen Bildschirmgrößen gut aussieht
   const width = Dimensions.get('window').width
   const clamp = Math.min(380, width - 24)
 
@@ -26,6 +30,7 @@ const styles = StyleSheet.create({
     padding: 18,
     marginTop: 40,
     marginVertical: 8,
+    //Android und iOS Schatten
     ...Platform.select({
       ios: {
         shadowColor: '#000',

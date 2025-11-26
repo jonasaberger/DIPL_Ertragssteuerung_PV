@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ICON_SIZE = 50;
 
+//TabNavigator selbst. Legt fest welche tabs existieren, welche icons etc
+
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
 
@@ -17,6 +19,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#474646',
 
         tabBarButton: (props) => {
+          {/* Alle relevanten Probs müssen da sein, sonst geht es nicht. Muss man so machen wenn man so nen custom Button will */}
           const {
             children,
             onPress,
@@ -44,6 +47,7 @@ export default function TabLayout() {
           );
         },
 
+        /* Safe Area damit es nicht irgendwo am Rand klebt */
         tabBarStyle: {
           backgroundColor: '#FFFFFF',
           height: 110 + insets.bottom,
@@ -57,7 +61,6 @@ export default function TabLayout() {
           fontWeight: 'bold',
           marginTop: 1,
         },
-        // HIER: den 24x24-Wrapper übersteuern
         tabBarIconStyle: {
           width: ICON_SIZE,
           height: ICON_SIZE,
@@ -84,6 +87,7 @@ export default function TabLayout() {
         },
       })}
     >
+      {/* Hier sind die Tabs selbst */}
       <Tabs.Screen name="index" options={{ title: 'Überblick' }} />
       <Tabs.Screen name="diagram" options={{ title: 'Diagramm' }} />
       <Tabs.Screen name="settings" options={{ title: 'Einstellungen' }} />
