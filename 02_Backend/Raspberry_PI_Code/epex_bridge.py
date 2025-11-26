@@ -9,11 +9,11 @@ class EpexBridge:
         self.api_url = os.getenv("URL_EPEX")
 
         # Connect to the InfluxDB
-        #self.db = DB_Bridge()
-        #try: 
-        #    self.db.check_connection()
-        #except Exception as e:
-         #   print(f"No connection to InfluxDB: {e}") 
+        self.db = DB_Bridge()
+        try: 
+            self.db.check_connection()
+        except Exception as e:
+            print(f"No connection to InfluxDB: {e}") 
 
     # Fetches the raw EPEX data from the external API
     def fetch_data(self):
@@ -31,9 +31,10 @@ class EpexBridge:
             return None
         try:
             entries = data.get('data', [])
+            hourly_data = entries[::4] # Assuming data is in 15-min intervals - take every 4th for hourly
             parsed_data = []
 
-            for entry in entries:
+            for entry in hourly_data:
                 parsed_data.append({
                     "timestamp": entry.get('date'),
                     "value": entry.get('value')
@@ -48,7 +49,16 @@ def main():
     raw_data = bridge.fetch_data()
     parsed_data = bridge.parse_data(raw_data)
     if parsed_data:
-        print(parsed_data[:5]) 
+
+        # Loop over each entry and write it as a single point
+        for entry in parsed_data:
+           bridge.db.write_data(
+                "epex_prices",
+                {"price": entry["value"]},
+                timestamp=entry["timestamp"]
+           )
+    else:
+        print("No EPEX data to write")
 
 if __name__ == "__main__":
     main()
