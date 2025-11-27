@@ -55,9 +55,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   priceTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#1E1E1E',
+    fontSize: 27,
+    fontWeight: 'bold',
+    color: '#474646',
     marginBottom: 2,
   },
   priceMetaRow: {
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   },
   priceMetaText: {
     fontSize: 14,
-    color: '#7A7A7A',
+    color: '#474646',
   },
   priceBottomRow: {
     flexDirection: 'row',
@@ -81,13 +81,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   locationText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#1EAFF3',
   },
   priceValue: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: 'bold',
     color: '#1EAFF3',
   },
 })

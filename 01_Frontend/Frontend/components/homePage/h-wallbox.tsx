@@ -4,13 +4,9 @@ import Card from '@/components/card'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 type Props = {
-  // Wieviel Energie bisher zugeführt wurde (kommt vom Home-Screen)
   energyKWh: number
-  // Ob die Wallbox gerade lädt oder nicht (kommt vom Home-Screen / Backend)
   isCharging: boolean
-  // Speichert die aktuell ausgewählte Einstellung der e-Go Wallbox
   selectedSetting: 'SETTING_1' | 'SETTING_2'
-  // Wird aufgerufen, wenn eine Einstellung ausgewählt wird
   onSelect: (setting: 'SETTING_1' | 'SETTING_2') => void
 }
 
@@ -43,7 +39,7 @@ export default function HWallbox({
           >
             <MaterialCommunityIcons
               name={isCharging ? 'flash' : 'close'}
-              size={16}
+              size={18}
               color={isCharging ? '#16C75C' : '#d01212ff'}
             />
             <Text
@@ -119,14 +115,14 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   wallboxTitle: {
-    fontSize: 20,
+    fontSize: 30,
     fontWeight: '600',
-    color: '#1E1E1E',
+    color: '#474646',
     marginBottom: 2,
   },
   wallboxEnergyText: {
-    fontSize: 14,
-    color: '#7A7A7A',
+    fontSize: 18,
+    color: '#474646',
   },
   wallboxEnergyValue: {
     color: '#1EAFF3',
@@ -142,7 +138,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   wallboxStatusText: {
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: '500',
   },
   wallboxStatusTextCharging: {
@@ -166,9 +162,9 @@ const styles = StyleSheet.create({
     borderColor: '#1EAFF3',
   },
   wallboxSettingText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#555555',
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#474646',
   },
   wallboxSettingTextActive: {
     color: '#1EAFF3',
