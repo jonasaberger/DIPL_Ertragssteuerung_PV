@@ -51,9 +51,7 @@ class DB_Bridge:
         |> filter(fn: (r) => r["_measurement"] == "pv_measurements")
         |> filter(fn: (r) =>
             r["_field"] == "battery_power" or        // Battery charge/discharge power
-            r["_field"] == "e_day" or                // Energy produced today
             r["_field"] == "e_total" or              // Total energy produced
-            r["_field"] == "e_year" or               // Energy produced this year
             r["_field"] == "grid_power" or           // Grid import/export power
             r["_field"] == "load_power" or           // House consumption power
             r["_field"] == "pv_power" or             // Solar generation power

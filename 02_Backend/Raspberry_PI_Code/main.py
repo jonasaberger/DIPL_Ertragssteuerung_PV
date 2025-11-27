@@ -19,6 +19,10 @@ def main():
     if pv_data:
         db.write_data("pv_measurements", pv_data)
         print("PV data written")
+
+        #pv_data = db.fetch_data("pv_measurements", limit=1)
+        #print(pv_data)
+
     else:
         print("No PV data to write")
 
