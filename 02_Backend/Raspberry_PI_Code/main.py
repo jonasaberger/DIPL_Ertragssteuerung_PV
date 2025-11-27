@@ -1,5 +1,5 @@
 from pv_bridge import PV_Bridge
-from wallbox_bridge import Wallbox_Bridge
+from boiler_bridge import Boiler_Bridge
 from db_bridge import DB_Bridge
 import sys
 
@@ -21,6 +21,18 @@ def main():
         print("PV data written")
     else:
         print("No PV data to write")
+
+    # Boiler temperature data
+    try:
+        boiler = Boiler_Bridge()
+        boiler_temp = boiler.read_temp()
+        if boiler_temp is not None:
+            db.write_data("boiler_measurements", {"boiler_temp": boiler_temp})
+            print(f"Boiler temperature written: {boiler_temp}°C")
+        else:
+            print("No boiler temperature to write")
+    except Exception as e:
+        print(f"Error reading/writing boiler temperature: {e}")
 
 if __name__ == "__main__":
     main()
