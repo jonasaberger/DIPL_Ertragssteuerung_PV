@@ -31,10 +31,10 @@ class EpexBridge:
             return None
         try:
             entries = data.get('data', [])
-            hourly_data = entries[::4] # Assuming data is in 15-min intervals - take every 4th for hourly
+            hourly_entries = entries[::4]
             parsed_data = []
 
-            for entry in hourly_data:
+            for entry in hourly_entries:
                 parsed_data.append({
                     "timestamp": entry.get('date'),
                     "value": entry.get('value')
@@ -43,6 +43,7 @@ class EpexBridge:
         except Exception as e:
             print(f"Error parsing EPEX data: {e}")
             return None
+
 
 def main():
     bridge = EpexBridge()
@@ -59,6 +60,9 @@ def main():
            )
     else:
         print("No EPEX data to write")
+
+    # latest_data = bridge.db.fetch_data("epex_prices", limit=10  )
+    # print(latest_data)
 
 if __name__ == "__main__":
     main()

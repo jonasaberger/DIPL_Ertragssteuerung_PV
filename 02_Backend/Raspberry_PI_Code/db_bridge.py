@@ -2,6 +2,7 @@ import os
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 from dotenv import load_dotenv
+import pytz
 from datetime import datetime, timezone
 
 class DB_Bridge:
@@ -43,3 +44,35 @@ class DB_Bridge:
         except Exception as e:
             print(f"Failed to write {measurement} data: {e}")
             return False
+
+    def fetch_data(self, measurement: str, limit: int = 5):
+        try:
+            query = f'''
+                from(bucket: "{self.bucket}")
+                    |> range(start: 0)
+                    |> filter(fn: (r) => r._measurement == "{measurement}")
+                    |> sort(columns: ["_time"], desc: true)
+                    |> limit(n: {limit})
+            '''
+
+            tables = self.query_api.query(query)
+
+            local_tz = pytz.timezone("Europe/Berlin")
+            results = []
+
+            for table in tables:
+                for row in table.records:
+                    ts_utc = row.get_time()
+                    ts_local = ts_utc.astimezone(local_tz)
+
+                    results.append({
+                        "time": ts_local.isoformat(),
+                        "field": row.get_field(),
+                        "value": row.get_value()
+                    })
+
+            return results
+
+        except Exception as e:
+            print(f"Failed to fetch data from InfluxDB: {e}")
+            return None
