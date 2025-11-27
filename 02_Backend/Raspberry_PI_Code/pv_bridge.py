@@ -40,8 +40,6 @@ class PV_Bridge:
                 "load_power": self.safe_decimal(site.get('P_Load')),                       # Household consumption (W)
                 "battery_power": self.safe_decimal(site.get('P_Akku')),                    # Battery charge/discharge (W)
                 "soc": self.safe_decimal(inverter.get('SOC')),                             # Battery state of charge (%)
-                "e_day": self.safe_decimal(site.get('E_Day')),                             # Energy produced today (Wh)
-                "e_year": self.safe_decimal(site.get('E_Year')),                           # Energy produced this year (Wh)
                 "e_total": self.safe_decimal(site.get('E_Total')),                         # Total energy produced (Wh)
                 "rel_autonomy": self.safe_decimal(site.get('rel_Autonomy')),               # Self-sufficiency ratio (%)
                 "rel_selfconsumption": self.safe_decimal(site.get('rel_SelfConsumption')), # Self-consumption ratio (%)
