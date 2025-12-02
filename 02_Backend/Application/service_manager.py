@@ -1,3 +1,4 @@
+# service_manager.py
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
@@ -52,6 +53,9 @@ class ServiceManager:
         # Wallbox endpoint
         self.app.add_url_rule('/api/wallbox/latest', 'wallbox_latest', self.get_wallbox_latest, methods=['GET'])
 
+        # Boiler endpoints
+        self.app.add_url_rule('/api/boiler/latest', 'boiler_latest', self.get_boiler_latest, methods=['GET'])
+
     # ----- Route Handlers -----
     def check_connection(self):
         try:
@@ -79,3 +83,6 @@ class ServiceManager:
         except Exception as e:
             return jsonify({"error": "Failed to fetch wallbox data", "detail": str(e)}), 502
 
+    def get_boiler_latest(self):
+        data = self.db_bridge.get_latest_boiler_data()
+        return (jsonify(data), 200) if data else (jsonify({"message": "No Boiler data found"}), 404)

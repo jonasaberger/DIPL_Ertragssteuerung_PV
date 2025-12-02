@@ -189,3 +189,33 @@ class DB_Bridge:
     #     '''
     #     tables = self.query_api.query(query, org=self.org)
     #     return [r.values for t in tables for r in t.records]
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+# Query Boiler-Temperature from InfluxDB                              #
+# This Part contains methods to retrive Bioler system data            #
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+    def get_latest_boiler_data(self):
+        query = f'''
+        from(bucket: "{self.bucket}")
+          |> range(start: -1h)                    
+          |> filter(fn: (r) => r["_measurement"] == "boiler_measurements")
+          |> filter(fn: (r) => r["_field"] == "boiler_temp")
+          |> aggregateWindow(every: 10m, fn: last, createEmpty: false)
+          |> last()                                   
+          |> timeShift(duration: 2h)                     
+          |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        '''
+
+        try:
+            tables = self.query_api.query(query, org=self.org)
+            if tables and len(tables[0].records) > 0:
+                latest_record = tables[0].records[0]
+                return latest_record.values   # contains time and boiler-temp
+            else:
+                print("No boiler data found in InfluxDB.")
+                return None
+        except Exception as e:
+            print(f"Error while querying latest Boiler data: {e}")
+            return None
