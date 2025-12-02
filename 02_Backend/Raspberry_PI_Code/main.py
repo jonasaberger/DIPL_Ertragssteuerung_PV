@@ -1,6 +1,7 @@
 from pv_bridge import PV_Bridge
 from boiler_bridge import Boiler_Bridge
 from db_bridge import DB_Bridge
+from datetime import datetime
 import sys
 
 def main():
@@ -18,7 +19,7 @@ def main():
     pv_data = pv.parse_data(pv_raw)
     if pv_data:
         db.write_data("pv_measurements", pv_data)
-        print("PV data written")
+        print(f"{datetime.now().isoformat()} : PV data written to InfluxDB")
 
         #pv_data = db.fetch_data("pv_measurements", limit=1)
         #print(pv_data)
@@ -32,7 +33,7 @@ def main():
         boiler_temp = boiler.read_temp()
         if boiler_temp is not None:
             db.write_data("boiler_measurements", {"boiler_temp": boiler_temp})
-            print(f"Boiler temperature written: {boiler_temp}°C")
+            print(f"{datetime.now().isoformat()} : Boiler temp: {boiler_temp}°C")
         else:
             print("No boiler temperature to write")
     except Exception as e:

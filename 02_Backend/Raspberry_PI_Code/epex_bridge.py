@@ -1,6 +1,7 @@
 import requests
 from dotenv import load_dotenv
 from db_bridge import DB_Bridge
+from datetime import datetime
 import os
 
 class EpexBridge: 
@@ -58,6 +59,7 @@ def main():
                 {"price": entry["value"]},
                 timestamp=entry["timestamp"]
            )
+        print(f"{datetime.now().isoformat} : EPEX data written to InfluxDB")
     else:
         print("No EPEX data to write")
 
