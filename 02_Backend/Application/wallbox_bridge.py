@@ -24,7 +24,6 @@ class Wallbox_Bridge:
         
     # Fetch and combine data from both Wallbox endpoints
     def fetch_data(self):
-    
         try:
             status_resp = requests.get(self.status_url, timeout=5)
             status_resp.raise_for_status()
