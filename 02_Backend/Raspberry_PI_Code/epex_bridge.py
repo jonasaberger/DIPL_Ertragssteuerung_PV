@@ -59,7 +59,7 @@ def main():
                 {"price": entry["value"]},
                 timestamp=entry["timestamp"]
            )
-        print(f"{datetime.now().isoformat} : EPEX data written to InfluxDB")
+        print(f"{datetime.now().isoformat()} : EPEX data written to InfluxDB")
     else:
         print("No EPEX data to write")
 
