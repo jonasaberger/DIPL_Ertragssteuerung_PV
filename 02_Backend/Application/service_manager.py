@@ -1,10 +1,10 @@
-# service_manager.py
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
 from db_bridge import DB_Bridge
 from wallbox_bridge import Wallbox_Bridge
 from dotenv import load_dotenv, find_dotenv
+from boiler_controller import BoilerController
 import os
 
 SWAGGER_URL = '/swagger'
@@ -35,6 +35,9 @@ class ServiceManager:
         # Initialize wallbox bridge (live GETs)
         self.wallbox_bridge = Wallbox_Bridge()
 
+        # Initialize boiler bridge (GPIO control)
+        self.boiler_bridge = BoilerController()
+
         # Configure all routes
         self.configure_routes()
 
@@ -55,6 +58,8 @@ class ServiceManager:
 
         # Boiler endpoints
         self.app.add_url_rule('/api/boiler/latest', 'boiler_latest', self.get_boiler_latest, methods=['GET'])
+        self.app.add_url_rule('/api/boiler/state', 'boiler_state', self.get_boiler_state, methods=['GET'])
+        self.app.add_url_rule('/api/boiler/control', 'boiler_control', self.control_boiler, methods=['POST'])
 
     # ----- Route Handlers -----
     def check_connection(self):
@@ -86,3 +91,29 @@ class ServiceManager:
     def get_boiler_latest(self):
         data = self.db_bridge.get_latest_boiler_data()
         return (jsonify(data), 200) if data else (jsonify({"message": "No Boiler data found"}), 404)
+    
+    def get_boiler_state(self):
+        try:
+            state = self.boiler_bridge.get_state()
+            return jsonify({"heating": state}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+    def control_boiler(self):
+        """
+        POST JSON: { "action": "on" | "off" | "toggle" }
+        Controls the boiler relay.
+        """
+        try:
+            payload = request.get_json(force=True)
+            action = payload.get("action", "").lower()
+
+            if action not in ("on", "off", "toggle"):
+                return jsonify({"error": "Invalid action. Use: on/off/toggle"}), 400
+
+            result = self.boiler_bridge.control(action)
+
+            return jsonify(result), 200
+
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
