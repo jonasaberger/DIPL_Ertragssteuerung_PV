@@ -2,8 +2,8 @@
   "openapi": "3.0.0",
   "info": {
     "title": "DIPL_Ertragssteuerung_PV API",
-    "version": "1.2.0",
-    "description": "API for accessing PV and Wallbox measurements and historical PV data"
+    "version": "1.3.0",
+    "description": "API for accessing PV, Wallbox, Boiler measurements, and EPEX market data"
   },
   "paths": {
     "/connection": {
@@ -59,7 +59,7 @@
     "/api/history/daily": {
       "get": {
         "summary": "Get 24h PV data",
-        "description": "Returns averaged PV data from 12:00 of the previous day to 12:00 of the current day.",
+        "description": "Returns PV measurements from 12:00 of the previous day to 12:00 of the current day. Data points are aggregated over 15-minute intervals using InfluxDB's aggregateWindow function.",
         "responses": {
           "200": {
             "description": "24-hour PV history",
@@ -91,7 +91,7 @@
     "/api/history/weekly": {
       "get": {
         "summary": "Get weekly PV data",
-        "description": "Returns averaged PV data for the last 7 days.",
+        "description": "Returns PV measurements for the last 7 days. Data points are aggregated over 1-hour intervals using InfluxDB's aggregateWindow function.",
         "responses": {
           "200": {
             "description": "Weekly PV history",
@@ -167,8 +167,38 @@
               }
             }
           },
-          "404": {
-            "description": "No boiler data found"
+          "404": { "description": "No boiler data found" }
+        }
+      }
+    },
+    "/api/epex/latest": {
+      "get": {
+        "summary": "Get latest EPEX data",
+        "description": "Returns the most recent EPEX market value from InfluxDB.",
+        "responses": {
+          "200": {
+            "description": "Latest EPEX measurement",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EpexLatest" },
+                "example": {
+                  "_time": "2025-12-09T12:45:00Z",
+                  "epex_value": 42.75
+                }
+              }
+            }
+          },
+          "404": { "description": "No EPEX data found" },
+          "500": {
+            "description": "Error querying InfluxDB",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "error",
+                  "message": "Failed to query InfluxDB"
+                }
+              }
+            }
           }
         }
       }
@@ -223,6 +253,14 @@
         "properties": {
           "_time": { "type": "string", "format": "date-time" },
           "boiler_temp": { "type": "number", "description": "Boiler temperature in °C" }
+        }
+      },
+      "EpexLatest": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "_time": { "type": "string", "format": "date-time" },
+          "epex_value": { "type": "number", "description": "Latest EPEX market price in €/MWh" }
         }
       }
     }

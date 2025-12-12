@@ -56,6 +56,9 @@ class ServiceManager:
         # Boiler endpoints
         self.app.add_url_rule('/api/boiler/latest', 'boiler_latest', self.get_boiler_latest, methods=['GET'])
 
+        # EPEX endpoints
+        self.app.add_url_rule('/api/epex/latest', 'epex_latest', self.get_epex_latest, methods=['GET'])
+
     # ----- Route Handlers -----
     def check_connection(self):
         try:
@@ -86,3 +89,8 @@ class ServiceManager:
     def get_boiler_latest(self):
         data = self.db_bridge.get_latest_boiler_data()
         return (jsonify(data), 200) if data else (jsonify({"message": "No Boiler data found"}), 404)
+
+
+    def get_epex_latest(self):
+        data = self.db_bridge.get_latest_epex_data()
+        return (jsonify(data), 200) if data else (jsonify({"message": "No EPEX data found"}), 404)
