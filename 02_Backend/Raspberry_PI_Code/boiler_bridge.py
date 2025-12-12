@@ -3,11 +3,13 @@ import glob
 import time
 import platform
 
-# import only for Linux system
+# import only for Linux system (sensor does not require gpiozero)
+# keep try/except in case file reused elsewhere
 try:
-    from gpiozero import LED
+    # no gpio usage here for sensor-only file
+    pass
 except Exception:
-    LED = None
+    pass
 
 # Initialise temperatur sensor if not done by os yet
 if platform.system() == "Linux":
@@ -15,7 +17,7 @@ if platform.system() == "Linux":
     os.system('modprobe w1-therm')
 
 class Boiler_Bridge:
-    def __init__(self, gpio_pin=26, inverted_logic=True):
+    def __init__(self):
         # Define basedir + folder of temperator sensor(s); Sensor connected to GPIO17 (defined in /boot/firmware/config.txt)
         # initialize sensor only on Raspberry Pi
         if platform.system() != "Linux":
@@ -29,18 +31,6 @@ class Boiler_Bridge:
                     "No DS18B20 temperature sensor found under /sys/bus/w1/devices/"
                 )
             self.device_file = device_folders[0] + '/w1_slave'
-
-        # store relay settings
-        self.gpio_pin = gpio_pin
-        self.inverted_logic = inverted_logic
-
-        # initialize relay
-        self.relay = None
-        if LED and platform.system() == "Linux":
-            try:
-                self.relay = LED(self.gpio_pin)
-            except Exception:
-                self.relay = None
 
 ########### Temperature Sensor ############
 
@@ -65,48 +55,3 @@ class Boiler_Bridge:
             temp_c = int(temp_c)                    # remove comma values
             return temp_c
         return None
-
-########### Relay Control ############
-
-    def _apply_logic(self, logical_on: bool):
-        """
-        Handles relay logic with optional inverted behavior.
-        logical_on = True  -> boiler should heat
-        """
-        if not self.relay:
-            # If GPIO not available (Windows/dev), simulate by returning logical state
-            return logical_on
-
-        # Determine physical relay state depending on inversion
-        physical_on = not logical_on if self.inverted_logic else logical_on
-
-        if physical_on:
-            self.relay.on()     # GPIO HIGH
-        else:
-            self.relay.off()    # GPIO LOW
-
-        return logical_on
-
-    def turn_on(self):
-        """ Turn boiler heating ON (logical on) """
-        return self._apply_logic(True)
-
-    def turn_off(self):
-        """ Turn boiler heating OFF (logical off) """
-        return self._apply_logic(False)
-
-    def toggle(self):
-        """ Toggle boiler heating state """
-        state = self.get_state()
-        if state is None:
-            return None
-        return self._apply_logic(not state)
-
-    def get_state(self):
-        """ Returns logical boiler state (True/False) or None if relay unavailable"""
-        if not self.relay:
-            return None
-
-        phys = self.relay.is_lit
-        logical = not phys if self.inverted_logic else phys
-        return logical

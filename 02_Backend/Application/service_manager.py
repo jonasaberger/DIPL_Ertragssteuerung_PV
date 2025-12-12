@@ -6,9 +6,11 @@ from wallbox_bridge import Wallbox_Bridge
 from dotenv import load_dotenv, find_dotenv
 from boiler_controller import BoilerController
 import os
+import platform
+from datetime import datetime
 
 SWAGGER_URL = '/swagger'
-API_URL = '/static/swagger.json'
+API_URL = '/static/swagger.json'  # make sure this file exists under Application/static/swagger.json or static/
 
 swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL, API_URL, config={'app_name': "PV_Backend_Service"}
@@ -38,6 +40,14 @@ class ServiceManager:
         # Initialize boiler bridge (GPIO control)
         self.boiler_bridge = BoilerController()
 
+        # Simple startup logs: platform + boiler control availability
+        print(f"[{datetime.now().isoformat()}] Service starting on platform: {platform.system()}")
+        if self.boiler_bridge and hasattr(self.boiler_bridge, "get_state"):
+            hw = "GPIO available" if getattr(self.boiler_bridge, "relay", None) else "GPIO not available (simulated)"
+            print(f"[{datetime.now().isoformat()}] BoilerController initialized: {hw}")
+        else:
+            print(f"[{datetime.now().isoformat()}] BoilerController not initialized correctly; control unavailable")
+
         # Configure all routes
         self.configure_routes()
 
@@ -65,6 +75,10 @@ class ServiceManager:
         self.app.add_url_rule('/api/epex/latest', 'epex_latest', self.get_epex_latest, methods=['GET'])
 
     # ----- Route Handlers -----
+    def _json(self, payload, status=200):
+        """Helper for consistent JSON responses."""
+        return jsonify(payload), status
+
     def check_connection(self):
         try:
             self.db_bridge.check_connection()
@@ -87,20 +101,47 @@ class ServiceManager:
     def get_wallbox_latest(self):
         try:
             data = self.wallbox_bridge.fetch_data()
-            return (jsonify(data), 200) if data else (jsonify({"message": "No Wallbox data found"}), 404)
+            if not data:
+                return self._json({"message": "No Wallbox data found"}, 404)
+            return self._json(data, 200)
         except Exception as e:
-            return jsonify({"error": "Failed to fetch wallbox data", "detail": str(e)}), 502
+            err = f"Failed to fetch wallbox data: {e}"
+            print(err)
+            return self._json({"error": err}, 502)
 
     def get_boiler_latest(self):
-        data = self.db_bridge.get_latest_boiler_data()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No Boiler data found"}), 404)
+        # keep DB fallback behaviour: returns latest from DB
+        try:
+            db_data = self.db_bridge.get_latest_boiler_data()
+        except Exception as e:
+            err = f"Failed to query DB for boiler data: {e}"
+            print(err)
+            return self._json({"error": err}, 500)
+
+        if not db_data:
+            return self._json({"message": "No Boiler data found"}, 404)
+
+        return self._json(db_data, 200)
     
     def get_boiler_state(self):
         try:
+            if not hasattr(self.boiler_bridge, "get_state"):
+                return self._json({"error": "Boiler control not available"}, 502)
+
             state = self.boiler_bridge.get_state()
-            return jsonify({"heating": state}), 200
+            # detect simulation: controller exposes relay attr; if relay is None -> simulated
+            simulated = getattr(self.boiler_bridge, "relay", None) is None
+
+            # state may be True/False or None
+            if state is None:
+                return self._json({"heating": None, "simulated": simulated, "message": "Hardware unavailable or simulated"}, 502)
+
+            return self._json({"heating": state, "simulated": simulated}, 200)
+
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            err = f"Failed to read boiler state: {e}"
+            print(err)
+            return self._json({"error": err}, 500)
 
     def control_boiler(self):
         """
@@ -108,18 +149,46 @@ class ServiceManager:
         Controls the boiler relay.
         """
         try:
-            payload = request.get_json(force=True)
-            action = payload.get("action", "").lower()
+            payload = request.get_json(silent=True)
+            if not payload:
+                return self._json({"error": "Missing JSON body"}, 400)
 
+            action = (payload.get("action") or "").lower()
             if action not in ("on", "off", "toggle"):
-                return jsonify({"error": "Invalid action. Use: on/off/toggle"}), 400
+                return self._json({"error": "Invalid action. Use: on/off/toggle"}, 400)
 
-            result = self.boiler_bridge.control(action)
+            if not hasattr(self.boiler_bridge, "control"):
+                return self._json({"error": "Boiler control not available"}, 502)
 
-            return jsonify(result), 200
+            try:
+                result = self.boiler_bridge.control(action)
+            except ValueError as e:
+                return self._json({"error": str(e)}, 400)
+            except Exception as e:
+                err = f"Failed to execute control action: {e}"
+                print(err)
+                return self._json({"error": err}, 500)
+
+            # guard: ensure result structure is valid
+            if not isinstance(result, dict) or "action" not in result or "result" not in result:
+                return self._json({"error": "Invalid result from controller"}, 500)
+
+            # detect simulation state: relay == None = simulated mode
+            simulated = getattr(self.boiler_bridge, "relay", None) is None
+
+            # extend the output with simulated info
+            extended = {
+                "action": result["action"],
+                "result": result["result"],
+                "simulated": simulated
+            }
+
+            return self._json(extended, 200)
 
         except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            err = f"Unexpected error in control_boiler: {e}"
+            print(err)
+            return self._json({"error": err}, 500)
 
     def get_epex_latest(self):
         data = self.db_bridge.get_latest_epex_data()
