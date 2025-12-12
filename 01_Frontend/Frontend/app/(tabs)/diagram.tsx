@@ -1,21 +1,28 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useState } from 'react'
+import { StyleSheet } from 'react-native'
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+import { ThemedText } from '@/components/themed-text'
+import { ThemedView } from '@/components/themed-view'
+import Card from '@/components/card'
+import { DDates } from '@/components/diagram/d-dates'
 
 export default function DiagramScreen() {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+
   return (
-     <ThemedView style={styles.container}>
-      <ThemedText type="title">Diagramm</ThemedText>
+    <ThemedView style={styles.container}>
+      <ThemedText type="title" style={styles.title}>
+        Diagramm
+      </ThemedText>
+
+      <Card>
+        <DDates selectedDate={selectedDate} onChangeDate={setSelectedDate} />
+      </Card>
+
+      {/* später hier Card mit Diagramm, das selectedDate nutzt */}
     </ThemedView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -24,4 +31,7 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#EDE9E9',
   },
-});
+  title: {
+    marginBottom: 8,
+  },
+})
