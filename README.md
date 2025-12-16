@@ -18,3 +18,12 @@
 
 - pip install -r requirements.txt
 
+
+### How to Start Backend
+
+- Docker-Desktop has to be running, etc...
+
+- For first build: docker compose build
+
+- docker compose up
+
