@@ -1,4 +1,3 @@
-// components/diagram/d-dates.tsx
 import React, { useMemo, useState } from 'react'
 import {
   View,
@@ -9,69 +8,107 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native'
 
-type Props = {
-  selectedDate: Date
-  onChangeDate: (date: Date) => void
+export type DateSelection = {
+  year: number
+  month: number 
+  day: number | null // null = ganzer Monat
 }
 
-export const DDates: React.FC<Props> = ({ selectedDate, onChangeDate }) => {
-  const [isOpen, setIsOpen] = useState(false)
+type Props = {
+  selection: DateSelection
+  onChangeSelection: (next: DateSelection) => void
+}
 
-  // temporäre Auswahl im Popup
-  const [tempYear, setTempYear] = useState(selectedDate.getFullYear())
-  const [tempMonth, setTempMonth] = useState(selectedDate.getMonth()) // 0–11
-  const [tempDay, setTempDay] = useState(selectedDate.getDate())
+export const DDates: React.FC<Props> = ({ selection, onChangeSelection }) => {
+  const [isOpen, setIsOpen] = useState(false) //Popup offen/zu
+  const currentYear = new Date().getFullYear()
 
-  // wenn Popup geöffnet wird -> mit aktueller Auswahl initialisieren
+  const [tempYear, setTempYear] = useState(selection.year) 
+  const [tempMonth, setTempMonth] = useState(selection.month)
+  const [tempDay, setTempDay] = useState<number | null>(selection.day)
+
   const openPopup = () => {
-    setTempYear(selectedDate.getFullYear())
-    setTempMonth(selectedDate.getMonth())
-    setTempDay(selectedDate.getDate())
+    setTempYear(selection.year)
+    setTempMonth(selection.month)
+    setTempDay(selection.day)
     setIsOpen(true)
   }
 
   const closePopup = () => setIsOpen(false)
 
-  const confirmDate = () => {
-    const safeDay = Math.min(tempDay, getDaysInMonth(tempYear, tempMonth))
-    const newDate = new Date(tempYear, tempMonth, safeDay)
-    onChangeDate(newDate)
+  const confirmSelection = () => {
+    let day = tempDay   //tempDay aktuelle Auswahl im Popup
+    if (day !== null) {
+      const max = getDaysInMonth(tempYear, tempMonth)
+      //Schützt vor ungültigen Tagen: Wenn User Jänner 30. wählt und dann auf Februar wechselt,
+      //wird der Tag auf 28/29 korrigiert
+      day = Math.min(day, max)
+    }
+
+    onChangeSelection({
+      year: tempYear,
+      month: tempMonth,
+      day,
+    })
     setIsOpen(false)
   }
 
-  const formattedLabel = useMemo(
-    () =>
-      new Intl.DateTimeFormat('de-AT', {
-        day: '2-digit',
+  const formattedLabel = useMemo(() => {
+    if (selection.day === null) {
+      //Anzeige ohne Tag
+      return new Intl.DateTimeFormat('de-AT', {
         month: 'long',
         year: 'numeric',
-      }).format(selectedDate),
-    [selectedDate]
-  )
+      }).format(new Date(selection.year, selection.month, 1))
+    }
+
+    //Anzeige mit Monat + Tag
+    return new Intl.DateTimeFormat('de-AT', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }).format(
+      new Date(selection.year, selection.month, selection.day)
+    )
+  }, [selection])
+
+  const months = [
+    'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
+  ]
 
   const daysInMonth = getDaysInMonth(tempYear, tempMonth)
-  const months = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+  const canIncYear = tempYear < currentYear
+
+  const toggleDay = (d: number) => {
+    setTempDay(prev => (prev === d ? null : d))
+  }
 
   return (
     <View>
-      {/* Anzeige-Card-Inhalt */}
       <Text style={styles.label}>Aktuelle Auswahl:</Text>
       <Text style={styles.selectedDateText}>{formattedLabel}</Text>
 
       <View style={styles.buttonRow}>
         <Pressable
-          style={[styles.mainButton]}
-          onPress={() => onChangeDate(new Date())}
+          style={styles.mainButton}
+          onPress={() => {
+            const now = new Date()
+            onChangeSelection({
+              year: now.getFullYear(),
+              month: now.getMonth(),
+              day: now.getDate(),
+            })
+          }}
         >
           <Text style={styles.mainButtonText}>Heute</Text>
         </Pressable>
 
-        <Pressable style={[styles.mainButton]} onPress={openPopup}>
+        <Pressable style={styles.mainButton} onPress={openPopup}>
           <Text style={styles.mainButtonText}>Datum auswählen</Text>
         </Pressable>
       </View>
 
-      {/* Popup */}
+      {/* PopUp */}
       <Modal visible={isOpen} transparent animationType="fade">
         <TouchableWithoutFeedback onPress={closePopup}>
           <View style={styles.backdrop} />
@@ -79,25 +116,29 @@ export const DDates: React.FC<Props> = ({ selectedDate, onChangeDate }) => {
 
         <View style={styles.modalWrapper}>
           <View style={styles.modalBox}>
-            {/* blauer Rand laut Figma */}
             <View style={styles.blueBorder}>
               <View style={styles.innerBox}>
-                {/* Jahr-Header */}
+
+                {/* Jahr */}
                 <View style={styles.yearRow}>
-                  <Pressable
-                    onPress={() => setTempYear((y) => y - 1)}
-                    style={styles.yearArrow}
-                  >
-                    <Text style={styles.yearArrowText}>{'<'}</Text>
+                  <Pressable onPress={() => setTempYear(y => y - 1)}>
+                    <Text style={styles.yearArrow}>{'<'}</Text>
                   </Pressable>
 
                   <Text style={styles.yearText}>{tempYear}</Text>
 
                   <Pressable
-                    onPress={() => setTempYear((y) => y + 1)}
-                    style={styles.yearArrow}
+                    onPress={() => canIncYear && setTempYear(y => y + 1)}
+                    disabled={!canIncYear}
                   >
-                    <Text style={styles.yearArrowText}>{'>'}</Text>
+                    <Text
+                      style={[
+                        styles.yearArrow,
+                        !canIncYear && styles.disabledText,
+                      ]}
+                    >
+                      {'>'}
+                    </Text>
                   </Pressable>
                 </View>
 
@@ -106,63 +147,70 @@ export const DDates: React.FC<Props> = ({ selectedDate, onChangeDate }) => {
                   {months.map((m, index) => (
                     <Pressable
                       key={m}
+                      style={styles.monthCell}
                       onPress={() => setTempMonth(index)}
-                      style={[
-                        styles.monthItem,
-                        tempMonth === index && styles.monthItemActive,
-                      ]}
                     >
-                      <Text
+                      <View
                         style={[
-                          styles.monthText,
-                          tempMonth === index && styles.monthTextActive,
+                          styles.monthPill,
+                          tempMonth === index && styles.activePill,
                         ]}
                       >
-                        {m}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.monthText,
+                            tempMonth === index && styles.activeText,
+                          ]}
+                        >
+                          {m}
+                        </Text>
+                      </View>
                     </Pressable>
                   ))}
                 </View>
 
-                {/* Trennlinie */}
                 <View style={styles.separator} />
 
                 {/* Tage */}
                 <View style={styles.dayGrid}>
-                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(
-                    (day) => (
-                      <Pressable
-                        key={day}
+                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => (
+                    <Pressable
+                      key={d}
+                      style={styles.dayCell}
+                      onPress={() => toggleDay(d)}
+                    >
+                      <View
                         style={[
-                          styles.dayItem,
-                          tempDay === day && styles.dayItemActive,
+                          styles.dayPill,
+                          tempDay === d && styles.activePill,
                         ]}
-                        onPress={() => setTempDay(day)}
                       >
                         <Text
                           style={[
                             styles.dayText,
-                            tempDay === day && styles.dayTextActive,
+                            tempDay === d && styles.activeText,
                           ]}
                         >
-                          {day}
+                          {d}
                         </Text>
-                      </Pressable>
-                    )
-                  )}
+                      </View>
+                    </Pressable>
+                  ))}
                 </View>
+
               </View>
             </View>
 
-            {/* Footer-Buttons */}
+            {/* Footer */}
             <View style={styles.footerRow}>
               <Pressable onPress={closePopup}>
                 <Text style={styles.footerCancel}>Abbrechen</Text>
               </Pressable>
-              <Pressable onPress={confirmDate}>
+              <Pressable onPress={confirmSelection}>
                 <Text style={styles.footerConfirm}>Bestätigen</Text>
               </Pressable>
             </View>
+
           </View>
         </View>
       </Modal>
@@ -172,49 +220,48 @@ export const DDates: React.FC<Props> = ({ selectedDate, onChangeDate }) => {
 
 function getDaysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate()
+  //Month +1 -> nächster Monat, Tag 0 = letzter Tag des Vormonats
 }
 
 const styles = StyleSheet.create({
   label: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#444',
+    fontSize: 20,
+    fontWeight: '900',
     marginBottom: 4,
+    color: '#474646',
   },
   selectedDateText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
     color: '#1EAFF3',
     marginBottom: 12,
   },
+
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    gap: 10,
   },
   mainButton: {
     flex: 1,
     backgroundColor: '#1EAFF3',
     borderRadius: 8,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
   },
   mainButtonText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 16,
   },
 
-  // Popup
   backdrop: {
     position: 'absolute',
     inset: 0,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   modalWrapper: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
     paddingHorizontal: 24,
   },
   modalBox: {
@@ -224,105 +271,100 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#1EAFF3',
     borderRadius: 16,
-    padding: 4,
+    padding: 6,
     backgroundColor: '#E6F5FF',
   },
   innerBox: {
     backgroundColor: '#F5F5F5',
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 16,
   },
 
   yearRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 24,
-  },
-  yearArrow: {
-    padding: 8,
-  },
-  yearArrowText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#444',
+    gap: 32,
+    marginBottom: 12,
   },
   yearText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#444',
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  yearArrow: {
+    fontSize: 28,
+    fontWeight: '900',
   },
 
   monthGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 8,
-    marginBottom: 10,
   },
-  monthItem: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+  monthCell: {
+    width: '25%',
+    alignItems: 'center',
+    marginVertical: 6,
+  },
+  monthPill: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
     borderRadius: 999,
   },
-  monthItemActive: {
-    backgroundColor: '#1EAFF3',
-  },
   monthText: {
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '700',
-    color: '#444',
-  },
-  monthTextActive: {
-    color: '#fff',
   },
 
   separator: {
-    height: 2,
+    height: 3,
     backgroundColor: '#1EAFF3',
-    marginVertical: 8,
+    marginVertical: 12,
   },
 
   dayGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    rowGap: 4,
-    justifyContent: 'flex-start',
   },
-  dayItem: {
-    width: '14.28%', // 7 Spalten
+  dayCell: {
+    width: '14.28%',
     alignItems: 'center',
-    paddingVertical: 4,
+    marginVertical: 6,
+  },
+  dayPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderRadius: 999,
   },
-  dayItemActive: {
+  dayText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  activePill: {
     backgroundColor: '#1EAFF3',
   },
-  dayText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#444',
-  },
-  dayTextActive: {
+  activeText: {
     color: '#fff',
   },
 
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
-    paddingHorizontal: 8,
+    marginTop: 12,
+    paddingHorizontal: 12,
   },
   footerCancel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#666',
   },
   footerConfirm: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
     color: '#1EAFF3',
+  },
+
+  disabledText: {
+    opacity: 0.3,
   },
 })

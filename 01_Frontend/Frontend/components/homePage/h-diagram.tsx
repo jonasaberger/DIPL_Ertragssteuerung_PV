@@ -149,7 +149,7 @@ export default function HDiagram({ data }: Props) {
 
     //Setzt die Positionen basierend auf der Diagrammbreite
     sun = { x: w / 2, y: SUN_Y }
-    battery = { x: w / 2, y: BOTTOM_CENTER_Y }
+    battery = { x: w / 2, y: BOTTOM_CENTER_Y}
     house = { x: w * 0.23, y: SIDE_Y }
     grid = { x: w * 0.77, y: SIDE_Y }
   }

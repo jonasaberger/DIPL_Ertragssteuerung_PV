@@ -1,26 +1,26 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import React, { useState } from 'react'
+ import React, { useState } from 'react'
 import { StyleSheet } from 'react-native'
 
-import { ThemedText } from '@/components/themed-text'
 import { ThemedView } from '@/components/themed-view'
 import Card from '@/components/card'
-import { DDates } from '@/components/diagram/d-dates'
+import { DDates, DateSelection } from '@/components/diagram/d-dates'
 
 export default function DiagramScreen() {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const now = new Date()
+
+  const [selection, setSelection] = useState<DateSelection>({
+    // Start: heute als Tag
+    year: now.getFullYear(),
+    month: now.getMonth(),
+    day: now.getDate(), 
+  })
 
   return (
     <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>
-        Diagramm
-      </ThemedText>
-
       <Card>
-        <DDates selectedDate={selectedDate} onChangeDate={setSelectedDate} />
+        <DDates selection={selection} onChangeSelection={setSelection} />
       </Card>
 
-      {/* später hier Card mit Diagramm, das selectedDate nutzt */}
     </ThemedView>
   )
 }
@@ -30,8 +30,5 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     backgroundColor: '#EDE9E9',
-  },
-  title: {
-    marginBottom: 8,
   },
 })
