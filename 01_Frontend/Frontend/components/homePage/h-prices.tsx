@@ -1,7 +1,7 @@
-import React from 'react'
-import { View, Text, StyleSheet } from 'react-native'
 import Card from '@/components/card'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import React from 'react'
+import { StyleSheet, Text, View } from 'react-native'
 
 // Props kommen aus index.tsx (damit das Datenhandling dort bleibt)
 type Props = {
@@ -39,8 +39,7 @@ export default function HPrices({
             />
             <Text style={styles.locationText}>{location}</Text>
           </View>
-
-          <Text style={styles.priceValue}>{pricePerKWh}€ / kWh</Text>
+          <Text style={styles.priceValue}>{pricePerKWh} ¢ / kWh</Text>
         </View>
       </View>
     </Card>

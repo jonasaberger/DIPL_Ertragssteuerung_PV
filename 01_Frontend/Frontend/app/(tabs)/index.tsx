@@ -1,12 +1,11 @@
-import React, { useState } from 'react'
-import { StyleSheet, ScrollView } from 'react-native'
-import { ThemedView } from '@/components/themed-view'
 import HDiagram, { DiagramData } from '@/components/homePage/h-diagram'
-import HPriority, {
-  PriorityItem,
-} from '@/components/homePage/h-priority'
 import HPrices from '@/components/homePage/h-prices'
+import HPriority, { PriorityItem } from '@/components/homePage/h-priority'
 import HWallbox from '@/components/homePage/h-wallbox'
+import { ThemedView } from '@/components/themed-view'
+import { EpexData, fetchEpexData } from '@/services/epex_service'
+import React, { useEffect, useState } from 'react'
+import { ScrollView, StyleSheet } from 'react-native'
 
 const data: DiagramData = {
   total: 400,
@@ -21,16 +20,9 @@ const INITIAL_PRIORITIES: PriorityItem[] = [
   { id: 'speicher', label: 'Speicher' },
 ]
 
-const CURRENT_DATE = '05.02.2026'
-const LAST_UPDATE_TIME = '14:15'
-const LOCATION = 'Salzburg'
-const PRICE_EUR_PER_KWH = 0.015
-
 type EGoWallboxSetting = 'SETTING_1' | 'SETTING_2'
-
 let currentEGoWallboxSetting: EGoWallboxSetting = 'SETTING_1'
 
-//Variable, damit ich die Einstellung auch dann einfach fürs Backend habe
 export function getCurrentEGoWallboxSetting() {
   return currentEGoWallboxSetting
 }
@@ -39,26 +31,61 @@ const MOCK_ENERGY = 9
 const MOCK_IS_CHARGING = true
 
 export default function HomeScreen() {
-  //Speichert die aktuell ausgewählte Einstellung der e-Go Wallbox
   const [selectedSetting, setSelectedSetting] = useState<EGoWallboxSetting>(
     currentEGoWallboxSetting
   )
+  const [priorities, setPriorities] = useState<PriorityItem[]>(INITIAL_PRIORITIES)
 
-  //Speichert die aktuelle Reihenfolge der Prioritäten
-  const [priorities, setPriorities] =
-    useState<PriorityItem[]>(INITIAL_PRIORITIES)
+  // EPEX data state
+  const [epexData, setEpexData] = useState<EpexData | null>(null)
 
-  //Wird aufgerufen wenn eine Einstellung der e-Go Wallbox ausgewählt wird
+
+  useEffect(() => {
+    let timeoutId: number
+    let intervalId: number
+    let isMounted = true 
+
+    const fetchData = async () => {
+      const data = await fetchEpexData()
+      if (data && isMounted) setEpexData(data)
+    }
+
+    // Schedule the next fetch at the start of the next hour
+    const scheduleNextFetch = () => {
+      const now = new Date()
+
+      // Calc ms until the next full hour
+      const msUntilNextHour =
+        (60 - now.getMinutes()) * 60 * 1000 -
+        now.getSeconds() * 1000 -
+        now.getMilliseconds()
+
+      // Set a timeout to fetch data at the next hour
+      timeoutId = setTimeout(() => {
+        fetchData()
+        intervalId = setInterval(fetchData, 60 * 60 * 1000)
+      }, msUntilNextHour)
+    }
+
+    // Initial Fetch
+    fetchData()
+    scheduleNextFetch()
+
+    return () => {
+      isMounted = false
+      clearTimeout(timeoutId)
+      clearInterval(intervalId)
+    }
+  }, [])
+
+
   function handleSelect(setting: EGoWallboxSetting) {
     setSelectedSetting(setting)
     currentEGoWallboxSetting = setting
   }
 
-  //Wird aufgerufen wenn die Prioritäten neu angeordnet wurden
-  //Data ist die neu geordnete Liste
   const handlePriorityDragEnd = (data: PriorityItem[]) => {
     setPriorities(data)
-    //orderIds wird dann später verwendet (Backend etc.)
     const orderIds = data.map((item) => item.id)
     console.log('Ladeprioritäten:', orderIds)
   }
@@ -66,21 +93,17 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Die Card mit der Animation und dem Diagramm – ausgelagert */}
         <HDiagram data={data} />
-
-        {/* Die Card mit den Ladeprioritäten – ausgelagert */}
         <HPriority priorities={priorities} onDragEnd={handlePriorityDragEnd} />
 
-        {/* Die Card mit dem Strompreis – ausgelagert */}
+        {/* HPrices with updated EPEX data */}
         <HPrices
-          date={CURRENT_DATE}
-          time={LAST_UPDATE_TIME}
-          location={LOCATION}
-          pricePerKWh={PRICE_EUR_PER_KWH}
+          date={epexData?.date ?? ''}
+          time={epexData?.time ?? 'Loading...'}
+          location="Österreich"
+          pricePerKWh={epexData?.pricePerKWh ?? 0}
         />
 
-        {/* Die Card mit der E-GO Wallbox – ausgelagert */}
         <HWallbox
           energyKWh={MOCK_ENERGY}
           isCharging={MOCK_IS_CHARGING}
@@ -100,7 +123,6 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 24,
   },
-
   scrollContent: {
     paddingBottom: 56,
   },

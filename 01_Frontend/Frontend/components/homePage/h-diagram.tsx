@@ -1,14 +1,14 @@
-import React, { useState, useRef, useEffect } from 'react'
+import Card from '@/components/card'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import React, { useEffect, useRef, useState } from 'react'
 import {
-  View,
-  Text,
-  StyleSheet,
   Animated,
   Easing,
   LayoutChangeEvent,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native'
-import Card from '@/components/card'
-import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 const CIRCLE_SIZE = 72
 
@@ -159,7 +159,7 @@ export default function HDiagram({ data }: Props) {
     <Card height={520}>
       <View style={styles.header}>
         <Text style={styles.temp}>14°C</Text>
-        <Text style={styles.icon}>☁️</Text>
+        <Text style={styles.icon}>☁️️</Text>
       </View>
 
       <View style={styles.diagram} onLayout={handleDiagramLayout}>
