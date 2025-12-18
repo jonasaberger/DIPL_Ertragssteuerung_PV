@@ -7,5 +7,6 @@ services:
       - "5050:5050"
     env_file:
       - .env
+    # Use mock GPIO pins for testing purposes -> to really test GPIO functionality -> start Application on Pi
     environment:
       - GPIOZERO_PIN_FACTORY=mock
