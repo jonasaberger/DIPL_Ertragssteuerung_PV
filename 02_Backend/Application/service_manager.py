@@ -193,3 +193,5 @@ class ServiceManager:
     def get_epex_latest(self):
         data = self.db_bridge.get_latest_epex_data()
         return (jsonify(data), 200) if data else (jsonify({"message": "No EPEX data found"}), 404)
+    
+    
