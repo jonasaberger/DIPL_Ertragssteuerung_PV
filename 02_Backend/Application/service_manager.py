@@ -63,8 +63,9 @@ class ServiceManager:
         self.app.add_url_rule('/api/history/daily', 'daily', self.get_daily, methods=['GET'])
         self.app.add_url_rule('/api/history/weekly', 'weekly', self.get_weekly, methods=['GET'])
 
-        # Wallbox endpoint
+        # Wallbox endpoints
         self.app.add_url_rule('/api/wallbox/latest', 'wallbox_latest', self.get_wallbox_latest, methods=['GET'])
+        # self.app.add_url_rule('/api/wallbox/phases','wallbox_phases',self.set_wallbox_phases,methods=['POST'])
 
         # Boiler endpoints
         self.app.add_url_rule('/api/boiler/latest', 'boiler_latest', self.get_boiler_latest, methods=['GET'])
@@ -108,7 +109,28 @@ class ServiceManager:
             err = f"Failed to fetch wallbox data: {e}"
             print(err)
             return self._json({"error": err}, 502)
+    
+    '''
+    def set_wallbox_phases(self):
+        try:
+            payload = request.get_json(silent=True)
+            if not payload or "phases" not in payload:
+                return self._json({"error": "Missing 'phases' field"}, 400)
 
+            phases = int(payload["phases"])
+            result = self.wallbox_bridge.set_phases(phases)
+
+            return self._json(result, 200)
+
+        except ValueError as e:
+            return self._json({"error": str(e)}, 400)
+
+        except Exception as e:
+            err = f"Failed to set wallbox phases: {e}"
+            print(err)
+            return self._json({"error": err}, 502)
+    '''
+    
     def get_boiler_latest(self):
         # keep DB fallback behaviour: returns latest from DB
         try:

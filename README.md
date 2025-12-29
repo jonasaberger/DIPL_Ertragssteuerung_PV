@@ -23,7 +23,7 @@
 
 - Docker-Desktop has to be running, etc...
 
-- For first build: docker compose build
+- For first build + After changeing Code: docker compose build --no-cache
 
 - docker compose up
 
