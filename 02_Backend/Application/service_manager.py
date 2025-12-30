@@ -8,9 +8,11 @@ from boiler_controller import BoilerController
 import os
 import platform
 from datetime import datetime
+from logging_bridge import LoggingBridge
+from zoneinfo import ZoneInfo
 
 SWAGGER_URL = '/swagger'
-API_URL = '/static/swagger.json'  # make sure this file exists under Application/static/swagger.json or static/
+API_URL = '/static/swagger.json'  
 
 swaggerui_blueprint = get_swaggerui_blueprint(
     SWAGGER_URL, API_URL, config={'app_name': "PV_Backend_Service"}
@@ -39,6 +41,16 @@ class ServiceManager:
 
         # Initialize boiler bridge (GPIO control)
         self.boiler_bridge = BoilerController()
+
+        # Initialize logging bridge
+        self.logger = LoggingBridge()
+
+        # ---- SYSTEM EVENT LOG ----
+        self.logger.system_event(
+            level="info",
+            source="backend",
+            message="PV Backend Service started"
+        )
 
         # Simple startup logs: platform + boiler control availability
         print(f"[{datetime.now().isoformat()}] Service starting on platform: {platform.system()}")
@@ -75,6 +87,9 @@ class ServiceManager:
         # EPEX endpoints
         self.app.add_url_rule('/api/epex/latest', 'epex_latest', self.get_epex_latest, methods=['GET'])
 
+        # Monitoring-/State Enpoint
+        self.app.add_url_rule('/api/state', 'state', self.get_state, methods=['GET'])
+
     # ----- Route Handlers -----
     def _json(self, payload, status=200):
         """Helper for consistent JSON responses."""
@@ -85,6 +100,12 @@ class ServiceManager:
             self.db_bridge.check_connection()
             return jsonify({"status": "ok"})
         except Exception as e:
+            # ---- SYSTEM ERROR LOG ----
+            self.logger.system_event(
+                level="error",
+                source="backend",
+                message=f"InfluxDB connection failed: {e}"
+            )
             return jsonify({"status": "error", "message": str(e)}), 500
 
     def get_latest(self):
@@ -106,6 +127,12 @@ class ServiceManager:
                 return self._json({"message": "No Wallbox data found"}, 404)
             return self._json(data, 200)
         except Exception as e:
+            # ---- API ERROR LOG ----
+            self.logger.api_error(
+                api="wallbox",
+                endpoint="/api/wallbox/latest",
+                error=e
+            )
             err = f"Failed to fetch wallbox data: {e}"
             print(err)
             return self._json({"error": err}, 502)
@@ -117,8 +144,24 @@ class ServiceManager:
 
         try:
             result = self.wallbox_bridge.set_allow_charging(bool(payload["allow"]))
+
+            # ---- CONTROL DECISION LOG ----
+            self.logger.control_decision(
+                device="wallbox",
+                action="set_allow",
+                reason="manual_api_call",
+                success=True,
+                extra=result
+            )
             return self._json(result, 200)
+        
         except Exception as e:
+            # ---- API ERROR LOG ----
+            self.logger.api_error(
+                api="wallbox",
+                endpoint="/api/wallbox/setCharging",
+                error=e
+            )
             err = f"Failed to set wallbox charging state: {e}"
             print(err)
             return self._json({"error": err}, 502)
@@ -127,6 +170,12 @@ class ServiceManager:
         try:
             db_data = self.db_bridge.get_latest_boiler_data()
         except Exception as e:
+            # ---- API ERROR LOG ----
+            self.logger.api_error(
+                api="influxdb",
+                endpoint="get_latest_boiler_data",
+                error=e
+            )
             err = f"Failed to query DB for boiler data: {e}"
             print(err)
             return self._json({"error": err}, 500)
@@ -142,25 +191,26 @@ class ServiceManager:
                 return self._json({"error": "Boiler control not available"}, 502)
 
             state = self.boiler_bridge.get_state()
-            # detect simulation: controller exposes relay attr; if relay is None -> simulated
             simulated = getattr(self.boiler_bridge, "relay", None) is None
 
-            # state may be True/False or None
             if state is None:
                 return self._json({"heating": None, "simulated": simulated, "message": "Hardware unavailable or simulated"}, 502)
 
             return self._json({"heating": state, "simulated": simulated}, 200)
 
         except Exception as e:
+            # ---- API ERROR LOG ----
+            self.logger.api_error(
+                api="boiler",
+                endpoint="/api/boiler/state",
+                error=e
+            )
             err = f"Failed to read boiler state: {e}"
             print(err)
             return self._json({"error": err}, 500)
-
+        
+    # POST JSON: { "action": "on" | "off" | "toggle" }, Controls the boiler relay.
     def control_boiler(self):
-        """
-        POST JSON: { "action": "on" | "off" | "toggle" }
-        Controls the boiler relay.
-        """
         try:
             payload = request.get_json(silent=True)
             if not payload:
@@ -173,23 +223,42 @@ class ServiceManager:
             if not hasattr(self.boiler_bridge, "control"):
                 return self._json({"error": "Boiler control not available"}, 502)
 
+            old_state = self.boiler_bridge.get_state()
+
             try:
                 result = self.boiler_bridge.control(action)
             except ValueError as e:
                 return self._json({"error": str(e)}, 400)
             except Exception as e:
+                # ---- API ERROR LOG ----
+                self.logger.api_error(
+                    api="boiler",
+                    endpoint="/api/boiler/control",
+                    error=e
+                )
                 err = f"Failed to execute control action: {e}"
                 print(err)
                 return self._json({"error": err}, 500)
 
-            # guard: ensure result structure is valid
-            if not isinstance(result, dict) or "action" not in result or "result" not in result:
-                return self._json({"error": "Invalid result from controller"}, 500)
+            new_state = self.boiler_bridge.get_state()
 
-            # detect simulation state: relay == None = simulated mode
+            # ---- DEVICE STATE CHANGE LOG ----
+            self.logger.device_state_change(
+                device="boiler",
+                old_state=old_state,
+                new_state=new_state
+            )
+
+            # ---- CONTROL DECISION LOG ----
+            self.logger.control_decision(
+                device="boiler",
+                action=action,
+                reason="manual_api_call",
+                success=True
+            )
+
             simulated = getattr(self.boiler_bridge, "relay", None) is None
 
-            # extend the output with simulated info
             extended = {
                 "action": result["action"],
                 "result": result["result"],
@@ -199,12 +268,69 @@ class ServiceManager:
             return self._json(extended, 200)
 
         except Exception as e:
+            # ---- SYSTEM ERROR LOG ----
+            self.logger.system_event(
+                level="error",
+                source="boiler",
+                message=f"Unexpected error in control_boiler: {e}"
+            )
             err = f"Unexpected error in control_boiler: {e}"
             print(err)
             return self._json({"error": err}, 500)
 
     def get_epex_latest(self):
-        data = self.db_bridge.get_latest_epex_data()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No EPEX data found"}), 404)
+        try:
+            data = self.db_bridge.get_latest_epex_data()
+            return (jsonify(data), 200) if data else (jsonify({"message": "No EPEX data found"}), 404)
+        except Exception as e:
+            # ---- API ERROR LOG ----
+            self.logger.api_error(
+                api="epex",
+                endpoint="/api/epex/latest",
+                error=e
+            )
+            return jsonify({"error": "EPEX data unavailable"}), 502
     
-    
+    # Monitoring / Status endpoint: Returns a compact system health overview. This endpoint does NOT control anything – read-only monitoring.
+    def get_state(self):
+
+        status = {
+            "backend": "ok",
+            "influx": "unknown",
+            "wallbox": "unknown",
+            "boiler": "unknown",
+            "timestamp": datetime.now(ZoneInfo("Europe/Vienna")).isoformat()
+        }
+
+        # InfluxDB status
+        try:
+            self.db_bridge.check_connection()
+            status["influx"] = "ok"
+        except Exception as e:
+            status["influx"] = "error"
+
+            # Log only real system errors
+            self.logger.system_event(
+                level="error",
+                source="monitoring",
+                message=f"InfluxDB not reachable: {e}"
+            )
+
+        # Wallbox status
+        try:
+            data = self.wallbox_bridge.fetch_data()
+            status["wallbox"] = "ok" if data else "no_data"
+        except Exception:
+            status["wallbox"] = "timeout"
+            
+        # Boiler status
+        try:
+            if not hasattr(self.boiler_bridge, "get_state"):
+                status["boiler"] = "unavailable"
+            else:
+                simulated = getattr(self.boiler_bridge, "relay", None) is None
+                status["boiler"] = "simulated" if simulated else "ok"
+        except Exception:
+            status["boiler"] = "error"
+
+        return jsonify(status), 200
