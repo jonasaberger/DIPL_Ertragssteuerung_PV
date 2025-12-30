@@ -65,7 +65,7 @@ class ServiceManager:
 
         # Wallbox endpoints
         self.app.add_url_rule('/api/wallbox/latest', 'wallbox_latest', self.get_wallbox_latest, methods=['GET'])
-        # self.app.add_url_rule('/api/wallbox/phases','wallbox_phases',self.set_wallbox_phases,methods=['POST'])
+        self.app.add_url_rule('/api/wallbox/setCharging','wallbox_set_charging',self.set_wallbox_allow,methods=['POST'])
 
         # Boiler endpoints
         self.app.add_url_rule('/api/boiler/latest', 'boiler_latest', self.get_boiler_latest, methods=['GET'])
@@ -110,29 +110,20 @@ class ServiceManager:
             print(err)
             return self._json({"error": err}, 502)
     
-    '''
-    def set_wallbox_phases(self):
+    def set_wallbox_allow(self):
+        payload = request.get_json(silent=True)
+        if not payload or "allow" not in payload:
+            return self._json({"error": "Missing 'allow' field"}, 400)
+
         try:
-            payload = request.get_json(silent=True)
-            if not payload or "phases" not in payload:
-                return self._json({"error": "Missing 'phases' field"}, 400)
-
-            phases = int(payload["phases"])
-            result = self.wallbox_bridge.set_phases(phases)
-
+            result = self.wallbox_bridge.set_allow_charging(bool(payload["allow"]))
             return self._json(result, 200)
-
-        except ValueError as e:
-            return self._json({"error": str(e)}, 400)
-
         except Exception as e:
-            err = f"Failed to set wallbox phases: {e}"
+            err = f"Failed to set wallbox charging state: {e}"
             print(err)
             return self._json({"error": err}, 502)
-    '''
-    
+
     def get_boiler_latest(self):
-        # keep DB fallback behaviour: returns latest from DB
         try:
             db_data = self.db_bridge.get_latest_boiler_data()
         except Exception as e:

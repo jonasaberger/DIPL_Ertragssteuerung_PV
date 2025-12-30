@@ -16,6 +16,7 @@ class Wallbox_Bridge:
 
         self.status_url = os.getenv("WALLBOX_URL_STATUS")   #  http://192.168.0.2:25000/status
         self.api_status_url = os.getenv("WALLBOX_URL_API")  #  http://192.168.0.2:25000/api/status
+        self.mqtt_url = "http://192.168.0.2:25000/mqtt"     #  MQTT endpoint for control
 
      # Safely convert a value to Decimal (avoids None or invalid numbers) 
     def safe_decimal(self, value):
@@ -62,33 +63,21 @@ class Wallbox_Bridge:
         except Exception as e:
             print(f"Error fetching Wallbox data: {e}")
             raise
+    
+    # Enable / disable charging via MQTT (alw flag)
+    def set_allow_charging(self, allow: bool):
+        # allow = True  -> alw=1 (Auto darf laden)
+        # allow = False -> alw=0 (Laden stoppen)
 
-'''
-    # set number of active phases (1 or 3)
-    def set_phases(self, phases: int): 
-        if phases not in (1, 3):
-            raise ValueError("Only 1 or 3 phases are supported")
+        alw_value = 1 if allow else 0
 
-        # e-go phase bitmask
-        # 1 phase  -> L1 -> 8
-        # 3 phases -> L1+L2+L3 -> 56
-        pha_mask = 8 if phases == 1 else 56
-
-        payload = {
-            "pha": pha_mask
-        }
-
-        resp = requests.post(
-            self.api_status_url,
-            json=payload,
+        requests.get(
+            self.mqtt_url,
+            params={"payload": f"alw={alw_value}"},
             timeout=5
-        )
-        resp.raise_for_status()
+        ).raise_for_status()
 
         return {
-            "requested_phases": phases,
-            "pha_mask": pha_mask,
-            "result": "ok",
-            "note": "Actual phase usage depends on the connected vehicle"
+            "alw": alw_value,
+            "charging_allowed": allow
         }
-'''
