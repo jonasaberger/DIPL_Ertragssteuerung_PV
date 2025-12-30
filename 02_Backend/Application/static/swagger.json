@@ -181,6 +181,50 @@
         }
       }
     },
+    "/api/wallbox/setCharging": {
+      "post": {
+        "summary": "Enable or disable wallbox charging",
+        "description": "Controls wallbox charging permission via the alw flag (allow=true → alw=1, allow=false → alw=0).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["allow"],
+                "properties": {
+                  "allow": {
+                    "type": "boolean",
+                    "description": "true = allow charging, false = stop charging"
+                  }
+                }
+              },
+              "example": {
+                "allow": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Charging state updated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "alw": 1
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "502": {
+            "description": "Wallbox communication failed"
+          }
+        }
+      }
+    },
     "/api/boiler/latest": {
       "get": {
         "summary": "Get latest Boiler temperature",
