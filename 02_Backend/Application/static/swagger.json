@@ -35,6 +35,50 @@
         }
       }
     },
+    "/api/state": {
+      "get": {
+        "summary": "System status overview",
+        "description": "Returns a compact health status of backend, database and connected devices. This endpoint is read-only and intended for monitoring purposes.",
+        "tags": ["Monitoring"],
+        "produces": ["application/json"],
+        "responses": {
+          "200": {
+            "description": "Current system status",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "backend": {
+                  "type": "string",
+                  "description": "Backend service status",
+                  "example": "ok"
+                },
+                "influx": {
+                  "type": "string",
+                  "description": "InfluxDB connection status",
+                  "example": "ok"
+                },
+                "wallbox": {
+                  "type": "string",
+                  "description": "Wallbox communication status",
+                  "example": "timeout"
+                },
+                "boiler": {
+                  "type": "string",
+                  "description": "Boiler control status",
+                  "example": "simulated"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "Timestamp of the status response",
+                  "example": "2025-12-30T23:15:12"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/latest": {
       "get": {
         "summary": "Get latest PV data",
