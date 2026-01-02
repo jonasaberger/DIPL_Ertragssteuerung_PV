@@ -80,12 +80,11 @@ class DB_Bridge:
             tables = self.query_api.query(query, org=self.org)
             if tables and len(tables[0].records) > 0:
                 record = tables[0].records[0].values
-                return [self.clean_record(record)]
-            return []
+                return self.clean_record(record)
+            return None
         except Exception as e:
             print(f"Error querying latest PV data: {e}")
-            return []
-
+            return None
     def get_daily_pv_data(self):
         now = datetime.now(self.timezone)
         start_time = datetime.combine(now.date(), time(12, 0)) - timedelta(days=1 if now.hour < 12 else 0)
@@ -145,11 +144,11 @@ class DB_Bridge:
             tables = self.query_api.query(query, org=self.org)
             if tables and len(tables[0].records) > 0:
                 record = tables[0].records[0].values
-                return [self.clean_record(record, keep_fields=["_time", "boiler_temp"])]
-            return []
+                return self.clean_record(record, keep_fields=["_time", "boiler_temp"])
+            return None
         except Exception as e:
             print(f"Error querying latest Boiler data: {e}")
-            return []
+            return None
 
     # -------------------------------
     # EPEX Data
@@ -168,11 +167,11 @@ class DB_Bridge:
             tables = self.query_api.query(query, org=self.org)
             if tables and len(tables[0].records) > 0:
                 record = tables[0].records[0].values
-                return [self.clean_record(record, keep_fields=["_time", "price"])]
-            return []
+                return self.clean_record(record, keep_fields=["_time", "price"])
+            return None
         except Exception as e:
             print(f"Error querying latest EPEX data: {e}")
-            return []
+            return None
         
 
 

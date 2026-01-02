@@ -8,11 +8,11 @@ export interface EpexData {
 
 export async function fetchEpexData(): Promise<EpexData | null> {
   try {
-    const response = await fetch('http://100.120.107.71:5050/api/epex/latest')
+    const response = await fetch('http://192.168.0.27:5050/api/epex/latest')
     if (!response.ok) throw new Error('Network response was not ok')
     
     const data = await response.json()
-    const rawTime: string = data[0]._time // z.B. "2025-12-16T11:00:00+01:00"
+    const rawTime: string = data._time // z.B. "2025-12-16T11:00:00+01:00"
     const [year, month, day] = rawTime.split('T')[0].split('-').map(Number)
     
     // DD.MM.YYYY
@@ -21,7 +21,7 @@ export async function fetchEpexData(): Promise<EpexData | null> {
     const time = rawTime.split('T')[1].slice(0, 8)
 
     return {
-      pricePerKWh: Number(data[0].price.toFixed(1)),
+      pricePerKWh: Number(data.price.toFixed(1)),
       date,
       time,
     }

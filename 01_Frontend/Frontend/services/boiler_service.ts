@@ -9,7 +9,7 @@ export interface BoilerData {
 
 export async function fetchBoilerData(): Promise<BoilerData | null> {
   try {
-    const response_temp = await fetch('http://100.120.107.71:5050/api/boiler/latest')
+    const response_temp = await fetch('http://192.168.0.27:5050/api/boiler/latest')
 
     if (!response_temp.ok) {
       console.error(
@@ -23,7 +23,7 @@ export async function fetchBoilerData(): Promise<BoilerData | null> {
     }
 
     const data_temp = await response_temp.json()
-    const rawTime: string = data_temp[0]._time // z.B. "2025-12-16T11:00:00+01:00"
+    const rawTime: string = data_temp._time // z.B. "2025-12-16T11:00:00+01:00"
     const [year, month, day] = rawTime.split('T')[0].split('-').map(Number)
 
     // DD.MM.YYYY
@@ -31,12 +31,12 @@ export async function fetchBoilerData(): Promise<BoilerData | null> {
      // HH:mm:ss
     const time = rawTime.split('T')[1].slice(0, 8)
 
-    const response_state = await fetch('http://100.120.107.71:5050/api/boiler/state')
+    const response_state = await fetch('http://192.168.0.27:5050/api/boiler/state')
     if (!response_state.ok) throw new Error('Network response was not ok')
     const data_state = await response_state.json()
 
     return {
-      temp: Number(data_temp[0].boiler_temp.toFixed(1)),
+      temp: Number(data_temp.boiler_temp.toFixed(1)),
       heating: data_state.heating,
       date,
       time,
