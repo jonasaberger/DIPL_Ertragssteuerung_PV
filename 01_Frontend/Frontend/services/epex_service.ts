@@ -8,7 +8,7 @@ export interface EpexData {
 
 export async function fetchEpexData(): Promise<EpexData | null> {
   try {
-    const response = await fetch('http://10.10.0.103:5050/api/epex/latest')
+    const response = await fetch('http://100.120.107.71:5050/api/epex/latest')
     if (!response.ok) throw new Error('Network response was not ok')
     
     const data = await response.json()

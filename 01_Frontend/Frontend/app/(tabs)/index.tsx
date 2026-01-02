@@ -4,6 +4,7 @@ import HPriority, { PriorityItem } from '@/components/homePage/h-priority'
 import HWallbox from '@/components/homePage/h-wallbox'
 import { ThemedView } from '@/components/themed-view'
 import { EpexData, fetchEpexData } from '@/services/epex_service'
+import {BoilerData, fetchBoilerData} from '@/services/boiler_service'
 import React, { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 
@@ -39,36 +40,49 @@ export default function HomeScreen() {
   // EPEX data state
   const [epexData, setEpexData] = useState<EpexData | null>(null)
 
+  // Boiler data state
+  const [boilerData, setBoilerData] = useState<BoilerData | null>(null)
+
 
   useEffect(() => {
-    let timeoutId: number
-    let intervalId: number
-    let isMounted = true 
+    let timeoutId: ReturnType<typeof setTimeout>
+    let intervalId: ReturnType<typeof setInterval>
+    let isMounted = true
 
     const fetchData = async () => {
-      const data = await fetchEpexData()
-      if (data && isMounted) setEpexData(data)
+      try {
+        const [epex, boiler] = await Promise.all([
+          fetchEpexData(),
+          fetchBoilerData(),
+        ])
+        console.log('Fetched data:', { epex, boiler });
+
+        if (isMounted) {
+          if (epex) setEpexData(epex)
+          if (boiler) setBoilerData(boiler)
+        }
+      } catch (error) {
+        console.error('Fehler beim Laden der Daten:', error)
+      }
     }
 
-    // Schedule the next fetch at the start of the next hour
     const scheduleNextFetch = () => {
       const now = new Date()
 
-      // Calc ms until the next full hour
       const msUntilNextHour =
         (60 - now.getMinutes()) * 60 * 1000 -
         now.getSeconds() * 1000 -
         now.getMilliseconds()
 
-      // Set a timeout to fetch data at the next hour
       timeoutId = setTimeout(() => {
         fetchData()
         intervalId = setInterval(fetchData, 60 * 60 * 1000)
       }, msUntilNextHour)
     }
 
-    // Initial Fetch
+    // Initial load
     fetchData()
+
     scheduleNextFetch()
 
     return () => {
@@ -77,6 +91,7 @@ export default function HomeScreen() {
       clearInterval(intervalId)
     }
   }, [])
+
 
 
   function handleSelect(setting: EGoWallboxSetting) {
