@@ -97,8 +97,6 @@
                   "load_power": -375.46,
                   "battery_power": -660.34,
                   "soc": 93.9,
-                  "e_day": 0,
-                  "e_year": 0,
                   "e_total": 20084390.95,
                   "rel_autonomy": 100,
                   "rel_selfconsumption": 86.92,
@@ -136,8 +134,6 @@
                     "load_power": -350,
                     "battery_power": -700,
                     "soc": 50,
-                    "e_day": 5000,
-                    "e_year": 150000,
                     "e_total": 20090000,
                     "rel_autonomy": 95,
                     "rel_selfconsumption": 70
@@ -175,8 +171,6 @@
                     "load_power": -360,
                     "battery_power": -680,
                     "soc": 52,
-                    "e_day": 4800,
-                    "e_year": 149500,
                     "e_total": 20080000,
                     "rel_autonomy": 96,
                     "rel_selfconsumption": 72

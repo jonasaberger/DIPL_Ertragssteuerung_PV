@@ -5,15 +5,10 @@ import HWallbox from '@/components/homePage/h-wallbox'
 import { ThemedView } from '@/components/themed-view'
 import { EpexData, fetchEpexData } from '@/services/epex_service'
 import {BoilerData, fetchBoilerData} from '@/services/boiler_service'
+import {PV_Data, fetchLatestPVData} from '@/services/pv_services'
+import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
 import React, { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
-
-const data: DiagramData = {
-  total: 400,
-  house: 150,
-  battery: 200,
-  grid: 50,
-}
 
 const INITIAL_PRIORITIES: PriorityItem[] = [
   { id: 'boiler', label: 'Boiler' },
@@ -36,62 +31,14 @@ export default function HomeScreen() {
     currentEGoWallboxSetting
   )
   const [priorities, setPriorities] = useState<PriorityItem[]>(INITIAL_PRIORITIES)
+  const { pvData, boilerData, epexData } = useUpdateDataScheduler()
 
-  // EPEX data state
-  const [epexData, setEpexData] = useState<EpexData | null>(null)
-
-  // Boiler data state
-  const [boilerData, setBoilerData] = useState<BoilerData | null>(null)
-
-
-  useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout>
-    let intervalId: ReturnType<typeof setInterval>
-    let isMounted = true
-
-    const fetchData = async () => {
-      try {
-        const [epex, boiler] = await Promise.all([
-          fetchEpexData(),
-          fetchBoilerData(),
-        ])
-        console.log('Fetched data:', { epex, boiler });
-
-        if (isMounted) {
-          if (epex) setEpexData(epex)
-          if (boiler) setBoilerData(boiler)
-        }
-      } catch (error) {
-        console.error('Fehler beim Laden der Daten:', error)
-      }
-    }
-
-    const scheduleNextFetch = () => {
-      const now = new Date()
-
-      const msUntilNextHour =
-        (60 - now.getMinutes()) * 60 * 1000 -
-        now.getSeconds() * 1000 -
-        now.getMilliseconds()
-
-      timeoutId = setTimeout(() => {
-        fetchData()
-        intervalId = setInterval(fetchData, 60 * 60 * 1000)
-      }, msUntilNextHour)
-    }
-
-    // Initial load
-    fetchData()
-
-    scheduleNextFetch()
-
-    return () => {
-      isMounted = false
-      clearTimeout(timeoutId)
-      clearInterval(intervalId)
-    }
-  }, [])
-
+  const diagramData: DiagramData = {
+    total: pvData?.pv_power ?? 0,       // gesamte PV-Leistung
+    house: pvData?.load_power ?? 0,     // Hausverbrauch
+    battery: pvData?.battery_power ?? 0,// ins Batterie gespeist
+    grid: pvData?.grid_power ?? 0,      // ins Netz eingespeist
+  }
 
 
   function handleSelect(setting: EGoWallboxSetting) {
@@ -108,7 +55,7 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <HDiagram data={data} />
+        <HDiagram data={diagramData} />
         <HPriority priorities={priorities} onDragEnd={handlePriorityDragEnd} />
 
         {/* HPrices with updated EPEX data */}
