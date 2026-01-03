@@ -71,16 +71,16 @@ class ServiceManager:
         self.app.add_url_rule('/connection', 'connection', self.check_connection, methods=['GET'])
 
         # PV endpoints
-        self.app.add_url_rule('/api/latest', 'latest', self.get_latest, methods=['GET'])
-        self.app.add_url_rule('/api/history/daily', 'daily', self.get_daily, methods=['GET'])
-        self.app.add_url_rule('/api/history/weekly', 'weekly', self.get_weekly, methods=['GET'])
+        self.app.add_url_rule('/api/pv/daily', 'pv_daily', self.get_daily, methods=['GET'])
+        self.app.add_url_rule('/api/pv/monthly', 'pv_monthly', self.get_monthly, methods=['GET'])
+        self.app.add_url_rule('/api/pv/yearly', 'pv_yearly', self.get_yearly, methods=['GET'])
 
         # Wallbox endpoints
         self.app.add_url_rule('/api/wallbox/latest', 'wallbox_latest', self.get_wallbox_latest, methods=['GET'])
         self.app.add_url_rule('/api/wallbox/setCharging','wallbox_set_charging',self.set_wallbox_allow,methods=['POST'])
 
         # Boiler endpoints
-        self.app.add_url_rule('/api/boiler/latest', 'boiler_latest', self.get_boiler_latest, methods=['GET'])
+        self.app.add_url_rule('/api/boiler/latest','boiler_latest',self.get_boiler_latest,methods=['GET'])
         self.app.add_url_rule('/api/boiler/state', 'boiler_state', self.get_boiler_state, methods=['GET'])
         self.app.add_url_rule('/api/boiler/control', 'boiler_control', self.control_boiler, methods=['POST'])
 
@@ -98,7 +98,7 @@ class ServiceManager:
     def check_connection(self):
         try:
             self.db_bridge.check_connection()
-            return jsonify({"status": "ok"})
+            return jsonify({"status": "ok", "influx": "reachable"})
         except Exception as e:
             # ---- SYSTEM ERROR LOG ----
             self.logger.system_event(
@@ -108,17 +108,17 @@ class ServiceManager:
             )
             return jsonify({"status": "error", "message": str(e)}), 500
 
-    def get_latest(self):
-        data = self.db_bridge.get_latest_pv_data()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No PV data found"}), 404)
-
     def get_daily(self):
         data = self.db_bridge.get_daily_pv_data()
         return (jsonify(data), 200) if data else (jsonify({"message": "No daily data found"}), 404)
 
-    def get_weekly(self):
-        data = self.db_bridge.get_weekly_pv_data()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No weekly data found"}), 404)
+    def get_monthly(self):
+        data = self.db_bridge.get_monthly_pv_data()
+        return (jsonify(data), 200) if data else (jsonify({"message": "No monthly data found"}), 404)
+
+    def get_yearly(self):
+        data = self.db_bridge.get_yearly_pv_data()
+        return (jsonify(data), 200) if data else (jsonify({"message": "No yearly data found"}), 404)
 
     def get_wallbox_latest(self):
         try:
