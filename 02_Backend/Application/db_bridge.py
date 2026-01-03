@@ -57,75 +57,91 @@ class DB_Bridge:
     # -------------------------------
     # PV Data
     # -------------------------------
-    def get_latest_pv_data(self):
-        query = f'''
-        from(bucket: "{self.bucket}")
-          |> range(start: -1h)
-          |> filter(fn: (r) => r["_measurement"] == "pv_measurements")
-          |> filter(fn: (r) =>
-              r["_field"] == "battery_power" or
-              r["_field"] == "e_total" or
-              r["_field"] == "grid_power" or
-              r["_field"] == "load_power" or
-              r["_field"] == "pv_power" or
-              r["_field"] == "rel_autonomy" or
-              r["_field"] == "rel_selfconsumption" or
-              r["_field"] == "soc"
-          )
-          |> sort(columns: ["_time"], desc: true)
-          |> limit(n:1)
-          |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
-        '''
-        try:
-            tables = self.query_api.query(query, org=self.org)
-            if tables and len(tables[0].records) > 0:
-                record = tables[0].records[0].values
-                return [self.clean_record(record)]
-            return []
-        except Exception as e:
-            print(f"Error querying latest PV data: {e}")
-            return []
 
     def get_daily_pv_data(self):
         now = datetime.now(self.timezone)
-        start_time = datetime.combine(now.date(), time(12, 0)) - timedelta(days=1 if now.hour < 12 else 0)
+
+        # Start: heute 00:00
+        start_time = datetime.combine(now.date(), time(0, 0))
         start_time = self.timezone.localize(start_time)
+
+        # Ende: morgen 00:00 == 23:45
         end_time = start_time + timedelta(days=1)
 
         query = f'''
         from(bucket: "{self.bucket}")
-          |> range(start: {start_time.isoformat(timespec="seconds")}, stop: {end_time.isoformat(timespec="seconds")})
-          |> filter(fn: (r) => r._measurement == "pv_measurements")
-          |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)
-          |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        |> range(
+            start: {start_time.isoformat(timespec="seconds")},
+            stop: {end_time.isoformat(timespec="seconds")}
+        )
+        |> filter(fn: (r) => r._measurement == "pv_measurements")
+        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)
+        |> fill(value: 0.0)
+        |> pivot(
+            rowKey: ["_time"],
+            columnKey: ["_field"],
+            valueColumn: "_value"
+        )
         '''
         try:
             tables = self.query_api.query(query, org=self.org)
-            results = [self.clean_record(record.values) for table in tables for record in table.records]
+            results = [
+                self.clean_record(record.values)
+                for table in tables
+                for record in table.records
+            ]
             return results
         except Exception as e:
             print(f"Error querying daily PV data: {e}")
             return []
 
-    def get_weekly_pv_data(self):
+    def get_monthly_pv_data(self):
         now = datetime.now(self.timezone)
-        start_time = datetime.combine(now.date(), time(12, 0)) - timedelta(days=7 if now.hour >= 12 else 8)
-        start_time = self.timezone.localize(start_time)
-        end_time = start_time + timedelta(days=7)
+
+        start_time = datetime(now.year, now.month, 1, tzinfo=self.timezone)
+        end_time = (start_time + timedelta(days=32)).replace(day=1)
 
         query = f'''
         from(bucket: "{self.bucket}")
-          |> range(start: {start_time.isoformat(timespec="seconds")}, stop: {end_time.isoformat(timespec="seconds")})
-          |> filter(fn: (r) => r._measurement == "pv_measurements")
-          |> aggregateWindow(every: 1h, fn: mean, createEmpty: false)
-          |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
+        |> filter(fn: (r) => r._measurement == "pv_measurements")
+        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)
+        |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
         '''
         try:
             tables = self.query_api.query(query, org=self.org)
-            results = [self.clean_record(record.values) for table in tables for record in table.records]
-            return results
+            return [
+                self.clean_record(record.values)
+                for table in tables
+                for record in table.records
+            ]
         except Exception as e:
-            print(f"Error querying weekly PV data: {e}")
+            print(f"Error querying monthly PV data: {e}")
+            return []
+        
+    
+    def get_yearly_pv_data(self):
+        now = datetime.now(self.timezone)
+
+        start_time = datetime(now.year, 1, 1, tzinfo=self.timezone)
+        end_time = datetime(now.year + 1, 1, 1, tzinfo=self.timezone)
+
+        query = f'''
+        from(bucket: "{self.bucket}")
+        |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
+        |> filter(fn: (r) => r._measurement == "pv_measurements")
+        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)
+        |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        '''
+        try:
+            tables = self.query_api.query(query, org=self.org)
+            return [
+                self.clean_record(record.values)
+                for table in tables
+                for record in table.records
+            ]
+        except Exception as e:
+            print(f"Error querying yearly PV data: {e}")
             return []
 
     # -------------------------------

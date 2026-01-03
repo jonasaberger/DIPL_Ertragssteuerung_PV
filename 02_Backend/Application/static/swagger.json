@@ -15,9 +15,7 @@
             "description": "InfluxDB connection successful",
             "content": {
               "application/json": {
-                "example": {
-                  "status": "ok"
-                }
+                "example": { "status": "ok" }
               }
             }
           },
@@ -35,174 +33,139 @@
         }
       }
     },
+
     "/api/state": {
       "get": {
         "summary": "System status overview",
-        "description": "Returns a compact health status of backend, database and connected devices. This endpoint is read-only and intended for monitoring purposes.",
+        "description": "Returns a compact health status of backend service, InfluxDB connection and connected devices. This endpoint is read-only and intended purely for monitoring.",
         "tags": ["Monitoring"],
-        "produces": ["application/json"],
         "responses": {
           "200": {
             "description": "Current system status",
-            "schema": {
-              "type": "object",
-              "properties": {
-                "backend": {
-                  "type": "string",
-                  "description": "Backend service status",
-                  "example": "ok"
-                },
-                "influx": {
-                  "type": "string",
-                  "description": "InfluxDB connection status",
-                  "example": "ok"
-                },
-                "wallbox": {
-                  "type": "string",
-                  "description": "Wallbox communication status",
-                  "example": "timeout"
-                },
-                "boiler": {
-                  "type": "string",
-                  "description": "Boiler control status",
-                  "example": "simulated"
-                },
-                "timestamp": {
-                  "type": "string",
-                  "format": "date-time",
-                  "description": "Timestamp of the status response",
-                  "example": "2025-12-30T23:15:12"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/latest": {
-      "get": {
-        "summary": "Get latest PV data",
-        "description": "Returns the most recent PV measurements from InfluxDB.",
-        "responses": {
-          "200": {
-            "description": "Latest PV measurement",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PVLatest"
-                },
                 "example": {
-                  "pv_power": 1147.7,
-                  "grid_power": -56.5,
-                  "load_power": -375.46,
-                  "battery_power": -660.34,
-                  "soc": 93.9,
-                  "e_day": 0,
-                  "e_year": 0,
-                  "e_total": 20084390.95,
-                  "rel_autonomy": 100,
-                  "rel_selfconsumption": 86.92,
-                  "_time": "2025-10-09T12:34:56Z"
+                  "backend": "ok",
+                  "influx": "ok",
+                  "wallbox": "timeout",
+                  "boiler": "simulated",
+                  "timestamp": "2025-12-30T23:15:12"
                 }
               }
             }
-          },
-          "404": {
-            "description": "No data found"
           }
         }
       }
     },
-    "/api/history/daily": {
+
+    "/api/pv/daily": {
       "get": {
-        "summary": "Get 24h PV data",
-        "description": "Returns PV measurements from 12:00 of the previous day to 12:00 of the current day. Data points are aggregated over 15-minute intervals using InfluxDB's aggregateWindow function.",
+        "summary": "Get daily PV data",
+        "description": "Returns PV measurements for the current day from 00:00 to 23:45 in 15-minute resolution (96 values).",
         "responses": {
           "200": {
-            "description": "24-hour PV history",
+            "description": "Daily PV time series",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PVHistoryItem"
-                  }
+                  "items": { "$ref": "#/components/schemas/PVHistoryItem" }
                 },
                 "example": [
                   {
-                    "_time": "2025-10-09T12:00:00Z",
-                    "pv_power": 1100,
-                    "grid_power": -100,
-                    "load_power": -350,
-                    "battery_power": -700,
-                    "soc": 50,
-                    "e_day": 5000,
-                    "e_year": 150000,
-                    "e_total": 20090000,
-                    "rel_autonomy": 95,
-                    "rel_selfconsumption": 70
+                    "_time": "2026-01-03T12:00:00+01:00",
+                    "pv_power": 4094.5,
+                    "grid_power": -336.7,
+                    "load_power": -732.0,
+                    "battery_power": -2991.8,
+                    "soc": 16.6,
+                    "e_total": 21224854.8,
+                    "rel_autonomy": 100,
+                    "rel_selfconsumption": 68.4
                   }
                 ]
               }
             }
           },
-          "404": {
-            "description": "No daily data found"
-          }
+          "404": { "description": "No daily data found" }
         }
       }
     },
-    "/api/history/weekly": {
+
+    "/api/pv/monthly": {
       "get": {
-        "summary": "Get weekly PV data",
-        "description": "Returns PV measurements for the last 7 days. Data points are aggregated over 1-hour intervals using InfluxDB's aggregateWindow function.",
+        "summary": "Get monthly PV data",
+        "description": "Returns PV measurements for the current calendar month in 15-minute resolution (96 values per day).",
         "responses": {
           "200": {
-            "description": "Weekly PV history",
+            "description": "Monthly PV time series",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PVHistoryItem"
-                  }
+                  "items": { "$ref": "#/components/schemas/PVHistoryItem" }
                 },
                 "example": [
                   {
-                    "_time": "2025-10-03T12:00:00Z",
-                    "pv_power": 1050,
-                    "grid_power": -120,
-                    "load_power": -360,
-                    "battery_power": -680,
-                    "soc": 52,
-                    "e_day": 4800,
-                    "e_year": 149500,
-                    "e_total": 20080000,
-                    "rel_autonomy": 96,
-                    "rel_selfconsumption": 72
+                    "_time": "2026-01-01T08:30:00+01:00",
+                    "pv_power": 87.6,
+                    "grid_power": 83.2,
+                    "load_power": -143.6,
+                    "battery_power": -0.4,
+                    "soc": 4.1,
+                    "e_total": 21223683.62
                   }
                 ]
               }
             }
           },
-          "404": {
-            "description": "No weekly data found"
-          }
+          "404": { "description": "No monthly data found" }
         }
       }
     },
+
+    "/api/pv/yearly": {
+      "get": {
+        "summary": "Get yearly PV data",
+        "description": "Returns PV measurements for the current calendar year in 15-minute resolution (~35,000 values).",
+        "responses": {
+          "200": {
+            "description": "Yearly PV time series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PVHistoryItem" }
+                },
+                "example": [
+                  {
+                    "_time": "2026-06-15T12:00:00+02:00",
+                    "pv_power": 5120.3,
+                    "grid_power": -1240.5,
+                    "load_power": -980.2,
+                    "battery_power": -2900.1,
+                    "soc": 72.4,
+                    "e_total": 24500123.9
+                  }
+                ]
+              }
+            }
+          },
+          "404": { "description": "No yearly data found" }
+        }
+      }
+    },
+
     "/api/wallbox/latest": {
       "get": {
         "summary": "Get latest Wallbox data",
-        "description": "Returns the most recent wallbox measurements (read-only, live from the device).",
+        "description": "Returns the most recent wallbox measurements fetched live from the wallbox device. This endpoint is read-only.",
         "responses": {
           "200": {
             "description": "Latest Wallbox measurement",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/WallboxLatest"
-                },
+                "schema": { "$ref": "#/components/schemas/WallboxLatest" },
                 "example": {
                   "_time": "2025-10-09T12:35:10Z",
                   "amp": 16,
@@ -219,16 +182,16 @@
               }
             }
           },
-          "404": {
-            "description": "No wallbox data found"
-          }
+          "404": { "description": "No wallbox data found" },
+          "502": { "description": "Wallbox not reachable or communication error" }
         }
       }
     },
+
     "/api/wallbox/setCharging": {
       "post": {
         "summary": "Enable or disable wallbox charging",
-        "description": "Controls wallbox charging permission via the alw flag (allow=true → alw=1, allow=false → alw=0).",
+        "description": "Controls whether the wallbox is allowed to charge. Setting allow=true enables charging, allow=false disables charging.",
         "requestBody": {
           "required": true,
           "content": {
@@ -237,50 +200,31 @@
                 "type": "object",
                 "required": ["allow"],
                 "properties": {
-                  "allow": {
-                    "type": "boolean",
-                    "description": "true = allow charging, false = stop charging"
-                  }
+                  "allow": { "type": "boolean" }
                 }
               },
-              "example": {
-                "allow": true
-              }
+              "example": { "allow": true }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Charging state updated",
-            "content": {
-              "application/json": {
-                "example": {
-                  "alw": 1
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid input"
-          },
-          "502": {
-            "description": "Wallbox communication failed"
-          }
+          "200": { "description": "Charging state updated successfully" },
+          "400": { "description": "Invalid input payload" },
+          "502": { "description": "Wallbox communication failed" }
         }
       }
     },
+
     "/api/boiler/latest": {
       "get": {
         "summary": "Get latest Boiler temperature",
-        "description": "Returns the most recent boiler temperature measurement from InfluxDB.",
+        "description": "Returns the most recent boiler temperature measurement stored in InfluxDB.",
         "responses": {
           "200": {
-            "description": "Latest boiler temperature",
+            "description": "Latest boiler temperature measurement",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BoilerLatest"
-                },
+                "schema": { "$ref": "#/components/schemas/BoilerLatest" },
                 "example": {
                   "_time": "2025-11-23T06:15:00Z",
                   "boiler_temp": 62
@@ -288,104 +232,67 @@
               }
             }
           },
-          "404": {
-            "description": "No boiler data found"
-          }
+          "404": { "description": "No boiler data found" }
         }
       }
     },
+
     "/api/boiler/state": {
       "get": {
         "summary": "Get boiler heating state",
-        "description": "Returns the logical heating state of the boiler (True = heating ON, False = heating OFF).",
+        "description": "Returns the current logical heating state of the boiler (on/off).",
         "responses": {
           "200": {
             "description": "Current boiler heating state",
             "content": {
               "application/json": {
-                "example": {
-                  "heating": true
-                }
+                "example": { "heating": true }
               }
             }
           },
-          "500": {
-            "description": "Error reading boiler state",
-            "content": {
-              "application/json": {
-                "example": {
-                  "error": "Failed to read boiler state"
-                }
-              }
-            }
-          }
+          "500": { "description": "Failed to read boiler state" }
         }
       }
     },
+
     "/api/boiler/control": {
       "post": {
-        "summary": "Control boiler relay (on/off/toggle)",
-        "description": "Controls the boiler relay. POST a JSON payload with action set to 'on', 'off' or 'toggle'",
+        "summary": "Control boiler relay",
+        "description": "Controls the boiler relay by switching it on, off or toggling its current state.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BoilerControl"
-              },
-              "example": {
-                "action": "on"
-              }
+              "schema": { "$ref": "#/components/schemas/BoilerControl" },
+              "example": { "action": "on" }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Action executed",
+            "description": "Boiler control action executed successfully",
             "content": {
               "application/json": {
-                "example": {
-                  "action": "on",
-                  "result": true
-                }
+                "example": { "action": "on", "result": true }
               }
             }
           },
-          "400": {
-            "description": "Invalid action provided",
-            "content": {
-              "application/json": {
-                "example": {
-                  "error": "Invalid action. Use: on/off/toggle"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error while controlling boiler",
-            "content": {
-              "application/json": {
-                "example": {
-                  "error": "Failed to control boiler"
-                }
-              }
-            }
-          }
+          "400": { "description": "Invalid control action" },
+          "500": { "description": "Boiler control failed" }
         }
       }
     },
+
     "/api/epex/latest": {
       "get": {
         "summary": "Get latest EPEX data",
-        "description": "Returns the most recent EPEX market value from InfluxDB.",
+        "description": "Returns the most recent EPEX electricity market price stored in InfluxDB.",
         "responses": {
           "200": {
-            "description": "Latest EPEX measurement",
+            "description": "Latest EPEX market price",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EpexLatest"
-                },
+                "schema": { "$ref": "#/components/schemas/EpexLatest" },
                 "example": {
                   "_time": "2025-12-09T12:45:00Z",
                   "epex_value": 42.75
@@ -393,192 +300,60 @@
               }
             }
           },
-          "404": {
-            "description": "No EPEX data found"
-          },
-          "500": {
-            "description": "Error querying InfluxDB",
-            "content": {
-              "application/json": {
-                "example": {
-                  "status": "error",
-                  "message": "Failed to query InfluxDB"
-                }
-              }
-            }
-          }
+          "404": { "description": "No EPEX data found" }
         }
       }
     }
   },
+
   "components": {
     "schemas": {
-      "PVLatest": {
-        "type": "object",
-        "additionalProperties": true,
-        "properties": {
-          "_time": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "pv_power": {
-            "type": "number"
-          },
-          "grid_power": {
-            "type": "number"
-          },
-          "load_power": {
-            "type": "number"
-          },
-          "battery_power": {
-            "type": "number"
-          },
-          "soc": {
-            "type": "number"
-          },
-          "e_day": {
-            "type": "number"
-          },
-          "e_year": {
-            "type": "number"
-          },
-          "e_total": {
-            "type": "number"
-          },
-          "rel_autonomy": {
-            "type": "number"
-          },
-          "rel_selfconsumption": {
-            "type": "number"
-          }
-        }
-      },
       "PVHistoryItem": {
         "type": "object",
         "additionalProperties": true,
         "properties": {
-          "_time": {
-            "type": "string",
-            "format": "date-time"
-          }
+          "_time": { "type": "string", "format": "date-time" }
         }
       },
-     "WallboxLatest": {
+      "WallboxLatest": {
         "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "_time",
-          "amp",
-          "car",
-          "alw",
-          "wst",
-          "eto",
-          "pha_L1",
-          "pha_L2",
-          "pha_L3",
-          "pha_count",
-          "charging"
-        ],
+        "required": ["_time","amp","car","alw","wst","eto","pha_L1","pha_L2","pha_L3","pha_count","charging"],
         "properties": {
-          "_time": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Timestamp of live wallbox snapshot (Europe/Vienna timezone)"
-          },
-          "amp": {
-            "type": "integer",
-            "description": "Charging current in ampere"
-          },
-          "car": {
-            "type": "integer",
-            "enum": [0, 1],
-            "description": "Car connected flag"
-          },
-          "alw": {
-            "type": "integer",
-            "enum": [0, 1],
-            "description": "Charging allowed flag"
-          },
-          "wst": {
-            "type": "integer",
-            "description": "Wallbox internal status code"
-          },
-          "eto": {
-            "type": "number",
-            "description": "Total charged energy in Wh"
-          },
-          "pha_L1": {
-            "type": "integer",
-            "enum": [0, 1],
-            "description": "Phase L1 active"
-          },
-          "pha_L2": {
-            "type": "integer",
-            "enum": [0, 1],
-            "description": "Phase L2 active"
-          },
-          "pha_L3": {
-            "type": "integer",
-            "enum": [0, 1],
-            "description": "Phase L3 active"
-          },
-          "pha_count": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 3,
-            "description": "Number of active phases"
-          },
-          "charging": {
-            "type": "integer",
-            "enum": [0, 1],
-            "description": "Charging active flag"
-          }
+          "_time": { "type": "string", "format": "date-time" },
+          "amp": { "type": "integer" },
+          "car": { "type": "integer" },
+          "alw": { "type": "integer" },
+          "wst": { "type": "integer" },
+          "eto": { "type": "number" },
+          "pha_L1": { "type": "integer" },
+          "pha_L2": { "type": "integer" },
+          "pha_L3": { "type": "integer" },
+          "pha_count": { "type": "integer" },
+          "charging": { "type": "integer" }
         }
       },
       "BoilerLatest": {
         "type": "object",
-        "additionalProperties": true,
         "properties": {
-          "_time": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "boiler_temp": {
-            "type": "number",
-            "description": "Boiler temperature in °C"
-          }
+          "_time": { "type": "string", "format": "date-time" },
+          "boiler_temp": { "type": "number" }
         }
       },
       "BoilerControl": {
         "type": "object",
-        "additionalProperties": false,
+        "required": ["action"],
         "properties": {
           "action": {
             "type": "string",
-            "description": "Action to perform",
-            "enum": [
-              "on",
-              "off",
-              "toggle"
-            ]
+            "enum": ["on","off","toggle"]
           }
-        },
-        "required": [
-          "action"
-        ]
+        }
       },
       "EpexLatest": {
         "type": "object",
-        "additionalProperties": true,
         "properties": {
-          "_time": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "epex_value": {
-            "type": "number",
-            "description": "Latest EPEX market price in €/MWh"
-          }
+          "_time": { "type": "string", "format": "date-time" },
+          "epex_value": { "type": "number" }
         }
       }
     }
