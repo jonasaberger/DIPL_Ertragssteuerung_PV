@@ -48,100 +48,135 @@ class DB_Bridge:
     # Check connection
     # -------------------------------
     def check_connection(self):
-        try:
-            health = self.client.health()
-            print(f"InfluxDB Status: {health.status}")
-        except Exception as e:
-            print(f"Connection error: {e}")
+        health = self.client.health()
+        if health.status != "pass":
+            raise RuntimeError(f"InfluxDB unhealthy: {health.status}")
 
     # -------------------------------
     # PV Data
     # -------------------------------
+    
+    # Get daily PV data for a specific date or today
+    def get_daily_pv_data(self, date: str | None = None):
+        # Default: today
+        if date:
+            try:
+                day = datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError:
+                raise ValueError("Invalid date format. Use YYYY-MM-DD")
+        else:
+            day = datetime.now(self.timezone).date()
 
-    def get_daily_pv_data(self):
-        now = datetime.now(self.timezone)
+        # Start: YYYY-MM-DD 00:00
+        start_time = self.timezone.localize(
+            datetime(day.year, day.month, day.day, 0, 0, 0),
+            is_dst=None
+        )
 
-        # Start: heute 00:00
-        start_time = datetime.combine(now.date(), time(0, 0))
-        start_time = self.timezone.localize(start_time)
-
-        # Ende: morgen 00:00 == 23:45
-        end_time = start_time + timedelta(days=1)
+        # End: YYYY-MM-DD 23:59:59 (NOT next day 00:00)
+        end_time = self.timezone.localize(
+            datetime(day.year, day.month, day.day, 23, 59, 59),
+            is_dst=None
+        )
 
         query = f'''
         from(bucket: "{self.bucket}")
-        |> range(
-            start: {start_time.isoformat(timespec="seconds")},
-            stop: {end_time.isoformat(timespec="seconds")}
-        )
+        |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
         |> filter(fn: (r) => r._measurement == "pv_measurements")
-        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)
-        |> fill(value: 0.0)
+        |> aggregateWindow( every: 15m, fn: mean, createEmpty: false)
         |> pivot(
             rowKey: ["_time"],
             columnKey: ["_field"],
             valueColumn: "_value"
         )
         '''
-        try:
-            tables = self.query_api.query(query, org=self.org)
-            results = [
-                self.clean_record(record.values)
-                for table in tables
-                for record in table.records
-            ]
-            return results
-        except Exception as e:
-            print(f"Error querying daily PV data: {e}")
-            return []
 
-    def get_monthly_pv_data(self):
-        now = datetime.now(self.timezone)
-
-        start_time = datetime(now.year, now.month, 1, tzinfo=self.timezone)
-        end_time = (start_time + timedelta(days=32)).replace(day=1)
-
-        query = f'''
-        from(bucket: "{self.bucket}")
-        |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
-        |> filter(fn: (r) => r._measurement == "pv_measurements")
-        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)
-        |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
-        '''
-        try:
-            tables = self.query_api.query(query, org=self.org)
-            return [
-                self.clean_record(record.values)
-                for table in tables
-                for record in table.records
-            ]
-        except Exception as e:
-            print(f"Error querying monthly PV data: {e}")
-            return []
+        tables = self.query_api.query(query, org=self.org)
+        return [
+            self.clean_record(r.values)
+            for t in tables
+            for r in t.records
+        ]
         
-    
-    def get_yearly_pv_data(self):
-        now = datetime.now(self.timezone)
+    # Get monthly PV data for a specific month or current month
+    def get_monthly_pv_data(self, month: str | None = None):
+        # Default: current month
+        if month:
+            try:
+                year, m = map(int, month.split("-"))
+            except ValueError:
+                raise ValueError("Invalid month format. Use YYYY-MM")
+        else:
+            now = datetime.now(self.timezone)
+            year, m = now.year, now.month
 
-        start_time = datetime(now.year, 1, 1, tzinfo=self.timezone)
-        end_time = datetime(now.year + 1, 1, 1, tzinfo=self.timezone)
+        # Start: 01.MM.YYYY 00:00
+        start_time = self.timezone.localize(
+            datetime(year, m, 1, 0, 0, 0),
+            is_dst=None
+        )
+
+        # End: last day of month 23:59:59 (NOT next month 00:00)
+        next_month = (start_time + timedelta(days=32)).replace(day=1)
+        end_time = self.timezone.localize(
+            datetime(next_month.year, next_month.month, 1, 0, 0, 0),
+            is_dst=None
+        ) - timedelta(seconds=1)
 
         query = f'''
         from(bucket: "{self.bucket}")
         |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
         |> filter(fn: (r) => r._measurement == "pv_measurements")
-        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false)
-        |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        |> aggregateWindow( every: 15m, fn: mean, createEmpty: false)
+        |> pivot(
+            rowKey: ["_time"],
+            columnKey: ["_field"],
+            valueColumn: "_value"
+        )
+        '''
+
+        tables = self.query_api.query(query, org=self.org)
+        return [
+            self.clean_record(r.values)
+            for t in tables
+            for r in t.records
+        ]
+        
+    # Get yearly PV data for a specific year or current year
+    def get_yearly_pv_data(self, year: int | None = None):
+        # Default: current year
+        if year is None:
+            year = datetime.now(self.timezone).year
+
+        # Start: 01.01.YYYY 00:00
+        start_time = self.timezone.localize(  
+            datetime(year, 1, 1, 0, 0, 0),
+            is_dst=None
+            )
+
+        # End: 31.12.YYYY 23:59:59  (NOT 01.01.YYYY+1)
+        end_time = self.timezone.localize(
+            datetime(year, 12, 31, 23, 59, 59),
+            is_dst=None
+            )
+
+        query = f'''
+        from(bucket: "{self.bucket}")
+        |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
+        |> filter(fn: (r) => r._measurement == "pv_measurements")
+        |> aggregateWindow( every: 2h,fn: mean,createEmpty: false)
+        |> pivot( rowKey: ["_time"],columnKey: ["_field"],valueColumn: "_value"
+        )
         '''
         try:
             tables = self.query_api.query(query, org=self.org)
             return [
-                self.clean_record(record.values)
-                for table in tables
-                for record in table.records
+                self.clean_record(r.values)
+                for t in tables
+                for r in t.records
             ]
         except Exception as e:
-            print(f"Error querying yearly PV data: {e}")
+            print(f"Error querying yearly PV data (2h aggregated): {e}")
             return []
 
     # -------------------------------

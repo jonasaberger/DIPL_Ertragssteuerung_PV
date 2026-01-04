@@ -57,11 +57,22 @@
         }
       }
     },
-
     "/api/pv/daily": {
       "get": {
         "summary": "Get daily PV data",
         "description": "Returns PV measurements for the current day from 00:00 to 23:45 in 15-minute resolution (96 values).",
+         "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "description": "Date to query in format YYYY-MM-DD",
+            "schema": {
+              "type": "string",
+              "example": "2025-12-24"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Daily PV time series",
@@ -96,6 +107,18 @@
       "get": {
         "summary": "Get monthly PV data",
         "description": "Returns PV measurements for the current calendar month in 15-minute resolution (96 values per day).",
+         "parameters": [
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "description": "Month to query in format YYYY-MM",
+            "schema": {
+              "type": "string",
+              "example": "2025-11"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Monthly PV time series",
@@ -127,7 +150,19 @@
     "/api/pv/yearly": {
       "get": {
         "summary": "Get yearly PV data",
-        "description": "Returns PV measurements for the current calendar year in 15-minute resolution (~35,000 values).",
+        "description": "Returns PV measurements for the current calendar year in 2-hour resolution (12 values per day, ~4,380 per year).",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "required": false,
+            "description": "Year to query in format YYYY",
+            "schema": {
+              "type": "integer",
+              "example": 2024
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Yearly PV time series",
