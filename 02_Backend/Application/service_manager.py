@@ -108,17 +108,57 @@ class ServiceManager:
             )
             return jsonify({"status": "error", "message": str(e)}), 500
 
+    # GET /api/pv/daily?date=YYYY-MM-DD
     def get_daily(self):
-        data = self.db_bridge.get_daily_pv_data()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No daily data found"}), 404)
+        date = request.args.get("date")  # optional: YYYY-MM-DD
+        try:
+            data = self.db_bridge.get_daily_pv_data(date)
+        except ValueError as e:
+            # Invalid date format
+            return self._json({"error": str(e)}, 400)
+        if not data:
+            return self._json(
+                {"message": "No data collected for the selected day"},
+                404
+            )
 
+        return self._json(data, 200)
+
+     # GET /api/pv/monthly?month=YYYY-MM
     def get_monthly(self):
-        data = self.db_bridge.get_monthly_pv_data()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No monthly data found"}), 404)
+        month = request.args.get("month")  # optional: YYYY-MM
+        try:
+            data = self.db_bridge.get_monthly_pv_data(month)
+        except ValueError as e:
+            # Invalid month format
+            return self._json({"error": str(e)}, 400)
+        if not data:
+            return self._json(
+                {"message": "No data collected for the selected month"},
+                404
+            )
 
+        return self._json(data, 200)
+
+    # GET /api/pv/yearly?year=YYYY
     def get_yearly(self):
-        data = self.db_bridge.get_yearly_pv_data()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No yearly data found"}), 404)
+        year = request.args.get("year")  # optional: YYYY
+        try:
+            year = int(year) if year else None
+            data = self.db_bridge.get_yearly_pv_data(year)
+        except ValueError:
+            # Invalid year format
+            return self._json(
+                {"error": "Invalid year format. Use YYYY"},
+                400
+            )
+        if not data:
+            return self._json(
+                {"message": "No data collected for the selected year"},
+                404
+            )
+
+        return self._json(data, 200)
 
     def get_wallbox_latest(self):
         try:
