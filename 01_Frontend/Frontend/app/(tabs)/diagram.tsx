@@ -4,6 +4,8 @@ import { StyleSheet } from 'react-native'
 import { ThemedView } from '@/components/themed-view'
 import Card from '@/components/card'
 import { DDates, DateSelection } from '@/components/diagram/d-dates'
+import { DDiagram } from '@/components/diagram/d-diagram'
+
 
 export default function DiagramScreen() {
   const now = new Date()
@@ -21,6 +23,9 @@ export default function DiagramScreen() {
         <DDates selection={selection} onChangeSelection={setSelection} />
       </Card>
 
+      <Card>
+        <DDiagram selection={selection} />
+      </Card>
     </ThemedView>
   )
 }

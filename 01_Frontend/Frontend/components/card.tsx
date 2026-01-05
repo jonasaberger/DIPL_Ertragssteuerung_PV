@@ -30,6 +30,7 @@ const styles = StyleSheet.create({
     padding: 18,
     marginTop: 40,
     marginVertical: 8,
+    overflow: 'visible',
     //Android und iOS Schatten
     ...Platform.select({
       ios: {

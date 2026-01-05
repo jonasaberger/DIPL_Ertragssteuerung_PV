@@ -10,7 +10,7 @@ import {
 
 export type DateSelection = {
   year: number
-  month: number 
+  month: number | null
   day: number | null // null = ganzer Monat
 }
 
@@ -24,7 +24,7 @@ export const DDates: React.FC<Props> = ({ selection, onChangeSelection }) => {
   const currentYear = new Date().getFullYear()
 
   const [tempYear, setTempYear] = useState(selection.year) 
-  const [tempMonth, setTempMonth] = useState(selection.month)
+  const [tempMonth, setTempMonth] = useState<number | null>(selection.month)
   const [tempDay, setTempDay] = useState<number | null>(selection.day)
 
   const openPopup = () => {
@@ -38,7 +38,7 @@ export const DDates: React.FC<Props> = ({ selection, onChangeSelection }) => {
 
   const confirmSelection = () => {
     let day = tempDay   //tempDay aktuelle Auswahl im Popup
-    if (day !== null) {
+    if (day !== null && tempMonth !== null) {
       const max = getDaysInMonth(tempYear, tempMonth)
       //Schützt vor ungültigen Tagen: Wenn User Jänner 30. wählt und dann auf Februar wechselt,
       //wird der Tag auf 28/29 korrigiert
@@ -48,12 +48,19 @@ export const DDates: React.FC<Props> = ({ selection, onChangeSelection }) => {
     onChangeSelection({
       year: tempYear,
       month: tempMonth,
-      day,
+      day: tempMonth === null ? null : day,
     })
     setIsOpen(false)
   }
 
   const formattedLabel = useMemo(() => {
+    if (selection.month === null) {
+      //Anzeige ohne Tag
+      return new Intl.DateTimeFormat('de-AT', {
+        year: 'numeric',
+      }).format(new Date(selection.year, 0, 1))
+    }
+
     if (selection.day === null) {
       //Anzeige ohne Tag
       return new Intl.DateTimeFormat('de-AT', {
@@ -76,7 +83,7 @@ export const DDates: React.FC<Props> = ({ selection, onChangeSelection }) => {
     'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',
   ]
 
-  const daysInMonth = getDaysInMonth(tempYear, tempMonth)
+  const daysInMonth = tempMonth === null ? 0 : getDaysInMonth(tempYear, tempMonth)
   const canIncYear = tempYear < currentYear
 
   const toggleDay = (d: number) => {
@@ -121,14 +128,25 @@ export const DDates: React.FC<Props> = ({ selection, onChangeSelection }) => {
 
                 {/* Jahr */}
                 <View style={styles.yearRow}>
-                  <Pressable onPress={() => setTempYear(y => y - 1)}>
+                  <Pressable
+                    onPress={() => {
+                      setTempYear(y => y - 1)
+                      setTempMonth(null)
+                      setTempDay(null)
+                    }}
+                  >
                     <Text style={styles.yearArrow}>{'<'}</Text>
                   </Pressable>
 
                   <Text style={styles.yearText}>{tempYear}</Text>
 
                   <Pressable
-                    onPress={() => canIncYear && setTempYear(y => y + 1)}
+                    onPress={() => {
+                      if (!canIncYear) return
+                      setTempYear(y => y + 1)
+                      setTempMonth(null)
+                      setTempDay(null)
+                    }}
                     disabled={!canIncYear}
                   >
                     <Text
@@ -148,7 +166,13 @@ export const DDates: React.FC<Props> = ({ selection, onChangeSelection }) => {
                     <Pressable
                       key={m}
                       style={styles.monthCell}
-                      onPress={() => setTempMonth(index)}
+                      onPress={() => {
+                        setTempMonth(prev => {
+                          if (prev === index) return null
+                          return index
+                        })
+                        setTempDay(null)
+                      }}
                     >
                       <View
                         style={[
@@ -173,29 +197,30 @@ export const DDates: React.FC<Props> = ({ selection, onChangeSelection }) => {
 
                 {/* Tage */}
                 <View style={styles.dayGrid}>
-                  {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => (
-                    <Pressable
-                      key={d}
-                      style={styles.dayCell}
-                      onPress={() => toggleDay(d)}
-                    >
-                      <View
-                        style={[
-                          styles.dayPill,
-                          tempDay === d && styles.activePill,
-                        ]}
+                  {tempMonth !== null &&
+                    Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => (
+                      <Pressable
+                        key={d}
+                        style={styles.dayCell}
+                        onPress={() => toggleDay(d)}
                       >
-                        <Text
+                        <View
                           style={[
-                            styles.dayText,
-                            tempDay === d && styles.activeText,
+                            styles.dayPill,
+                            tempDay === d && styles.activePill,
                           ]}
                         >
-                          {d}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  ))}
+                          <Text
+                            style={[
+                              styles.dayText,
+                              tempDay === d && styles.activeText,
+                            ]}
+                          >
+                            {d}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    ))}
                 </View>
 
               </View>
