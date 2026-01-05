@@ -57,6 +57,40 @@
         }
       }
     },
+    "/api/pv/latest": {
+      "get": {
+        "summary": "Get latest PV data",
+        "description": "Returns the most recent PV measurements from InfluxDB.",
+        "responses": {
+          "200": {
+            "description": "Latest PV measurement",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PVMeasurement"
+                },
+                "example": {
+                  "pv_power": 1147.7,
+                  "grid_power": -56.5,
+                  "load_power": -375.46,
+                  "battery_power": -660.34,
+                  "soc": 93.9,
+                  "e_day": 0,
+                  "e_year": 0,
+                  "e_total": 20084390.95,
+                  "rel_autonomy": 100,
+                  "rel_selfconsumption": 86.92,
+                  "_time": "2025-10-09T12:34:56Z"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No data found"
+          }
+        }
+      }
+    },
     "/api/pv/daily": {
       "get": {
         "summary": "Get daily PV data",
@@ -80,7 +114,9 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/PVHistoryItem" }
+                  "items": {
+                    "$ref": "#/components/schemas/PVMeasurement"
+                  }
                 },
                 "example": [
                   {
@@ -126,7 +162,9 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/PVHistoryItem" }
+                  "items": {
+                    "$ref": "#/components/schemas/PVMeasurement"
+                  }
                 },
                 "example": [
                   {
@@ -170,7 +208,9 @@
               "application/json": {
                 "schema": {
                   "type": "array",
-                  "items": { "$ref": "#/components/schemas/PVHistoryItem" }
+                  "items": {
+                    "$ref": "#/components/schemas/PVMeasurement"
+                  }
                 },
                 "example": [
                   {
@@ -342,55 +382,67 @@
   },
 
   "components": {
-    "schemas": {
-      "PVHistoryItem": {
-        "type": "object",
-        "additionalProperties": true,
-        "properties": {
-          "_time": { "type": "string", "format": "date-time" }
+  "schemas": {
+    "PVMeasurement": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "_time": { "type": "string", "format": "date-time" },
+        "pv_power": { "type": "number" },
+        "grid_power": { "type": "number" },
+        "load_power": { "type": "number" },
+        "battery_power": { "type": "number" },
+        "soc": { "type": "number" },
+        "e_total": { "type": "number" },
+        "rel_autonomy": { "type": "number" },
+        "rel_selfconsumption": { "type": "number" }
+      }
+    },
+
+    "WallboxLatest": {
+      "type": "object",
+      "required": ["_time","amp","car","alw","wst","eto","pha_L1","pha_L2","pha_L3","pha_count","charging"],
+      "properties": {
+        "_time": { "type": "string", "format": "date-time" },
+        "amp": { "type": "integer" },
+        "car": { "type": "integer" },
+        "alw": { "type": "integer" },
+        "wst": { "type": "integer" },
+        "eto": { "type": "number" },
+        "pha_L1": { "type": "integer" },
+        "pha_L2": { "type": "integer" },
+        "pha_L3": { "type": "integer" },
+        "pha_count": { "type": "integer" },
+        "charging": { "type": "integer" }
+      }
+    },
+
+    "BoilerLatest": {
+      "type": "object",
+      "properties": {
+        "_time": { "type": "string", "format": "date-time" },
+        "boiler_temp": { "type": "number" }
+      }
+    },
+
+    "BoilerControl": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["on", "off", "toggle"]
         }
-      },
-      "WallboxLatest": {
-        "type": "object",
-        "required": ["_time","amp","car","alw","wst","eto","pha_L1","pha_L2","pha_L3","pha_count","charging"],
-        "properties": {
-          "_time": { "type": "string", "format": "date-time" },
-          "amp": { "type": "integer" },
-          "car": { "type": "integer" },
-          "alw": { "type": "integer" },
-          "wst": { "type": "integer" },
-          "eto": { "type": "number" },
-          "pha_L1": { "type": "integer" },
-          "pha_L2": { "type": "integer" },
-          "pha_L3": { "type": "integer" },
-          "pha_count": { "type": "integer" },
-          "charging": { "type": "integer" }
-        }
-      },
-      "BoilerLatest": {
-        "type": "object",
-        "properties": {
-          "_time": { "type": "string", "format": "date-time" },
-          "boiler_temp": { "type": "number" }
-        }
-      },
-      "BoilerControl": {
-        "type": "object",
-        "required": ["action"],
-        "properties": {
-          "action": {
-            "type": "string",
-            "enum": ["on","off","toggle"]
-          }
-        }
-      },
-      "EpexLatest": {
-        "type": "object",
-        "properties": {
-          "_time": { "type": "string", "format": "date-time" },
-          "epex_value": { "type": "number" }
-        }
+      }
+    },
+
+    "EpexLatest": {
+      "type": "object",
+      "properties": {
+        "_time": { "type": "string", "format": "date-time" },
+        "epex_value": { "type": "number" }
       }
     }
   }
+}
 }

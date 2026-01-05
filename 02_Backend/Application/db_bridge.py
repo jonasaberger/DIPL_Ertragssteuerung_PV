@@ -55,6 +55,36 @@ class DB_Bridge:
     # -------------------------------
     # PV Data
     # -------------------------------
+
+    def get_latest_pv_data(self):
+        query = f'''
+        from(bucket: "{self.bucket}")
+          |> range(start: -1h)
+          |> filter(fn: (r) => r["_measurement"] == "pv_measurements")
+          |> filter(fn: (r) =>
+              r["_field"] == "battery_power" or
+              r["_field"] == "e_total" or
+              r["_field"] == "grid_power" or
+              r["_field"] == "load_power" or
+              r["_field"] == "pv_power" or
+              r["_field"] == "rel_autonomy" or
+              r["_field"] == "rel_selfconsumption" or
+              r["_field"] == "soc"
+          )
+          |> sort(columns: ["_time"], desc: true)
+          |> limit(n:1)
+          |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        '''
+        try:
+            tables = self.query_api.query(query, org=self.org)
+            if tables and len(tables[0].records) > 0:
+                record = tables[0].records[0].values
+                return self.clean_record(record)
+            return None
+        except Exception as e:
+            print(f"Error querying latest PV data: {e}")
+            return None
+
     
     # Get daily PV data for a specific date or today
     def get_daily_pv_data(self, date: str | None = None):

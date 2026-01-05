@@ -15,7 +15,7 @@ export interface PV_Data {
 
 export async function fetchLatestPVData(): Promise<PV_Data | null> {
   try {
-    const data = await fetchJson<any>('/latest')
+    const data = await fetchJson<any>('/pv/latest')
     const { date, time } = parseInfluxTime(data._time)
 
     return {

@@ -71,6 +71,7 @@ class ServiceManager:
         self.app.add_url_rule('/connection', 'connection', self.check_connection, methods=['GET'])
 
         # PV endpoints
+        self.app.add_url_rule('/api/pv/latest', 'latest', self.get_latest, methods=['GET'])
         self.app.add_url_rule('/api/pv/daily', 'pv_daily', self.get_daily, methods=['GET'])
         self.app.add_url_rule('/api/pv/monthly', 'pv_monthly', self.get_monthly, methods=['GET'])
         self.app.add_url_rule('/api/pv/yearly', 'pv_yearly', self.get_yearly, methods=['GET'])
@@ -107,6 +108,10 @@ class ServiceManager:
                 message=f"InfluxDB connection failed: {e}"
             )
             return jsonify({"status": "error", "message": str(e)}), 500
+
+    def get_latest(self):
+        data = self.db_bridge.get_latest_pv_data()
+        return (jsonify(data), 200) if data else (jsonify({"message": "No PV data found"}), 404)
 
     # GET /api/pv/daily?date=YYYY-MM-DD
     def get_daily(self):
