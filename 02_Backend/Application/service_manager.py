@@ -66,6 +66,9 @@ class ServiceManager:
     def start_server(self):
         self.app.run(host=self.host_ip, port=self.server_port)
 
+    def get_app(self):
+        return self.app
+
     def configure_routes(self):
         # Health / connection check
         self.app.add_url_rule('/connection', 'connection', self.check_connection, methods=['GET'])
