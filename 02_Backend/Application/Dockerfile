@@ -15,6 +15,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 EXPOSE 5050
+CMD ["python", "main.py"]
 
-# IMPORTANT that only one worker is used (GPIO-Safety)
-CMD ["hypercorn", "app:app", "--bind", "0.0.0.0:5050", "--workers", "1"]
+
