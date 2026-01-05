@@ -1,7 +1,7 @@
 import platform
 from dotenv import load_dotenv, find_dotenv
 
-# Import gpiozero for relay control (only works on Pi)
+# ! Install / Import gpiozero for relay control (only works on Pi)
 try:
     if platform.system() == "Linux":
         from gpiozero import LED
