@@ -17,6 +17,7 @@ COPY . .
 EXPOSE 5050
 
 # For production with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5050", "--workers", "1", "app:app"]
+CMD ["gunicorn", "-w", "1", "--threads", "4", "--worker-class", "gthread", "--bind", "0.0.0.0:5050", "app:app"]
+
 
 
