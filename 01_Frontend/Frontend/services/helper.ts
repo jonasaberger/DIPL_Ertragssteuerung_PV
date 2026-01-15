@@ -1,4 +1,4 @@
-const API_BASE = 'http://192.168.0.27:5050/api'
+const API_BASE = 'http://100.120.107.71:5050/api'
 
 // Fetch - Helper
 export async function fetchJson<T>(path: string): Promise<T> {
