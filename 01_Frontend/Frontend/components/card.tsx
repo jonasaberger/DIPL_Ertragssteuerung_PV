@@ -28,8 +28,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 10,
     padding: 18,
-    marginTop: 40,
+    marginTop: 20,
     marginVertical: 8,
+    overflow: 'visible',
     //Android und iOS Schatten
     ...Platform.select({
       ios: {
