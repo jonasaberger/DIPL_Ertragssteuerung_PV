@@ -1,11 +1,13 @@
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
   Text,
   StyleSheet,
-  Pressable,
   ScrollView,
   useWindowDimensions,
+  ActivityIndicator,
+  PanResponder,
+  Pressable,
 } from 'react-native'
 import type { DateSelection } from '@/components/diagram/d-dates'
 
@@ -17,1152 +19,121 @@ type PvPoint = {
   pv_power: number
   load_power: number
   grid_power: number
-  battery_power: number
-
-  e_total?: number
-  rel_autonomy?: number
-  rel_selfconsumption?: number
   soc?: number
 }
 
 type Props = {
   selection: DateSelection
-  data?: PvPoint[]
-  showBattery?: boolean
+  showSoc?: boolean
 }
-
-const TEST_DATA: PvPoint[] = [
-  {
-    "_time": "2026-01-03T00:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 525.1,
-    "load_power": -525.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.3
-  },
-  {
-    "_time": "2026-01-03T00:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 248.8,
-    "load_power": -248.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.3
-  },
-  {
-    "_time": "2026-01-03T00:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 2708,
-    "load_power": -2708,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.2
-  },
-  {
-    "_time": "2026-01-03T01:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 380.4,
-    "load_power": -380.4,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.2
-  },
-  {
-    "_time": "2026-01-03T01:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 238.7,
-    "load_power": -238.7,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.2
-  },
-  {
-    "_time": "2026-01-03T01:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 231.1,
-    "load_power": -231.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.1
-  },
-  {
-    "_time": "2026-01-03T01:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 2644,
-    "load_power": -2644,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.1
-  },
-  {
-    "_time": "2026-01-03T02:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 213.5,
-    "load_power": -213.5,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.1
-  },
-  {
-    "_time": "2026-01-03T02:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 230.1,
-    "load_power": -230.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5
-  },
-  {
-    "_time": "2026-01-03T02:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 1026.2,
-    "load_power": -1026.2,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5
-  },
-  {
-    "_time": "2026-01-03T02:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 210.6,
-    "load_power": -210.6,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5
-  },
-  {
-    "_time": "2026-01-03T03:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 162.8,
-    "load_power": -162.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5
-  },
-  {
-    "_time": "2026-01-03T03:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 994.4,
-    "load_power": -994.4,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.9
-  },
-  {
-    "_time": "2026-01-03T03:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 148.7,
-    "load_power": -148.7,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.9
-  },
-  {
-    "_time": "2026-01-03T03:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 159.8,
-    "load_power": -159.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.9
-  },
-  {
-    "_time": "2026-01-03T04:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 979.2,
-    "load_power": -979.2,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.8
-  },
-  {
-    "_time": "2026-01-03T04:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 141.3,
-    "load_power": -141.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.8
-  },
-  {
-    "_time": "2026-01-03T04:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 156.3,
-    "load_power": -156.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.8
-  },
-  {
-    "_time": "2026-01-03T04:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 985.1,
-    "load_power": -985.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.7
-  },
-  {
-    "_time": "2026-01-03T05:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 138.7,
-    "load_power": -138.7,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.7
-  },
-  {
-    "_time": "2026-01-03T05:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 155.1,
-    "load_power": -155.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.7
-  },
-  {
-    "_time": "2026-01-03T05:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 987.3,
-    "load_power": -987.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.6
-  },
-  {
-    "_time": "2026-01-03T05:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 138.3,
-    "load_power": -138.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.6
-  },
-  {
-    "_time": "2026-01-03T06:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 158.8,
-    "load_power": -158.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.6
-  },
-  {
-    "_time": "2026-01-03T06:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 978.1,
-    "load_power": -978.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.5
-  },
-  {
-    "_time": "2026-01-03T06:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 163.6,
-    "load_power": -163.6,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.5
-  },
-  {
-    "_time": "2026-01-03T06:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 137.5,
-    "load_power": -137.5,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.5
-  },
-  {
-    "_time": "2026-01-03T07:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 2610.9,
-    "load_power": -2610.9,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.5
-  },
-  {
-    "_time": "2026-01-03T07:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 138.4,
-    "load_power": -138.4,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.4
-  },
-  {
-    "_time": "2026-01-03T07:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 137.6,
-    "load_power": -137.6,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.4
-  },
-  {
-    "_time": "2026-01-03T07:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 341.3,
-    "load_power": -341.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.4
-  },
-  {
-    "_time": "2026-01-03T08:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 179.5,
-    "load_power": -179.5,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.3
-  },
-  {
-    "_time": "2026-01-03T08:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 153.2,
-    "load_power": -153.2,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.3
-  },
-  {
-    "_time": "2026-01-03T08:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 3432.3,
-    "load_power": -3432.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.3
-  },
-  {
-    "_time": "2026-01-03T08:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 151,
-    "load_power": -151,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.2
-  },
-  {
-    "_time": "2026-01-03T09:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 148.9,
-    "load_power": -148.9,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.2
-  },
-  {
-    "_time": "2026-01-03T09:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 990.8,
-    "load_power": -990.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.2
-  },
-  {
-    "_time": "2026-01-03T09:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 174.8,
-    "load_power": -174.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.1
-  },
-  {
-    "_time": "2026-01-03T09:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 330.8,
-    "load_power": -330.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.1
-  },
-  {
-    "_time": "2026-01-03T10:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243985.675277777,
-    "grid_power": 3196.6,
-    "load_power": -3196.6,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.1
-  },
-  {
-    "_time": "2026-01-03T10:15:00+01:00",
-    "battery_power": -503.51611328125,
-    "e_total": 21243985.675277777,
-    "grid_power": 2148.6,
-    "load_power": -1631.0720458984374,
-    "pv_power": 24.47303581237793,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 100,
-    "soc": 4.1
-  },
-  {
-    "_time": "2026-01-03T10:30:00+01:00",
-    "battery_power": -500.03857421875,
-    "e_total": 21243985.680277776,
-    "grid_power": 1247.4,
-    "load_power": -738.2261718750001,
-    "pv_power": 37.90556716918945,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 100,
-    "soc": 6
-  },
-  {
-    "_time": "2026-01-03T10:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243986.84888889,
-    "grid_power": 603.9,
-    "load_power": -603.9,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 6
-  },
-  {
-    "_time": "2026-01-03T11:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243986.85888889,
-    "grid_power": 169.5,
-    "load_power": -169.5,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 6
-  },
-  {
-    "_time": "2026-01-03T11:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243986.85888889,
-    "grid_power": 143.2,
-    "load_power": -143.2,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 6
-  },
-  {
-    "_time": "2026-01-03T11:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21243986.85888889,
-    "grid_power": 752.6,
-    "load_power": -752.6,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.9
-  },
-  {
-    "_time": "2026-01-03T11:45:00+01:00",
-    "battery_power": -0.11636099219322205,
-    "e_total": 21244020.95027778,
-    "grid_power": 667.2,
-    "load_power": -956.4058410644532,
-    "pv_power": 318.52357482910156,
-    "rel_autonomy": 30.238820032986734,
-    "rel_selfconsumption": 100,
-    "soc": 5.9
-  },
-  {
-    "_time": "2026-01-03T12:00:00+01:00",
-    "battery_power": -0.9083418250083923,
-    "e_total": 21244091.218055554,
-    "grid_power": 296.4,
-    "load_power": -604.3689331054687,
-    "pv_power": 332.0331115722656,
-    "rel_autonomy": 50.95710852028936,
-    "rel_selfconsumption": 100,
-    "soc": 5.9
-  },
-  {
-    "_time": "2026-01-03T12:15:00+01:00",
-    "battery_power": -0.1504099816083908,
-    "e_total": 21244167.00972222,
-    "grid_power": 382.4,
-    "load_power": -695.5791076660156,
-    "pv_power": 343.1440887451172,
-    "rel_autonomy": 45.02422574434043,
-    "rel_selfconsumption": 100,
-    "soc": 5.8
-  },
-  {
-    "_time": "2026-01-03T12:30:00+01:00",
-    "battery_power": -1.4159170389175415,
-    "e_total": 21244245.159722224,
-    "grid_power": 1428.7,
-    "load_power": -1744.498797607422,
-    "pv_power": 344.3203125,
-    "rel_autonomy": 18.10255174956495,
-    "rel_selfconsumption": 100,
-    "soc": 5.8
-  },
-  {
-    "_time": "2026-01-03T12:45:00+01:00",
-    "battery_power": -0.6220966577529907,
-    "e_total": 21244325.070555557,
-    "grid_power": 689.7,
-    "load_power": -1020.0900146484375,
-    "pv_power": 356.6096649169922,
-    "rel_autonomy": 32.38831964866382,
-    "rel_selfconsumption": 100,
-    "soc": 5.8
-  },
-  {
-    "_time": "2026-01-03T13:00:00+01:00",
-    "battery_power": -0.060760948807001114,
-    "e_total": 21244406.775,
-    "grid_power": 707.1,
-    "load_power": -1038.7930236816405,
-    "pv_power": 357.05747985839844,
-    "rel_autonomy": 31.93061717974097,
-    "rel_selfconsumption": 100,
-    "soc": 5.7
-  },
-  {
-    "_time": "2026-01-03T13:15:00+01:00",
-    "battery_power": -1.0764027833938599,
-    "e_total": 21244488.28888889,
-    "grid_power": 3281.3,
-    "load_power": -3621.0146911621096,
-    "pv_power": 367.0415267944336,
-    "rel_autonomy": 9.381754014731245,
-    "rel_selfconsumption": 100,
-    "soc": 5.7
-  },
-  {
-    "_time": "2026-01-03T13:30:00+01:00",
-    "battery_power": -1.154301643371582,
-    "e_total": 21244571.87361111,
-    "grid_power": 632.9,
-    "load_power": -974.2569030761719,
-    "pv_power": 368.1311340332031,
-    "rel_autonomy": 35.03766840125566,
-    "rel_selfconsumption": 100,
-    "soc": 5.7
-  },
-  {
-    "_time": "2026-01-03T13:45:00+01:00",
-    "battery_power": -0.7406191229820251,
-    "e_total": 21244656.93,
-    "grid_power": 741.7,
-    "load_power": -1097.46220703125,
-    "pv_power": 377.348876953125,
-    "rel_autonomy": 32.4168071348556,
-    "rel_selfconsumption": 100,
-    "soc": 5.6
-  },
-  {
-    "_time": "2026-01-03T14:00:00+01:00",
-    "battery_power": 0.47905969619750977,
-    "e_total": 21244743.624166667,
-    "grid_power": 1681.1,
-    "load_power": -2059.3977294921874,
-    "pv_power": 399.08870697021484,
-    "rel_autonomy": 18.369337990164208,
-    "rel_selfconsumption": 100,
-    "soc": 5.6
-  },
-  {
-    "_time": "2026-01-03T14:15:00+01:00",
-    "battery_power": -2.1202738285064697,
-    "e_total": 21244842.809166666,
-    "grid_power": 3168.4,
-    "load_power": -3699.89462890625,
-    "pv_power": 555.0286254882812,
-    "rel_autonomy": 14.365128799988788,
-    "rel_selfconsumption": 100,
-    "soc": 5.6
-  },
-  {
-    "_time": "2026-01-03T14:30:00+01:00",
-    "battery_power": -2.2001636028289795,
-    "e_total": 21244976.914444443,
-    "grid_power": 559.8,
-    "load_power": -1091.276318359375,
-    "pv_power": 586.0524291992188,
-    "rel_autonomy": 48.70226810734761,
-    "rel_selfconsumption": 100,
-    "soc": 5.6
-  },
-  {
-    "_time": "2026-01-03T14:45:00+01:00",
-    "battery_power": -1.2448539733886719,
-    "e_total": 21245115.9525,
-    "grid_power": 1502.9,
-    "load_power": -2030.5593627929688,
-    "pv_power": 560.3932189941406,
-    "rel_autonomy": 25.985911688254724,
-    "rel_selfconsumption": 100,
-    "soc": 5.5
-  },
-  {
-    "_time": "2026-01-03T15:00:00+01:00",
-    "battery_power": -2.3780441284179688,
-    "e_total": 21245246.50583333,
-    "grid_power": 901.7,
-    "load_power": -1388.0771362304688,
-    "pv_power": 518.8811798095703,
-    "rel_autonomy": 35.03963313964659,
-    "rel_selfconsumption": 100,
-    "soc": 5.5
-  },
-  {
-    "_time": "2026-01-03T15:15:00+01:00",
-    "battery_power": 0.48123934864997864,
-    "e_total": 21245337.403611112,
-    "grid_power": 3501.7,
-    "load_power": -3524.048735809326,
-    "pv_power": 45.15704345703125,
-    "rel_autonomy": 0.6341778302391611,
-    "rel_selfconsumption": 100,
-    "soc": 5.5
-  },
-  {
-    "_time": "2026-01-03T15:30:00+01:00",
-    "battery_power": 1.0225929021835327,
-    "e_total": 21245341.387222223,
-    "grid_power": 1896,
-    "load_power": -1914.5147724151611,
-    "pv_power": 40.88371658325195,
-    "rel_autonomy": 0.9670738863928817,
-    "rel_selfconsumption": 100,
-    "soc": 5.4
-  },
-  {
-    "_time": "2026-01-03T15:45:00+01:00",
-    "battery_power": 1.1340588331222534,
-    "e_total": 21245344.074722223,
-    "grid_power": 1274.7,
-    "load_power": -1285.9455577850342,
-    "pv_power": 32.384583473205566,
-    "rel_autonomy": 0.8744971913433095,
-    "rel_selfconsumption": 100,
-    "soc": 5.4
-  },
-  {
-    "_time": "2026-01-03T16:00:00+01:00",
-    "battery_power": 0.13066019117832184,
-    "e_total": 21245345.495833334,
-    "grid_power": 4693.8,
-    "load_power": -4698.506987380982,
-    "pv_power": 28.416129112243652,
-    "rel_autonomy": 0.10018049124164846,
-    "rel_selfconsumption": 100,
-    "soc": 5.4
-  },
-  {
-    "_time": "2026-01-03T16:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 4619.1,
-    "load_power": -4619.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.3
-  },
-  {
-    "_time": "2026-01-03T16:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5125.3,
-    "load_power": -5125.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.3
-  },
-  {
-    "_time": "2026-01-03T16:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5160,
-    "load_power": -5160,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.3
-  },
-  {
-    "_time": "2026-01-03T17:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5167.3,
-    "load_power": -5167.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.2
-  },
-  {
-    "_time": "2026-01-03T17:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5151.9,
-    "load_power": -5151.9,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.2
-  },
-  {
-    "_time": "2026-01-03T17:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5119.8,
-    "load_power": -5119.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.2
-  },
-  {
-    "_time": "2026-01-03T17:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5988.8,
-    "load_power": -5988.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.1
-  },
-  {
-    "_time": "2026-01-03T18:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 4866.6,
-    "load_power": -4866.6,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.1
-  },
-  {
-    "_time": "2026-01-03T18:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5170.5,
-    "load_power": -5170.5,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.1
-  },
-  {
-    "_time": "2026-01-03T18:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5109.7,
-    "load_power": -5109.7,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5.1
-  },
-  {
-    "_time": "2026-01-03T18:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 4886.2,
-    "load_power": -4886.2,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5
-  },
-  {
-    "_time": "2026-01-03T19:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 4755.7,
-    "load_power": -4755.7,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5
-  },
-  {
-    "_time": "2026-01-03T19:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 9187,
-    "load_power": -9187,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 5
-  },
-  {
-    "_time": "2026-01-03T19:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 4830.2,
-    "load_power": -4830.2,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.9
-  },
-  {
-    "_time": "2026-01-03T19:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5278.8,
-    "load_power": -5278.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.9
-  },
-  {
-    "_time": "2026-01-03T20:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5261.5,
-    "load_power": -5261.5,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.9
-  },
-  {
-    "_time": "2026-01-03T20:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5453.8,
-    "load_power": -5453.8,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.8
-  },
-  {
-    "_time": "2026-01-03T20:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 5174.1,
-    "load_power": -5174.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.8
-  },
-  {
-    "_time": "2026-01-03T20:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 1374.1,
-    "load_power": -1374.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.8
-  },
-  {
-    "_time": "2026-01-03T21:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 1724.5,
-    "load_power": -1724.5,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.7
-  },
-  {
-    "_time": "2026-01-03T21:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 886.7,
-    "load_power": -886.7,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.7
-  },
-  {
-    "_time": "2026-01-03T21:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 885.7,
-    "load_power": -885.7,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.7
-  },
-  {
-    "_time": "2026-01-03T21:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 1727.1,
-    "load_power": -1727.1,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.6
-  },
-  {
-    "_time": "2026-01-03T22:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 855.3,
-    "load_power": -855.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.6
-  },
-  {
-    "_time": "2026-01-03T22:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 1128.7,
-    "load_power": -1128.7,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.6
-  },
-  {
-    "_time": "2026-01-03T22:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 1482.2,
-    "load_power": -1482.2,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.5
-  },
-  {
-    "_time": "2026-01-03T22:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 959.5,
-    "load_power": -959.5,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.5
-  },
-  {
-    "_time": "2026-01-03T23:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 945.6,
-    "load_power": -945.6,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.5
-  },
-  {
-    "_time": "2026-01-03T23:15:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 3455,
-    "load_power": -3455,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.5
-  },
-  {
-    "_time": "2026-01-03T23:30:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 953.3,
-    "load_power": -953.3,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.4
-  },
-  {
-    "_time": "2026-01-03T23:45:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 1127.2,
-    "load_power": -1127.2,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.4
-  },
-  {
-    "_time": "2026-01-04T00:00:00+01:00",
-    "battery_power": 0,
-    "e_total": 21245345.6575,
-    "grid_power": 725.5,
-    "load_power": -725.5,
-    "pv_power": 0,
-    "rel_autonomy": 0,
-    "rel_selfconsumption": 0,
-    "soc": 4.4
-  }
-
-
-]
 
 const COLORS = {
   pv: '#1EAFF3',
   load: '#474646',
   feedIn: '#2FBF71',
-  battery: '#F39C12',
+  soc: '#F39C12',
 }
 
 type Mode = 'day' | 'month' | 'year'
 
+const API_BASE_URL = 'http://100.120.107.71:5050'
+
+//kriegt eine Zahl, z.B: 5, und macht daraus '05'
 function pad2(n: number) {
   return String(n).padStart(2, '0')
 }
 
+//Entscheidet, in welchem Modus wir sind (Tag/Monat/Jahr) basierend auf der DateSelection
 function modeFromSelection(s: DateSelection): Mode {
   if (s.month === null) return 'year'
   if (s.day === null) return 'month'
   return 'day'
 }
 
-function apiParamsFromSelection(s: DateSelection): { endpoint: string; query: Record<string, string> } {
+function apiParamsFromSelection(s: DateSelection): { path: string; query: Record<string, string> } {
   const mode = modeFromSelection(s)
   const y = s.year
 
   if (mode === 'day') {
+    //Monat ist 0-basiert, daher +1, weil API 1-basiert ist
     const m = (s.month ?? 0) + 1
+    //Tag ist 1-basiert, daher kein +1
     const d = s.day ?? 1
     const date = `${y}-${pad2(m)}-${pad2(d)}`
-    return { endpoint: '/api/pv/daily', query: { date } }
+    return { path: '/api/pv/daily', query: { date } }
   }
 
   if (mode === 'month') {
     const m = (s.month ?? 0) + 1
     const month = `${y}-${pad2(m)}`
-    return { endpoint: '/api/pv/monthly', query: { month } }
+    return { path: '/api/pv/monthly', query: { month } }
   }
 
-  return { endpoint: '/api/pv/yearly', query: { year: String(y) } }
+  return { path: '/api/pv/yearly', query: { year: String(y) } }
 }
 
-function toBatteryWattsMaybe(v: number) {
-  if (typeof v !== 'number' || Number.isNaN(v)) return 0
-  const abs = Math.abs(v)
-  if (abs > 0 && abs < 50) return v * 1000
-  return v
+function buildUrl(base: string, path: string, query: Record<string, string>) {
+  const u = new URL(path, base)
+  for (const [k, v] of Object.entries(query)) u.searchParams.set(k, v)
+  return u.toString()
 }
 
+//begrent eine zahl, damit sie zwischen min und max bleibt
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n))
+}
+
+//Macht aus einer rohen Fehlermeldung einen lesbaren Text
+function parseErrorMessage(raw: string) {
+  const s = (raw || '').trim()
+  if (!s) return null
+  try {
+    const j = JSON.parse(s)
+    if (typeof j?.detail === 'string') return j.detail
+    if (typeof j?.message === 'string') return j.message
+  } catch {}
+  if (s.length > 140) return s.slice(0, 140) + '…'
+  return s
+}
+
+//Macht aus Zahl eine Watt angabe
 function fmtW(v: number) {
   const n = Number.isFinite(v) ? v : 0
   return `${Math.round(n)} W`
 }
 
+//Macht aus Zahl eine Prozent angabe
+function fmtPct(v: number) {
+  const n = Number.isFinite(v) ? v : 0
+  return `${Math.round(clamp(n, 0, 100))} %`
+}
+
+function fmtKWh(v: number) {
+  const n = Number.isFinite(v) ? v : 0
+  return `${n.toFixed(2)} kWh`
+}
+
+//Erstellt die Beschriftung für die X-Achse basierend auf dem Modus
 function axisLabelForIso(iso: string, mode: Mode) {
   const d = new Date(iso)
-
   if (mode === 'day') return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-  if (mode === 'month') return `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}`
+  if (mode === 'month') return `${pad2(d.getDate())}`
   return new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
 }
 
+//Für die genauere Anzeige der Text
 function tooltipLabelForIso(iso: string, mode: Mode) {
   const d = new Date(iso)
-
-  if (mode === 'day') return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-
-  const date = `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${String(d.getFullYear()).slice(-2)}`
+  const date = `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`
   const time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-
+  if (mode === 'day') return `${date} ${time}`
   if (mode === 'month') return `${date} ${time}`
-
   const mon = new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
-  return `${mon} ${pad2(d.getDate())} ${time}`
+  return `${mon} ${date} ${time}`
+}
+
+function getDaysInMonth(year: number, month0Based: number) {
+  return new Date(year, month0Based + 1, 0).getDate()
 }
 
 type ChartRow = {
@@ -1172,7 +143,8 @@ type ChartRow = {
   pv: number
   load: number
   feedIn: number
-  battery: number
+  socScaled: number
+  socPct: number
   t: number
 }
 
@@ -1182,45 +154,195 @@ type Selected = {
   pv: number
   load: number
   feedIn: number
-  battery: number
+  socPct: number
 }
 
-function monthTickStep(daysInMonth: number) {
-  const targetTicks = 10
-  const raw = Math.ceil(daysInMonth / targetTicks)
-  if (raw <= 2) return 2
-  if (raw === 3) return 3
-  if (raw === 4) return 4
-  return Math.min(7, raw)
+//Da so viele Daten für das Jahr sind, wird alle 15 Tage ein Tick gemacht
+function yearTickIndices(rows: ChartRow[]) {
+  const ticks: number[] = []
+  let lastMonth = -1
+
+  //Iteriere durch alle Datenpunkte
+  for (let i = 0; i < rows.length; i++) {
+    const d = new Date(rows[i].t)
+    const m = d.getMonth()
+    const day = d.getDate()
+    const h = d.getHours()
+    const min = d.getMinutes()
+
+    //Überprüfe, ob es der 1. oder 15. Tag des Monats um Mitternacht ist
+    const isStart = day === 1 && h === 0 && min === 0
+    const isMid = day === 15 && h === 0 && min === 0
+
+    if (m !== lastMonth && isStart) {
+      ticks.push(i)
+      lastMonth = m
+      continue
+    }
+
+    if (m === lastMonth && isMid) {
+      ticks.push(i)
+    }
+  }
+
+  return ticks
 }
 
-function getDaysInMonth(year: number, month0Based: number) {
-  return new Date(year, month0Based + 1, 0).getDate()
+function downsampleMonth(points: PvPoint[]) {
+  const out: PvPoint[] = []
+  for (const p of points) {
+    const d = new Date(p._time)
+    if (d.getMinutes() === 0) out.push(p)
+  }
+  return out.length > 0 ? out : points.filter((_, i) => i % 4 === 0)
 }
 
-export const DDiagram: React.FC<Props> = ({
-  selection,
-  data = TEST_DATA,
-  showBattery = true,
-}) => {
+function aggregateYearByDay(points: PvPoint[]) {
+  const map = new Map<string, PvPoint[]>()
+
+  for (const p of points) {
+    const d = new Date(p._time)
+    const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+    const arr = map.get(key)
+    if (arr) arr.push(p)
+    else map.set(key, [p])
+  }
+
+  const keys = Array.from(map.keys()).sort()
+  const out: PvPoint[] = []
+
+  for (const k of keys) {
+    const arr = map.get(k) ?? []
+    if (arr.length === 0) continue
+
+    let pvMax = 0
+    let loadMax = 0
+    let feedMax = 0
+    let socLast = 0
+    let lastT = -Infinity
+
+    for (const p of arr) {
+      const pv = Math.max(0, Number(p.pv_power ?? 0))
+      const load = Math.max(0, Math.abs(Number(p.load_power ?? 0)))
+      const gp = Number(p.grid_power ?? 0)
+      const feed = gp < 0 ? Math.abs(gp) : 0
+
+      if (pv > pvMax) pvMax = pv
+      if (load > loadMax) loadMax = load
+      if (feed > feedMax) feedMax = feed
+
+      const t = new Date(p._time).getTime()
+      if (t >= lastT) {
+        lastT = t
+        socLast = clamp(Number(p.soc ?? 0), 0, 100)
+      }
+    }
+
+    const noon = new Date(`${k}T12:00:00`)
+    out.push({
+      _time: noon.toISOString(),
+      pv_power: pvMax,
+      load_power: -loadMax,
+      grid_power: -feedMax,
+      soc: socLast,
+    })
+  }
+
+  return out
+}
+
+function integrateEnergy(points: PvPoint[]) {
+  if (!points || points.length === 0) {
+    return { pvKWh: 0, loadKWh: 0, feedInKWh: 0, socEnd: 0 }
+  }
+
+  const sorted = [...points].sort((a, b) => new Date(a._time).getTime() - new Date(b._time).getTime())
+  const times = sorted.map(p => new Date(p._time).getTime())
+
+  const diffs: number[] = []
+  for (let i = 1; i < times.length; i++) {
+    const dt = times[i] - times[i - 1]
+    if (dt > 0 && dt < 12 * 60 * 60 * 1000) diffs.push(dt)
+  }
+  const defaultDt = diffs.length ? diffs.sort((a, b) => a - b)[Math.floor(diffs.length / 2)] : 15 * 60 * 1000
+
+  let pvWh = 0
+  let loadWh = 0
+  let feedWh = 0
+
+  for (let i = 0; i < sorted.length; i++) {
+    const cur = sorted[i]
+    const nextT = i < sorted.length - 1 ? times[i + 1] : times[i] + defaultDt
+    const dtH = clamp((nextT - times[i]) / (1000 * 60 * 60), 0, 12)
+
+    const pv = Math.max(0, Number(cur.pv_power ?? 0))
+    const load = Math.max(0, Math.abs(Number(cur.load_power ?? 0)))
+    const gp = Number(cur.grid_power ?? 0)
+    const feed = gp < 0 ? Math.abs(gp) : 0
+
+    pvWh += pv * dtH
+    loadWh += load * dtH
+    feedWh += feed * dtH
+  }
+
+  const last = sorted[sorted.length - 1]
+  const socEnd = clamp(Number(last.soc ?? 0), 0, 100)
+
+  return {
+    pvKWh: pvWh / 1000,
+    loadKWh: loadWh / 1000,
+    feedInKWh: feedWh / 1000,
+    socEnd,
+  }
+}
+
+export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
   const { width: screenWidth } = useWindowDimensions()
+  //skia braucht fonts, denn Skia rendert alles selbst
   const font = useFont(require('../../assets/fonts/Inter.ttf'), 11)
 
-  const [selected, setSelected] = useState<Selected | null>(null)
+  const [selected, setSelected] = useState<Selected | null>(null)   //Aktuell ausgewählter Punkt
+  const [rawApiData, setRawApiData] = useState<PvPoint[] | null>(null)    //Daten vom API
+  const [isLoading, setIsLoading] = useState(false)                 //State, ob gerade eine API Request läuft
+  const [errorText, setErrorText] = useState<string | null>(null)   //Fehlermeldung, falls API Request fehlschlägt
 
+  const [detailMode, setDetailMode] = useState<'current' | 'sum'>('current')
+
+  const scrollRef = useRef<ScrollView>(null)
+  const scrollXRef = useRef(0)
+  const pointsXRef = useRef<number[]>([])
+  const lastIdxRef = useRef(-1)
+
+  const viewportWRef = useRef(0)
+  const contentWRef = useRef(0)
+  const maxScrollRef = useRef(0)
+
+  //useMemo, damit die Werte nur neu berechnet werden, wenn sich die Selection ändert (und nicht bei Neu Rendering)
   const mode = useMemo(() => modeFromSelection(selection), [selection])
   const api = useMemo(() => apiParamsFromSelection(selection), [selection])
+  const url = useMemo(() => buildUrl(API_BASE_URL, api.path, api.query), [api.path, api.query])
 
-  const prepared = useMemo(() => {
-    const rows: ChartRow[] = (data ?? []).map((p, i) => {
-      const pv = Math.max(0, p.pv_power ?? 0)
-      const load = Math.max(0, Math.abs(p.load_power ?? 0))
+  useEffect(() => {
+    setDetailMode('current')
+  }, [mode, url])
 
-      const gp = p.grid_power ?? 0
+  const chartData = useMemo(() => {
+    const arr = rawApiData ?? []
+    if (mode === 'day') return arr
+    if (mode === 'month') return downsampleMonth(arr)
+    return aggregateYearByDay(arr)
+  }, [rawApiData, mode])
+
+  const baseRows = useMemo(() => {
+    //Verarbeitet die rohen API-Daten in ein Format, das für das Diagramm geeignet ist
+    return (chartData ?? []).map((p, i) => {
+      const pv = Math.max(0, Number(p.pv_power ?? 0))
+      const load = Math.max(0, Math.abs(Number(p.load_power ?? 0)))
+
+      const gp = Number(p.grid_power ?? 0)
       const feedIn = gp < 0 ? Math.abs(gp) : 0
 
-      const battery = Math.max(0, Math.abs(toBatteryWattsMaybe(p.battery_power ?? 0)))
-
+      const socPct = clamp(Number(p.soc ?? 0), 0, 100)
       const t = new Date(p._time).getTime()
 
       return {
@@ -1230,22 +352,32 @@ export const DDiagram: React.FC<Props> = ({
         pv,
         load,
         feedIn,
-        battery,
+        socPct,
         t,
       }
     })
+  }, [chartData, mode])
 
+  const yMax = useMemo(() => {
+    //Bestimmt den maximalen Y-Wert für die Skalierung des Diagramms
     const maxY = Math.max(
       100,
-      ...rows.map(r => r.pv),
-      ...rows.map(r => r.load),
-      ...rows.map(r => r.feedIn),
-      ...(showBattery ? rows.map(r => r.battery) : []),
+      ...baseRows.map(r => r.pv),
+      ...baseRows.map(r => r.load),
+      ...baseRows.map(r => r.feedIn),
     )
-    const yMax = Math.ceil(maxY / 500) * 500
+    //y-Achse endet z.B bei Wert von 4267, auf 4500
+    return Math.ceil(maxY / 500) * 500
+  }, [baseRows])
 
+  //Bereitet die Daten für das Diagramm vor, inklusive Skalierung des SoC-Werts
+  const prepared = useMemo(() => {
+    const rows: ChartRow[] = baseRows.map(r => ({
+      ...r,
+      socScaled: (r.socPct / 100) * yMax,
+    }))
     return { rows, yMax }
-  }, [data, showBattery, mode])
+  }, [baseRows, yMax])
 
   const title = useMemo(() => {
     if (mode === 'day') return 'Energieverlauf (Tag)'
@@ -1253,49 +385,154 @@ export const DDiagram: React.FC<Props> = ({
     return 'Energieverlauf (Jahr)'
   }, [mode])
 
-  const pxPerPoint = mode === 'day' ? 10 : mode === 'month' ? 2.2 : 1.2
-  const chartWidth = Math.max(screenWidth, prepared.rows.length * pxPerPoint)
+  //Pixelanzahl für jeden Datenpunkt, abhängig von Modus und Datenanzahl
+  const pxPerPoint = useMemo(() => {
+    const n = prepared.rows.length
+    if (mode === 'day') return 9
+    if (mode === 'month') return 3.2
+    if (n <= 600) return 3.0
+    if (n <= 1500) return 2.8
+    if (n <= 3000) return 2.6
+    return 2.4
+  }, [mode, prepared.rows.length])
 
   const padding = { top: 20, bottom: 40, left: 55, right: 20 }
-  const plotWidth = Math.max(1, chartWidth - padding.left - padding.right)
-  const plotHeight = 260 - padding.top - padding.bottom
+  const chartHeight = 260
+
+  const chartWidth = useMemo(() => {
+    const n = prepared.rows.length
+    if (n === 0) return screenWidth
+    return Math.max(screenWidth, n * pxPerPoint + padding.left + padding.right)
+  }, [prepared.rows.length, pxPerPoint, screenWidth])
 
   const yKeys = useMemo(() => {
-    return showBattery
-      ? (['pv', 'load', 'feedIn', 'battery'] as const)
-      : (['pv', 'load', 'feedIn'] as const)
-  }, [showBattery])
+    return showSoc ? (['pv', 'load', 'feedIn', 'socScaled'] as const) : (['pv', 'load', 'feedIn'] as const)
+  }, [showSoc])
 
+  //Kreuzlinie X-Position
+  const crossW = 2
+  const crossX = useMemo(() => {
+    const idx = selected?.index ?? -1
+    const xs = pointsXRef.current
+    if (idx < 0 || idx >= xs.length) return null
+    const x = xs[idx]
+    return Number.isFinite(x) ? x : null
+  }, [selected?.index, prepared.rows.length])
+
+  //Wählt einen Datenpunkt basierend auf dem Index aus
   const selectIndex = useCallback(
-    (idx: number) => {
+    (idxRaw: number) => {
+      const n = prepared.rows.length
+      if (n <= 0) return
+      const idx = clamp(idxRaw, 0, n - 1)
       const row = prepared.rows[idx]
       if (!row) return
+      lastIdxRef.current = idx
       setSelected({
         index: idx,
         label: row.tipLabel,
         pv: row.pv,
         load: row.load,
         feedIn: row.feedIn,
-        battery: row.battery,
+        socPct: row.socPct,
       })
     },
     [prepared.rows],
   )
 
+  //Findet den Index des Datenpunkts, der der gegebenen X-Position am nächsten ist
+  const nearestIndexFromChartX = useCallback((xInContent: number) => {
+    const xs = pointsXRef.current
+    const n = xs.length
+    if (n === 0) return -1
+
+    let lo = 0
+    let hi = n - 1
+    while (hi - lo > 3) {
+      const mid = (lo + hi) >> 1
+      if (xs[mid] < xInContent) lo = mid
+      else hi = mid
+    }
+
+    let best = lo
+    let bestDist = Math.abs(xs[lo] - xInContent)
+    for (let i = lo + 1; i <= hi; i++) {
+      const d = Math.abs(xs[i] - xInContent)
+      if (d < bestDist) {
+        bestDist = d
+        best = i
+      }
+    }
+    return best
+  }, [])
+
+  //Scrollt zu einer bestimmten X-Position im Diagramm wenn nötig
+  const scrollToX = useCallback((x: number) => {
+    const max = maxScrollRef.current
+    const next = clamp(x, 0, max)
+    if (next === scrollXRef.current) return
+    scrollXRef.current = next
+    scrollRef.current?.scrollTo({ x: next, animated: false })
+  }, [])
+
+  const autoScrollIfNearEdges = useCallback(
+    (xVisible: number) => {
+      const max = maxScrollRef.current
+      if (max <= 0) return
+
+      const edge = mode === 'day' ? 280 : 320
+      const mult = mode === 'day' ? 3.9 : 1.4
+      const cap = mode === 'day' ? 260 : 140
+
+      if (xVisible < edge) {
+        const delta = Math.min(cap, (edge - xVisible) * mult)
+        scrollToX(scrollXRef.current - delta)
+        return
+      }
+
+      if (xVisible > screenWidth - edge) {
+        const delta = Math.min(cap, (xVisible - (screenWidth - edge)) * mult)
+        scrollToX(scrollXRef.current + delta)
+      }
+    },
+    [mode, screenWidth, scrollToX],
+  )
+
+  //PanResponder für Touch-Dinge im Diagramm
+  //Ermöglicht das Auswählen von Datenpunkten durch Berühren und Ziehen
+  const panResponder = useMemo(() => {
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => {
+        const xVisible = e.nativeEvent.locationX
+        const xContent = scrollXRef.current + xVisible
+        const idx = nearestIndexFromChartX(xContent)
+        if (idx >= 0) selectIndex(idx)
+      },
+      onPanResponderMove: (e) => {
+        const xVisible = e.nativeEvent.locationX
+        autoScrollIfNearEdges(xVisible)
+        const xContent = scrollXRef.current + xVisible
+        const idx = nearestIndexFromChartX(xContent)
+        if (idx >= 0) selectIndex(idx)
+      },
+      onPanResponderRelease: () => {},
+      onPanResponderTerminate: () => {},
+    })
+  }, [nearestIndexFromChartX, selectIndex, autoScrollIfNearEdges])
+
+  //x-Achsen Ticks basierend auf dem Modus und der Datenanzahl
   const xTickValues = useMemo(() => {
     const n = prepared.rows.length
     if (n === 0) return []
 
     if (mode === 'day') {
-      const approxLabels = 12
-      const stepRaw = Math.max(1, Math.round(n / approxLabels))
-      const niceSteps = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96]
-      const step = niceSteps.reduce(
-        (best, s) => (Math.abs(s - stepRaw) < Math.abs(best - stepRaw) ? s : best),
-        niceSteps[0],
-      )
+      const desiredPx = 45
+      const step = Math.max(1, Math.round(desiredPx / pxPerPoint))
       const ticks: number[] = []
       for (let i = 0; i < n; i += step) ticks.push(i)
+      if (ticks[ticks.length - 1] !== n - 1) ticks.push(n - 1)
       return ticks
     }
 
@@ -1303,289 +540,421 @@ export const DDiagram: React.FC<Props> = ({
       const y = selection.year
       const m0 = selection.month ?? 0
       const dim = getDaysInMonth(y, m0)
-      const dayStep = monthTickStep(dim)
 
       const ticks: number[] = []
+      const seen = new Set<number>()
+
       for (let i = 0; i < n; i++) {
-        const row = prepared.rows[i]
-        const d = new Date(row.t)
+        const d = new Date(prepared.rows[i].t)
         const day = d.getDate()
-        const hour = d.getHours()
+        const h = d.getHours()
         const min = d.getMinutes()
-        if ((day - 1) % dayStep === 0 && hour === 0 && min === 0) ticks.push(i)
+        if (h === 0 && min === 0 && !seen.has(day)) {
+          ticks.push(i)
+          seen.add(day)
+          if (seen.size >= dim) break
+        }
       }
 
       if (ticks.length === 0) {
-        const approxLabels = 10
-        const step = Math.max(1, Math.round(n / approxLabels))
+        const step = Math.max(1, Math.round(35 / pxPerPoint))
         for (let i = 0; i < n; i += step) ticks.push(i)
       }
 
       return ticks
     }
 
-    const ticks: number[] = []
-    let lastMonth = -1
-    for (let i = 0; i < n; i++) {
-      const d = new Date(prepared.rows[i].t)
-      const month = d.getMonth()
-      const day = d.getDate()
-      const hour = d.getHours()
-      if (month !== lastMonth && day === 1 && hour === 0) {
-        ticks.push(i)
-        lastMonth = month
-      }
-    }
+    const ticks = yearTickIndices(prepared.rows)
+    if (ticks.length > 0) return ticks
 
-    if (ticks.length === 0) {
-      const approxLabels = 12
-      const step = Math.max(1, Math.round(n / approxLabels))
-      for (let i = 0; i < n; i += step) ticks.push(i)
-    }
-
-    return ticks
-  }, [prepared.rows, mode, selection.year, selection.month])
+    const step = Math.max(1, Math.round(70 / pxPerPoint))
+    const fallback: number[] = []
+    for (let i = 0; i < n; i += step) fallback.push(i)
+    return fallback
+  }, [prepared.rows, mode, selection.year, selection.month, pxPerPoint])
 
   const formatXLabel = useCallback(
     (xIndex: number) => {
       const idx = Math.round(Number(xIndex))
       const r = prepared.rows[idx]
-      return r ? r.axisLabel : ''
+      if (!r) return ''
+
+      if (mode === 'year') {
+        const d = new Date(r.t)
+        const day = d.getDate()
+        const mon = new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
+        if (day === 1) return mon
+        return `${day}.`
+      }
+
+      return r.axisLabel
     },
-    [prepared.rows],
+    [prepared.rows, mode],
   )
 
-  const selectByTap = useCallback(
-    (tapXInPlot: number, tapYInPlot: number) => {
-      const n = prepared.rows.length
-      if (n <= 0) return
+  const selectedIndex = selected?.index ?? -1
+  const showOverlayMessage = !isLoading && (!!errorText || prepared.rows.length === 0)
+  const showFontLoading = !font
 
-      const xClamped = Math.max(0, Math.min(plotWidth, tapXInPlot))
-      const yClamped = Math.max(0, Math.min(plotHeight, tapYInPlot))
+  const periodTotals = useMemo(() => {
+    const arr = rawApiData ?? []
+    if (arr.length === 0) return null
+    return integrateEnergy(arr)
+  }, [rawApiData])
 
-      const idxGuess = Math.round((xClamped / plotWidth) * (n - 1))
-      const yGuessW = (1 - yClamped / plotHeight) * prepared.yMax
+  //Effekt, der bei Änderung der URL die Daten vom API lädt
+  useEffect(() => {
+    let alive = true
+    //AbortController erlaubt den Fetch abzubrechen
+    const controller = new AbortController()
 
-      const window = 1
+    setIsLoading(true)
+    setErrorText(null)
+    setSelected(null)
+    setRawApiData(null)
 
-      let best = idxGuess
-      let bestScore = Number.POSITIVE_INFINITY
+    pointsXRef.current = []
+    lastIdxRef.current = -1
+    scrollXRef.current = 0
+    scrollRef.current?.scrollTo({ x: 0, animated: false })
 
-      for (let i = Math.max(0, idxGuess - window); i <= Math.min(n - 1, idxGuess + window); i++) {
-        const r = prepared.rows[i]
-        const targetW = Math.max(r.load, r.pv, r.feedIn, showBattery ? r.battery : 0)
-
-        const xSteps = Math.abs(i - idxGuess)
-        const yNorm = Math.abs(targetW - yGuessW) / 500
-
-        const score = xSteps * 1.3 + yNorm * 1.0
-        if (score < bestScore) {
-          bestScore = score
-          best = i
+    fetch(url, {
+      method: 'GET',
+      headers: { accept: 'application/json' },
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '')
+          const msg = parseErrorMessage(txt) || `HTTP ${res.status}`
+          throw new Error(msg)
         }
-      }
+        return res.json()
+      })
+      //Verarbeitet die erhaltenen JSON-Daten
+      .then((json) => {
+        if (!alive) return
+        const arr = Array.isArray(json) ? (json as PvPoint[]) : []
+        setRawApiData(arr)
+        setErrorText(arr.length === 0 ? 'Keine Daten für diese Auswahl.' : null)
+      })
+      //Fängt Fehler ab, die beim Fetch auftreten
+      .catch((e) => {
+        if (!alive) return
+        if (String(e?.name) === 'AbortError') return
+        setRawApiData(null)
+        setErrorText(String(e?.message || e))
+      })
+      .finally(() => {
+        if (!alive) return
+        setIsLoading(false)
+      })
 
-      const bestRow = prepared.rows[best]
-      const bestTarget = Math.max(bestRow.load, bestRow.pv, bestRow.feedIn, showBattery ? bestRow.battery : 0)
-      const bestYNorm = Math.abs(bestTarget - yGuessW) / 500
-      const bestXSteps = Math.abs(best - idxGuess)
+    return () => {
+      alive = false
+      controller.abort()
+    }
+  }, [url])
 
-      const ok = bestXSteps <= 1 && bestYNorm <= 2.2
-      if (!ok) {
-        selectIndex(idxGuess)
-        return
-      }
-
-      selectIndex(best)
-    },
-    [prepared.rows, prepared.yMax, plotWidth, plotHeight, selectIndex, showBattery],
-  )
+  useEffect(() => {
+    const n = prepared.rows.length
+    if (n <= 0) return
+    if (lastIdxRef.current !== -1) {
+      selectIndex(lastIdxRef.current)
+      return
+    }
+    selectIndex(n - 1)
+  }, [prepared.rows.length, selectIndex])
 
   if (!font) return null
 
-  const selectedIndex = selected?.index ?? -1
-  const chartHeight = 260
-
   return (
     <View style={styles.wrapper}>
-      <Text style={styles.title}>{title}</Text>
-
-      <View style={styles.legendRow}>
-        <LegendDot color={COLORS.pv} label="Erzeugung" />
-        <LegendDot color={COLORS.load} label="Hausverbrauch" />
-        <LegendDot color={COLORS.feedIn} label="Netzeinspeisung" />
-        {showBattery && <LegendDot color={COLORS.battery} label="Batterie" />}
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>{title}</Text>
+        {isLoading && <ActivityIndicator size="small" />}
       </View>
 
       <View style={styles.chartBox}>
-        {selected && (
-          <>
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelected(null)} />
+        {(showOverlayMessage || showFontLoading) && (
+          <View style={styles.overlayMessage}>
+            <Text style={styles.overlayTitle}>Keine Anzeige möglich</Text>
+            <Text style={styles.overlayText} numberOfLines={3}>
+              {showFontLoading ? 'Schrift lädt...' : (errorText ?? 'Keine Daten für diese Auswahl.')}
+            </Text>
+          </View>
+        )}
 
-            <View style={styles.inChartInfo}>
-              <View style={styles.infoHeader}>
-                <Text style={styles.infoTime} numberOfLines={1}>
-                  {selected.label}
+        {!showOverlayMessage && !showFontLoading && (
+          <>
+            <View style={{ width: '100%', height: 260 }}>
+              <ScrollView
+                ref={scrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                scrollEnabled
+                scrollEventThrottle={16}
+                onLayout={(e) => {
+                  viewportWRef.current = e.nativeEvent.layout.width
+                  const max = Math.max(0, contentWRef.current - viewportWRef.current)
+                  maxScrollRef.current = max
+                  scrollToX(scrollXRef.current)
+                }}
+                onContentSizeChange={(w) => {
+                  contentWRef.current = w
+                  const max = Math.max(0, contentWRef.current - viewportWRef.current)
+                  maxScrollRef.current = max
+                  scrollToX(scrollXRef.current)
+                }}
+                onScroll={(e) => {
+                  scrollXRef.current = e.nativeEvent.contentOffset.x
+                }}
+                contentContainerStyle={{ width: chartWidth }}
+              >
+                <View style={{ width: chartWidth, height: 260 }}>
+                  {crossX !== null && (
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        styles.crosshair,
+                        {
+                          left: crossX - 1,
+                          top: 0,
+                          height: 260,
+                          width: 2,
+                        },
+                      ]}
+                    />
+                  )}
+
+                  <CartesianChart
+                    data={prepared.rows}
+                    xKey="x"
+                    yKeys={yKeys as any}
+                    padding={padding}
+                    domain={{ x: [0, Math.max(1, prepared.rows.length - 1)], y: [0, prepared.yMax] }}
+                    xAxis={{
+                      font,
+                      tickValues: xTickValues,
+                      formatXLabel,
+                      labelColor: '#666',
+                    }}
+                    yAxis={[
+                      {
+                        font,
+                        tickCount: 5,
+                        labelColor: '#666',
+                        formatYLabel: (v) => `${Math.round(Number(v))} W`,
+                      },
+                    ]}
+                  >
+                    {({ points }) => {
+                      const pvPts = points.pv ?? []
+                      if (pvPts.length > 0) {
+                        const xs: number[] = []
+                        for (let i = 0; i < pvPts.length; i++) {
+                          const x = pvPts[i]?.x
+                          xs.push(typeof x === 'number' && Number.isFinite(x) ? x : NaN)
+                        }
+                        if (xs.every(v => Number.isFinite(v))) pointsXRef.current = xs
+                      }
+
+                      const n = pvPts.length
+                      const idxOk = selectedIndex >= 0 && selectedIndex < n
+                      const pvP = idxOk ? pvPts[selectedIndex] : undefined
+                      const loadP = idxOk ? points.load?.[selectedIndex] : undefined
+                      const feedP = idxOk ? points.feedIn?.[selectedIndex] : undefined
+                      const socP = idxOk ? points.socScaled?.[selectedIndex] : undefined
+
+                      return (
+                        <>
+                          <Line points={points.pv} color={COLORS.pv} strokeWidth={3} />
+                          <Line points={points.load} color={COLORS.load} strokeWidth={3} />
+                          <Line points={points.feedIn} color={COLORS.feedIn} strokeWidth={3} />
+                          {showSoc && <Line points={points.socScaled} color={COLORS.soc} strokeWidth={3} />}
+
+                          {idxOk && (
+                            <>
+                              {pvP && <Scatter points={[pvP]} color={COLORS.pv} radius={5} />}
+                              {loadP && <Scatter points={[loadP]} color={COLORS.load} radius={5} />}
+                              {feedP && <Scatter points={[feedP]} color={COLORS.feedIn} radius={5} />}
+                              {showSoc && socP && <Scatter points={[socP]} color={COLORS.soc} radius={5} />}
+                            </>
+                          )}
+                        </>
+                      )
+                    }}
+                  </CartesianChart>
+                </View>
+              </ScrollView>
+
+              <View
+                style={[styles.gestureViewportOverlay, { width: screenWidth, height: 260 }]}
+                {...panResponder.panHandlers}
+              />
+            </View>
+
+            <View style={styles.valuesBox}>
+              <View style={styles.valuesTopRow}>
+                <Text style={styles.valuesTime} numberOfLines={2}>
+                  {selected?.label ?? ''}
                 </Text>
-                <Pressable onPress={() => setSelected(null)} hitSlop={10}>
-                  <Text style={styles.closeX}>×</Text>
-                </Pressable>
+
+                <View style={styles.toggleWrap}>
+                  <Pressable
+                    onPress={() => setDetailMode('current')}
+                    style={[styles.togglePill, detailMode === 'current' && styles.togglePillActive]}
+                  >
+                    <Text style={[styles.toggleText, detailMode === 'current' && styles.toggleTextActive]}>Aktuell</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => setDetailMode('sum')}
+                    style={[styles.togglePill, detailMode === 'sum' && styles.togglePillActive]}
+                  >
+                    <Text style={[styles.toggleText, detailMode === 'sum' && styles.toggleTextActive]}>Summe</Text>
+                  </Pressable>
+                </View>
               </View>
 
-              <InfoLine color={COLORS.pv} label="Erz." value={fmtW(selected.pv)} />
-              <InfoLine color={COLORS.load} label="Haus." value={fmtW(selected.load)} />
-              <InfoLine color={COLORS.feedIn} label="Netz." value={fmtW(selected.feedIn)} />
-              {showBattery && <InfoLine color={COLORS.battery} label="Batt." value={fmtW(selected.battery)} />}
+              {detailMode === 'current' && (
+                <>
+                  <ValueRow color={COLORS.pv} label="Erzeugung" value={fmtW(selected?.pv ?? 0)} />
+                  <ValueRow color={COLORS.load} label="Hausverbrauch" value={fmtW(selected?.load ?? 0)} />
+                  <ValueRow color={COLORS.feedIn} label="Netzeinspeisung" value={fmtW(selected?.feedIn ?? 0)} />
+                  {showSoc && <ValueRow color={COLORS.soc} label="Batterieladung" value={fmtPct(selected?.socPct ?? 0)} />}
+                </>
+              )}
+
+              {detailMode === 'sum' && (
+                <>
+                  <ValueRow color={COLORS.pv} label="Erzeugung" value={fmtKWh(periodTotals?.pvKWh ?? 0)} />
+                  <ValueRow color={COLORS.load} label="Hausverbrauch" value={fmtKWh(periodTotals?.loadKWh ?? 0)} />
+                  <ValueRow color={COLORS.feedIn} label="Netzeinspeisung" value={fmtKWh(periodTotals?.feedInKWh ?? 0)} />
+                  {showSoc && <ValueRow color={COLORS.soc} label="Batterieladung (Ende)" value={fmtPct(periodTotals?.socEnd ?? 0)} />}
+                </>
+              )}
             </View>
           </>
         )}
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ width: chartWidth }}>
-          <View style={{ width: chartWidth, height: chartHeight }}>
-            <Pressable
-              style={[styles.tapOverlay, { width: chartWidth, height: chartHeight }]}
-              onPress={(e) => {
-                const x = e.nativeEvent.locationX
-                const y = e.nativeEvent.locationY
-
-                const xClipped = Math.max(padding.left, Math.min(chartWidth - padding.right, x))
-                const yClipped = Math.max(padding.top, Math.min(chartHeight - padding.bottom, y))
-
-                selectByTap(xClipped - padding.left, yClipped - padding.top)
-              }}
-            />
-
-            <CartesianChart
-              data={prepared.rows}
-              xKey="x"
-              yKeys={yKeys as any}
-              padding={padding}
-              domain={{ x: [0, Math.max(1, prepared.rows.length - 1)], y: [0, prepared.yMax] }}
-              xAxis={{
-                font,
-                tickValues: xTickValues,
-                formatXLabel,
-                labelColor: '#666',
-              }}
-              yAxis={[
-                {
-                  font,
-                  tickCount: 5,
-                  labelColor: '#666',
-                  formatYLabel: (v) => `${Math.round(Number(v))} W`,
-                },
-              ]}
-            >
-              {({ points }) => {
-                const pvPoint = selectedIndex >= 0 ? [points.pv[selectedIndex]] : []
-                const loadPoint = selectedIndex >= 0 ? [points.load[selectedIndex]] : []
-                const feedInPoint = selectedIndex >= 0 ? [points.feedIn[selectedIndex]] : []
-                const batteryPoint = selectedIndex >= 0 ? [points.battery?.[selectedIndex]] : []
-
-                return (
-                  <>
-                    <Line points={points.pv} color={COLORS.pv} strokeWidth={3} />
-                    <Line points={points.load} color={COLORS.load} strokeWidth={3} />
-                    <Line points={points.feedIn} color={COLORS.feedIn} strokeWidth={3} />
-                    {showBattery && <Line points={points.battery} color={COLORS.battery} strokeWidth={3} />}
-
-                    {selected && (
-                      <>
-                        <Scatter points={pvPoint} color={COLORS.pv} radius={5} />
-                        <Scatter points={loadPoint} color={COLORS.load} radius={5} />
-                        <Scatter points={feedInPoint} color={COLORS.feedIn} radius={5} />
-                        {showBattery && (
-                          <Scatter points={batteryPoint.filter(Boolean) as any} color={COLORS.battery} radius={5} />
-                        )}
-                      </>
-                    )}
-                  </>
-                )
-              }}
-            </CartesianChart>
-          </View>
-        </ScrollView>
       </View>
-
-      <Text style={styles.apiHint} numberOfLines={1}>
-        {api.endpoint} {Object.entries(api.query).map(([k, v]) => `${k}=${v}`).join('&')}
-      </Text>
     </View>
   )
 }
 
-const InfoLine: React.FC<{ color: string; label: string; value: string }> = ({ color, label, value }) => (
-  <View style={styles.infoLine}>
-    <View style={[styles.infoDot, { backgroundColor: color }]} />
-    <Text style={styles.infoLineText} numberOfLines={1}>
-      {label} {value}
+const ValueRow: React.FC<{ color: string; label: string; value: string }> = ({ color, label, value }) => (
+  <View style={styles.valueRow}>
+    <View style={[styles.valueDot, { backgroundColor: color }]} />
+    <Text style={styles.valueLabel} numberOfLines={1}>
+      {label}
     </Text>
-  </View>
-)
-
-const LegendDot: React.FC<{ color: string; label: string }> = ({ color, label }) => (
-  <View style={styles.legendItem}>
-    <View style={[styles.dotLegend, { backgroundColor: color }]} />
-    <Text style={styles.legendText}>{label}</Text>
+    <Text style={styles.valueValue} numberOfLines={1}>
+      {value}
+    </Text>
   </View>
 )
 
 const styles = StyleSheet.create({
   wrapper: { paddingTop: 8 },
-  title: { fontSize: 18, fontWeight: '900', color: '#474646', marginBottom: 10 },
-
-  legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 10 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dotLegend: { width: 10, height: 10, borderRadius: 999 },
-  legendText: { fontSize: 13, fontWeight: '700', color: '#474646' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  title: { fontSize: 19, fontWeight: '900', color: '#474646' },
 
   chartBox: {
     position: 'relative',
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#fff',
-    minHeight: 260,
     width: '100%',
     alignSelf: 'stretch',
   },
 
-  tapOverlay: {
+  overlayMessage: {
+    height: 260,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  overlayTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#474646',
+    marginBottom: 6,
+  },
+  overlayText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#666',
+    textAlign: 'center',
+  },
+
+  gestureViewportOverlay: {
     position: 'absolute',
-    zIndex: 3,
+    zIndex: 10,
     top: 0,
     left: 0,
     backgroundColor: 'transparent',
   },
 
-  inChartInfo: {
+  crosshair: {
     position: 'absolute',
     zIndex: 7,
-    top: 10,
-    left: 10,
-    width: 150,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 6,
+    backgroundColor: 'rgba(120,120,120,0.35)',
   },
-  infoHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  infoTime: { fontSize: 13, fontWeight: '900', color: '#474646', flex: 1, paddingRight: 8 },
-  closeX: { fontSize: 18, fontWeight: '900', color: '#474646', lineHeight: 18 },
 
-  infoLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginVertical: 1 },
-  infoDot: { width: 7, height: 7, borderRadius: 999 },
-  infoLineText: { fontSize: 12, fontWeight: '800', color: '#474646' },
+  valuesBox: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#EEE',
+  },
 
-  apiHint: {
-    marginTop: 8,
-    fontSize: 12,
-    fontWeight: '700',
+  valuesTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 10,
+  },
+  valuesTime: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#474646',
+    flexShrink: 1,
+    paddingRight: 6,
+  },
+
+  toggleWrap: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F1F1',
+    borderRadius: 999,
+    padding: 3,
+    gap: 3,
+  },
+  togglePill: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+  },
+  togglePillActive: {
+    backgroundColor: '#1EAFF3',
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: '900',
     color: '#666',
   },
+  toggleTextActive: {
+    color: '#fff',
+  },
+
+  valueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 7,
+  },
+  valueDot: { width: 10, height: 10, borderRadius: 999 },
+  valueLabel: { flex: 1, fontSize: 16, fontWeight: '800', color: '#474646' },
+  valueValue: { fontSize: 16, fontWeight: '900', color: '#474646' },
 })
