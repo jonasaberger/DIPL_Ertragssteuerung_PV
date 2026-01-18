@@ -103,8 +103,8 @@ export default function HomeScreen() {
 
         {/* Die Card mit dem Warmwasserboiler – ausgelagert */}
         <HBoiler
-          temperatureC={MOCK_BOILER_TEMP}
-          isHeating={MOCK_IS_HEATING}
+          temperatureC={boilerData?.temp}
+          isHeating={boilerData?.heating}
           selectedSetting={selectedBoilerSetting}
           onSelect={handleBoilerSelect}
         />
