@@ -4,11 +4,8 @@ import HPriority, { PriorityItem } from '@/components/homePage/h-priority'
 import HWallbox from '@/components/homePage/h-wallbox'
 import HBoiler from '@/components/homePage/h-boiler'
 import { ThemedView } from '@/components/themed-view'
-import { EpexData, fetchEpexData } from '@/services/epex_service'
-import {BoilerData, fetchBoilerData} from '@/services/boiler_service'
-import {PV_Data, fetchLatestPVData} from '@/services/pv_services'
 import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 
 const INITIAL_PRIORITIES: PriorityItem[] = [
@@ -22,7 +19,6 @@ type BoilerSetting = 'SETTING_1' | 'SETTING_2'
 let currentEGoWallboxSetting: EGoWallboxSetting = 'SETTING_1'
 let currentBoilerSetting: BoilerSetting = 'SETTING_1'
 
-// Variable, damit ich die Einstellung auch dann einfach fürs Backend habe
 export function getCurrentEGoWallboxSetting() {
   return currentEGoWallboxSetting
 }
@@ -37,43 +33,67 @@ const MOCK_IS_CHARGING = true
 const MOCK_BOILER_TEMP = 58
 const MOCK_IS_HEATING = true
 
+const toNum = (v: any) => (Number.isFinite(v) ? Number(v) : 0)
+const clamp0 = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0)
+
 export default function HomeScreen() {
-  // Speichert die aktuell ausgewählte Einstellung der e-Go Wallbox
   const [selectedSetting, setSelectedSetting] = useState<EGoWallboxSetting>(
     currentEGoWallboxSetting
   )
 
-  // Speichert die aktuell ausgewählte Einstellung des Boilers
   const [selectedBoilerSetting, setSelectedBoilerSetting] =
     useState<BoilerSetting>(currentBoilerSetting)
 
-  // Speichert die aktuelle Reihenfolge der Prioritäten
   const [priorities, setPriorities] =
     useState<PriorityItem[]>(INITIAL_PRIORITIES)
 
   const { pvData, boilerData, epexData } = useUpdateDataScheduler()
 
-  const diagramData: DiagramData = {
-    total: pvData?.pv_power ?? 0,       // gesamte PV-Leistung
-    house: pvData?.load_power ?? 0,     // Hausverbrauch
-    battery: pvData?.battery_power ?? 0,// ins Batterie gespeist
-    grid: pvData?.grid_power ?? 0,      // ins Netz eingespeist
-  }
+  // --- Rohwerte
+  const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
 
+  // Hausverbrauch: oft negativ geliefert -> als Betrag interpretieren
+  const rawLoad = toNum(pvData?.load_power ?? 0)
+  const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
+
+  // Batterie: im PV-Flow nur Laden
+  const rawBattery = toNum(pvData?.battery_power ?? 0)
+  const batteryChargeDemand = clamp0(rawBattery)
+
+  // Netz: positiv = Bezug, negativ = Einspeisung
+  const rawGrid = toNum(pvData?.grid_power ?? 0)
+  const gridFeedInDemand = rawGrid < 0 ? clamp0(-rawGrid) : 0
+
+  // --- PV-Verteilung (House -> Battery -> Grid)
+  const pvToHouse = Math.min(houseDemand, pvTotal)
+  const remaining1 = pvTotal - pvToHouse
+
+  const pvToBattery = Math.min(batteryChargeDemand, remaining1)
+  const remaining2 = remaining1 - pvToBattery
+
+  const pvToGrid = Math.min(gridFeedInDemand, remaining2)
+
+  const houseOverPv = houseDemand > pvTotal && pvTotal > 0
+
+  const diagramData: DiagramData = {
+    total: pvTotal,
+    house: pvToHouse,
+    houseActual: houseDemand, // <-- neu: echter Hausverbrauch für die Klammern
+    battery: pvToBattery,
+    grid: pvToGrid,
+    houseOverPv,
+  }
 
   function handleSelect(setting: EGoWallboxSetting) {
     setSelectedSetting(setting)
     currentEGoWallboxSetting = setting
   }
 
-  // Wird aufgerufen wenn eine Boiler-Einstellung ausgewählt wird
   function handleBoilerSelect(setting: BoilerSetting) {
     setSelectedBoilerSetting(setting)
     currentBoilerSetting = setting
   }
 
-  // Wird aufgerufen wenn die Prioritäten neu angeordnet wurden
-  // Data ist die neu geordnete Liste
   const handlePriorityDragEnd = (data: PriorityItem[]) => {
     setPriorities(data)
     const orderIds = data.map((item) => item.id)
@@ -86,7 +106,6 @@ export default function HomeScreen() {
         <HDiagram data={diagramData} />
         <HPriority priorities={priorities} onDragEnd={handlePriorityDragEnd} />
 
-        {/* HPrices with updated EPEX data */}
         <HPrices
           date={epexData?.date ?? ''}
           time={epexData?.time ?? 'Loading...'}
@@ -101,7 +120,6 @@ export default function HomeScreen() {
           onSelect={handleSelect}
         />
 
-        {/* Die Card mit dem Warmwasserboiler – ausgelagert */}
         <HBoiler
           temperatureC={MOCK_BOILER_TEMP}
           isHeating={MOCK_IS_HEATING}

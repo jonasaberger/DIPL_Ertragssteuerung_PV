@@ -12,23 +12,21 @@ import {
 
 const CIRCLE_SIZE = 72
 
-//Typ für x/y Positionen
 type Point = { x: number; y: number }
 
-//Typ für die Daten, die vom Home-Screen kommen
 export type DiagramData = {
   total: number
-  house: number
+  house: number              // PV -> Haus (gedeckter Anteil)
+  houseActual?: number       // echter Hausverbrauch (für Klammern)
   battery: number
   grid: number
+  houseOverPv?: boolean
 }
 
-//Props von index.tsx
 type Props = {
   data: DiagramData
 }
 
-//Props für die Partikel-Animation
 type ParticleLineProps = {
   start: Point
   end: Point
@@ -36,57 +34,80 @@ type ParticleLineProps = {
   duration?: number
 }
 
-//Eine einzelne Partikel-Linie
 function ParticleLine({ start, end, color, duration = 2200 }: ParticleLineProps) {
-  //useREF damit der Animationswert über renders hinweg erhalten bleibt
-  const anim = useRef(new Animated.Value(0)).current
+  const moveAnim = useRef(new Animated.Value(0)).current
+  const scaleAnim = useRef(new Animated.Value(0)).current
 
-  //Erstellt eine endlose Animation die den Wert von 0 auf 1 ändert
-  //duration ist in Millisekunden
+  // Zufall pro Partikel (aber stabil, nicht pro Render neu)
+  const minScale = useRef(0.6 + Math.random() * 0.3).current
+  const maxScale = useRef(1.0 + Math.random() * 0.5).current
+  const scaleDuration = useRef(800 + Math.random() * 700).current
+
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(anim, {
+    const moveLoop = Animated.loop(
+      Animated.timing(moveAnim, {
         toValue: 1,
         duration,
         easing: Easing.linear,
-        //Wichtigster Teil für Performance
         useNativeDriver: true,
       })
     )
-    //Startet die Endlosschleife
-    loop.start()
-    return () => loop.stop()
-  }, [anim, duration])
 
-  //anim ist ein Wert zwischen 0 und 1
-  //interpolate() wandelt diesen Wert in einen Wert zwischen start.x und end.x um
-  const translateX = anim.interpolate({
+    const scaleLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: scaleDuration,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0,
+          duration: scaleDuration,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    )
+
+    moveLoop.start()
+    scaleLoop.start()
+
+    return () => {
+      moveLoop.stop()
+      scaleLoop.stop()
+    }
+  }, [moveAnim, scaleAnim, duration, scaleDuration])
+
+  const translateX = moveAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [start.x, end.x],
   })
 
-  const translateY = anim.interpolate({
+  const translateY = moveAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [start.y, end.y],
   })
 
+  const scale = scaleAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [minScale, maxScale],
+  })
+
   return (
-    //Animated.View ist wie ein normales View, kann aber animierte Styles haben
-    //styles.particle macht den Partikel einfach zu einem kleinen Kreis
     <Animated.View
       pointerEvents="none"
       style={[
         styles.particle,
         {
           backgroundColor: color,
-          transform: [{ translateX }, { translateY }],
+          transform: [{ translateX }, { translateY }, { scale }],
         },
       ]}
     />
   )
 }
 
-//Eine Gruppe mehrerer Partikel-Linien
 function ParticlesGroup({
   start,
   end,
@@ -103,9 +124,7 @@ function ParticlesGroup({
   return (
     <>
       {Array.from({ length: count }).map((_, i) => {
-        //jede Linie etwas versetzt, damit sie nicht gleichzeitig ankommen
         const extra = (duration / count) * i
-
         return (
           <ParticleLine
             key={i}
@@ -120,42 +139,49 @@ function ParticlesGroup({
   )
 }
 
+const formatW = (v: number, showZero = false) => {
+  if (!Number.isFinite(v)) return ''
+  if (v <= 0) return showZero ? '0 W' : ''
+  return `${v} W`
+}
+
 export default function HDiagram({ data }: Props) {
-  //Wird genutzt um die Breite des Diagrammbereichs zu speichern
-  //Auf unterschiedlichen Bildschirmgrößen kann die Breite variieren
   const [diagramWidth, setDiagramWidth] = useState<number | null>(null)
 
-  //Layout-Callback
-  //Wenn sich das Layout des Diagrammbereichs ändert (z.B. durch Bildschirmdrehung), wird die Breite aktualisiert
   const handleDiagramLayout = (e: LayoutChangeEvent) => {
     const { width } = e.nativeEvent.layout
     setDiagramWidth(width)
   }
 
-  //Positionen der Diagramm-Elemente
   let sun: Point | null = null
   let house: Point | null = null
   let battery: Point | null = null
   let grid: Point | null = null
 
-  //Wenn die Breite vorhanden ist, können wir Positionen berechnen
   if (diagramWidth !== null) {
     const w = diagramWidth
-
-    //Vordefinierte Y-Positionen für die Elemente
     const SUN_Y = 120
     const BOTTOM_CENTER_Y = 360
     const SIDE_Y = BOTTOM_CENTER_Y - 40
 
-    //Setzt die Positionen basierend auf der Diagrammbreite
     sun = { x: w / 2, y: SUN_Y }
-    battery = { x: w / 2, y: BOTTOM_CENTER_Y}
+    battery = { x: w / 2, y: BOTTOM_CENTER_Y }
     house = { x: w * 0.23, y: SIDE_Y }
     grid = { x: w * 0.77, y: SIDE_Y }
   }
 
+  const showHouseFlow = data.total > 0 && data.house > 0
+  const showBatteryFlow = data.total > 0 && data.battery > 0
+  const showGridFlow = data.total > 0 && data.grid > 0
+
+  const isHouseWarning = !!data.houseOverPv
+  const showHouseActual =
+    isHouseWarning &&
+    typeof data.houseActual === 'number' &&
+    Number.isFinite(data.houseActual) &&
+    data.houseActual > 0
+
   return (
-    //Die komplette Card wird hier drin gekapselt
     <Card height={520}>
       <View style={styles.header}>
         <Text style={styles.temp}>14°C</Text>
@@ -165,29 +191,36 @@ export default function HDiagram({ data }: Props) {
       <View style={styles.diagram} onLayout={handleDiagramLayout}>
         {diagramWidth !== null && sun && house && battery && grid && (
           <>
-            {/* Partikel-Ebene */}
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-              <ParticlesGroup
-                start={sun}
-                end={house}
-                color="#1EAFF3"
-                count={7}
-                duration={2600}
-              />
-              <ParticlesGroup
-                start={sun}
-                end={battery}
-                color="#16c172"
-                count={9}
-                duration={2400}
-              />
-              <ParticlesGroup
-                start={sun}
-                end={grid}
-                color="#ff7f3f"
-                count={6}
-                duration={2800}
-              />
+              {showHouseFlow && (
+                <ParticlesGroup
+                  start={sun}
+                  end={house}
+                  color="#1EAFF3"
+                  count={7}
+                  duration={2600}
+                />
+              )}
+
+              {showBatteryFlow && (
+                <ParticlesGroup
+                  start={sun}
+                  end={battery}
+                  color="#16c172"
+                  count={9}
+                  duration={2400}
+                />
+              )}
+
+              {showGridFlow && (
+                <ParticlesGroup
+                  start={sun}
+                  end={grid}
+                  color="#ff7f3f"
+                  count={6}
+                  duration={2800}
+                />
+              )}
             </View>
 
             {/* Sonne */}
@@ -212,7 +245,6 @@ export default function HDiagram({ data }: Props) {
                 styles.valueText,
                 {
                   position: 'absolute',
-                  // Text über dem Sonnen-Kreis
                   top: sun.y - CIRCLE_SIZE / 2 - 28,
                   left: sun.x - 60,
                   width: 120,
@@ -220,7 +252,7 @@ export default function HDiagram({ data }: Props) {
                 },
               ]}
             >
-              {data.total} W
+              {formatW(data.total, true)}
             </Text>
 
             {/* Haus */}
@@ -236,19 +268,32 @@ export default function HDiagram({ data }: Props) {
             >
               <MaterialCommunityIcons name="home" size={42} color="#474646" />
             </View>
-            <Text
-              style={[
-                styles.valueText,
-                {
-                  position: 'absolute',
-                  top: house.y + CIRCLE_SIZE / 2 + 8,
-                  left: house.x - 60,
-                  width: 120,
-                },
-              ]}
+
+            {/* Haus-Text: Hauptwert + optional echter Verbrauch drunter */}
+            <View
+              style={{
+                position: 'absolute',
+                top: house.y + CIRCLE_SIZE / 2 + 8,
+                left: house.x - 70,
+                width: 140,
+                alignItems: 'center',
+              }}
             >
-              {data.house} W
-            </Text>
+              <Text
+                style={[
+                  styles.valueText,
+                  isHouseWarning ? styles.valueTextWarning : null,
+                ]}
+              >
+                {formatW(data.house, true)}
+              </Text>
+
+              {showHouseActual && (
+                <Text style={styles.subValueText}>
+                  ({formatW(data.houseActual!, true)})
+                </Text>
+              )}
+            </View>
 
             {/* Batterie */}
             <View
@@ -256,7 +301,6 @@ export default function HDiagram({ data }: Props) {
                 styles.circle,
                 styles.batteryCircle,
                 {
-                  // /2 damit der Kreis zentriert ist
                   left: battery.x - CIRCLE_SIZE / 2,
                   top: battery.y - CIRCLE_SIZE / 2,
                 },
@@ -273,17 +317,16 @@ export default function HDiagram({ data }: Props) {
                 styles.valueText,
                 {
                   position: 'absolute',
-                  // + 8 damit der Text etwas Abstand zum Kreis hat
                   top: battery.y + CIRCLE_SIZE / 2 + 8,
                   left: battery.x - 60,
                   width: 120,
                 },
               ]}
             >
-              {data.battery} W
+              {formatW(data.battery)}
             </Text>
 
-            {/* Einspeisenetz */}
+            {/* Netz */}
             <View
               style={[
                 styles.circle,
@@ -307,7 +350,7 @@ export default function HDiagram({ data }: Props) {
                 },
               ]}
             >
-              {data.grid} W
+              {formatW(data.grid)}
             </Text>
           </>
         )}
@@ -333,7 +376,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
 
-  //Diagramm Container
   diagram: {
     width: '100%',
     height: '100%',
@@ -345,6 +387,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#474646',
     textAlign: 'center',
+  },
+
+  subValueText: {
+    marginTop: 2,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#474646',
+    textAlign: 'center',
+  },
+
+  valueTextWarning: {
+    color: '#C1121F',
   },
 
   circle: {
