@@ -6,8 +6,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 type Props = {
   temperatureC: number
   isHeating: boolean
-  selectedSetting: 'SETTING_1' | 'SETTING_2'
-  onSelect: (setting: 'SETTING_1' | 'SETTING_2') => void
+  selectedSetting: 'MANUAL_OFF' | 'MANUAL_ON'
+  onSelect: (setting: 'MANUAL_OFF' | 'MANUAL_ON') => void
+  available: boolean
 }
 
 export default function HBoiler({
@@ -15,84 +16,131 @@ export default function HBoiler({
   isHeating,
   selectedSetting,
   onSelect,
+  available,
 }: Props) {
+  // Dynamische Farbwahl der Temperatur
+  const getTempColor = (temp: number) => {
+    if (temp < 40) return '#1EAFF3'       // Blau
+    if (temp < 55) return '#FFA500'       // Orange
+    return '#d01212'                      // Rot
+  }
+
   return (
     <Card>
       <View style={styles.boilerCard}>
-        <View style={styles.boilerHeaderRow}>
-          <View>
-            <Text style={styles.boilerTitle}>Warmwasserboiler</Text>
-            <Text style={styles.boilerTempText}>
-              Temperatur:{' '}
-              <Text style={styles.boilerTempValue}>{temperatureC}°C</Text>
-            </Text>
-          </View>
-
-          {/* Status oben rechts („Wärmt…“ / „Aus“) */}
-          <View
-            pointerEvents="none"
-            style={[styles.boilerStatusContainer, { overflow: 'hidden' }]}
-          >
+        {!available ? (
+          <View style={styles.unavailableContainer}>
             <MaterialCommunityIcons
-              name={isHeating ? 'thermometer' : 'close'}
-              size={18}
-              color={isHeating ? '#d01212ff' : '#d01212ff'}
+              name="alert-circle-outline"
+              size={36}
+              color="#8E8E93"
             />
-            <Text
-              style={[
-                styles.boilerStatusText,
-                isHeating
-                  ? styles.boilerStatusTextHeating
-                  : styles.boilerStatusTextIdle,
-              ]}
-            >
-              {isHeating ? 'Wärmt…' : 'Aus'}
+            <Text style={styles.unavailableTitle}>Boiler nicht verfügbar</Text>
+            <Text style={styles.unavailableSubtitle}>
+              Verbindung konnte nicht hergestellt werden
             </Text>
           </View>
-        </View>
+        ) : (
+          <>
+            {/* Header */}
+            <View style={styles.headerRow}>
+              <Text style={styles.boilerTitle}>Warmwasserboiler</Text>
 
-        {/* Die zwei Settings-Buttons */}
-        <View style={styles.boilerSettingsContainer}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[
-              styles.boilerSettingButton,
-              selectedSetting === 'SETTING_1' &&
-                styles.boilerSettingButtonActive,
-            ]}
-            onPress={() => onSelect('SETTING_1')}
-          >
-            <Text
-              style={[
-                styles.boilerSettingText,
-                selectedSetting === 'SETTING_1' &&
-                  styles.boilerSettingTextActive,
-              ]}
-            >
-              Setting 1
-            </Text>
-          </TouchableOpacity>
+              <View
+                style={[
+                  styles.statusBadge,
+                  isHeating ? styles.statusBadgeHeating : styles.statusBadgeIdle,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={isHeating ? 'thermometer' : 'close'}
+                  size={16}
+                  color={isHeating ? '#d01212' : '#8E8E93'}
+                />
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    isHeating ? styles.statusTextHeating : styles.statusTextIdle,
+                  ]}
+                >
+                  {isHeating ? 'Wärmt…' : 'Aus'}
+                </Text>
+              </View>
+            </View>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[
-              styles.boilerSettingButton,
-              selectedSetting === 'SETTING_2' &&
-                styles.boilerSettingButtonActive,
-            ]}
-            onPress={() => onSelect('SETTING_2')}
-          >
-            <Text
-              style={[
-                styles.boilerSettingText,
-                selectedSetting === 'SETTING_2' &&
-                  styles.boilerSettingTextActive,
-              ]}
-            >
-              Setting 2
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {/* Temperatur */}
+            <View style={styles.tempSection}>
+              <Text
+                style={[
+                  styles.tempValue,
+                  { color: getTempColor(temperatureC) },
+                ]}
+              >
+                {temperatureC}°C
+              </Text>
+              <Text style={styles.tempLabel}>Aktuelle Temperatur</Text>
+            </View>
+
+            {/* Einstellungen */}
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsTitle}>Heizmodus</Text>
+
+              <View style={styles.settingsButtons}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={[
+                    styles.settingButton,
+                    selectedSetting === 'MANUAL_ON' && styles.settingButtonActive,
+                  ]}
+                  onPress={() => onSelect('MANUAL_ON')}
+                >
+                  <View style={styles.settingContent}>
+                    <View
+                      style={[
+                        styles.radio,
+                        selectedSetting === 'MANUAL_ON' && styles.radioActive,
+                      ]}
+                    >
+                      {selectedSetting === 'MANUAL_ON' && <View style={styles.radioInner} />}
+                    </View>
+                    <View>
+                      <Text style={styles.settingText}>Manuell Heizen</Text>
+                      <Text style={styles.settingSubtext}>
+                        Boiler startet sofort
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={[
+                    styles.settingButton,
+                    selectedSetting === 'MANUAL_OFF' && styles.settingButtonActive,
+                  ]}
+                  onPress={() => onSelect('MANUAL_OFF')}
+                >
+                  <View style={styles.settingContent}>
+                    <View
+                      style={[
+                        styles.radio,
+                        selectedSetting === 'MANUAL_OFF' && styles.radioActive,
+                      ]}
+                    >
+                      {selectedSetting === 'MANUAL_OFF' && <View style={styles.radioInner} />}
+                    </View>
+                    <View>
+                      <Text style={styles.settingText}>Manuell Aus</Text>
+                      <Text style={styles.settingSubtext}>
+                        Boiler deaktiviert
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
       </View>
     </Card>
   )
@@ -100,70 +148,86 @@ export default function HBoiler({
 
 const styles = StyleSheet.create({
   boilerCard: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
+    padding: 16,
   },
-  boilerHeaderRow: {
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
+    alignItems: 'center',
+    marginBottom: 12,
   },
   boilerTitle: {
-    fontSize: 30,
-    fontWeight: '600',
-    color: '#474646',
-    marginBottom: 2,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1C1C1E',
   },
-  boilerTempText: {
-    fontSize: 18,
-    color: '#474646',
-  },
-  boilerTempValue: {
-    color: '#1EAFF3',
-    fontWeight: '600',
-  },
-  boilerStatusContainer: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    alignSelf: 'flex-end',
-    padding: 0,
-    margin: 0,
-    backgroundColor: 'transparent',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
   },
-  boilerStatusText: {
-    fontSize: 17,
+  statusBadgeHeating: { backgroundColor: '#FFE8E8' },
+  statusBadgeIdle: { backgroundColor: '#F0F0F0' },
+  statusBadgeText: { fontSize: 12, fontWeight: '600' },
+  statusTextHeating: { color: '#d01212' },
+  statusTextIdle: { color: '#8E8E93' },
+
+  tempSection: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  tempValue: {
+    fontSize: 36,
+    fontWeight: '800',
+  },
+  tempLabel: {
+    fontSize: 13,
     fontWeight: '500',
+    color: '#1C1C1E',
+    marginTop: 2,
   },
-  boilerStatusTextHeating: {
-    color: '#d01212ff',
+
+  settingsSection: { gap: 8 },
+  settingsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginBottom: 4,
   },
-  boilerStatusTextIdle: {
-    color: '#474646',
-  },
-  boilerSettingsContainer: {
-    gap: 8,
-  },
-  boilerSettingButton: {
+  settingsButtons: { gap: 8 },
+  settingButton: {
+    backgroundColor: '#F8F9FA',
     borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#E7E7E7',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    padding: 12,
   },
-  boilerSettingButtonActive: {
-    backgroundColor: '#D9ECFF',
-    borderWidth: 1,
+  settingButtonActive: {
+    backgroundColor: '#E3F2FD',
     borderColor: '#1EAFF3',
   },
-  boilerSettingText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#474646',
+  settingContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#C7C7CC',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  boilerSettingTextActive: {
-    color: '#1EAFF3',
-    fontWeight: '600',
-  },
+  radioActive: { borderColor: '#1EAFF3' },
+  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#1EAFF3' },
+  settingText: { fontSize: 15, fontWeight: '600', color: '#1C1C1E' },
+  settingSubtext: { fontSize: 11, color: '#8E8E93' },
+
+  unavailableContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 6 },
+  unavailableTitle: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
+  unavailableSubtitle: { fontSize: 12, color: '#8E8E93', textAlign: 'center' },
 })

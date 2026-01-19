@@ -157,11 +157,6 @@ export default function HDiagram({ data }: Props) {
   return (
     //Die komplette Card wird hier drin gekapselt
     <Card height={520}>
-      <View style={styles.header}>
-        <Text style={styles.temp}>14°C</Text>
-        <Text style={styles.icon}>☁️️</Text>
-      </View>
-
       <View style={styles.diagram} onLayout={handleDiagramLayout}>
         {diagramWidth !== null && sun && house && battery && grid && (
           <>
