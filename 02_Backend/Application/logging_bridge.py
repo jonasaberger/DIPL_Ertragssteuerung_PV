@@ -3,10 +3,12 @@ from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 from dotenv import find_dotenv, load_dotenv
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 
 class LoggingBridge:
     def __init__(self):
+        # Load environment variables
         env_path = find_dotenv()
         if not env_path:
             raise FileNotFoundError("No .env file found - please create one")
@@ -25,15 +27,16 @@ class LoggingBridge:
             token=self.token,
             org=self.org
         )
-        self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
 
-    
+        self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
+        self.query_api = self.client.query_api()
+
     """
     Log-Types:
-        - system_event	Start, schwere Fehler
-        - api_error Externe APIs nicht erreichbar
-        - control_decision Steueraktionen
-        - device_state_change Zustandswechsel
+        - system_event        Start, shutdown, severe errors
+        - api_error           External APIs unreachable
+        - control_decision    Control actions taken by backend
+        - device_state_change Device state transitions
     """
 
     # Internal write helper
@@ -44,57 +47,135 @@ class LoggingBridge:
             record=point
         )
 
-    #  Logs every control decision made by the backend
+    # Control decision logging
     def control_decision(self, device, action, reason, success=True, extra=None):
         point = (
             Point("control_decision")
-            .tag("device", device)        # wallbox / boiler
-            .tag("action", action)        # on / off / toggle / set_allow
+            .tag("device", device)             # wallbox / boiler
+            .tag("action", action)             # on / off / toggle / set_allow
             .tag("success", str(success))
-            .field("reason", reason)      # pv_surplus / manual / scheduler -> For future purpose expansion
+            .field("reason", reason)           # manual / pv_surplus / scheduler
             .field("extra", str(extra) if extra else "")
             .time(datetime.now(timezone.utc), WritePrecision.NS)
         )
         self._write(point)
 
-    # Logs system-level events.  Example: startup, shutdown, warnings
+    # System-level events
     def system_event(self, level, source, message):
         point = (
             Point("system_event")
-            .tag("level", level)          # info / warning / error
-            .tag("source", source)        # backend / scheduler
+            .tag("level", level)               # info / warning / error
+            .tag("source", source)             # backend / monitoring
             .field("message", message)
             .time(datetime.now(timezone.utc), WritePrecision.NS)
         )
         self._write(point)
 
+    # External API errors (WITH DEVICE INFORMATION)
+    def api_error(self, device, endpoint, error):
         """
-        Example InfluxDB Line Protocol:
-            _measurement: system_event
-            _time: 2025-01-03T14:22:10Z
-            level: info
-            source: backend
-            message: "PV Backend Service started / failed to start"
+        Logs external API communication failures.
+        device: wallbox / boiler / epex / influxdb
         """
+        description = f"{device} API error at {endpoint}: {error}"
 
-    # Logs external API failures. Example: Wallbox, Fronius, EPEX
-    def api_error(self, api, endpoint, error):
         point = (
             Point("api_error")
-            .tag("api", api)             
+            .tag("device", device)
             .tag("endpoint", endpoint)
-            .field("error", str(error))
+            .field("message", description)
             .time(datetime.now(timezone.utc), WritePrecision.NS)
         )
         self._write(point)
 
-    #   Logs any device state transition. Example: Boiler OFF -> ON
+    # Device state changes
     def device_state_change(self, device, old_state, new_state):
+        """
+        Logs ONLY real logical state transitions.
+        Do NOT call this when state is unknown / timeout.
+        """
+
+        if old_state is None or new_state is None:
+            return
+
+        if device == "boiler":
+            old_label = "ON" if old_state else "OFF"
+            new_label = "ON" if new_state else "OFF"
+            description = f"boiler heating: {old_label} → {new_label}"
+
+        elif device == "wallbox":
+            old_label = "ENABLED" if old_state else "DISABLED"
+            new_label = "ENABLED" if new_state else "DISABLED"
+            description = f"wallbox charging: {old_label} → {new_label}"
+
+        else:
+            description = f"{device}: {old_state} → {new_state}"
+
         point = (
             Point("device_state_change")
             .tag("device", device)
-            .field("old_state", str(old_state))
-            .field("new_state", str(new_state))
+            .field("description", description)
             .time(datetime.now(timezone.utc), WritePrecision.NS)
         )
         self._write(point)
+
+    # Query logs from InfluxDB
+    def query_logs(self, log_type, limit=50, days=30):
+        query = f'''
+        from(bucket: "{self.bucket}")
+        |> range(start: -{days}d)
+        |> filter(fn: (r) => r["_measurement"] == "{log_type}")
+        |> pivot(
+                rowKey:["_time"],
+                columnKey: ["_field"],
+                valueColumn: "_value"
+            )
+        |> sort(columns: ["_time"], desc: true)
+        |> limit(n: {limit})
+        '''
+
+        tables = self.query_api.query(query, org=self.org)
+        results = []
+
+        for table in tables:
+            for r in table.records:
+                values = r.values
+
+                ts = values["_time"].astimezone(
+                    ZoneInfo("Europe/Vienna")
+                ).isoformat(timespec="seconds")
+
+                if log_type == "control_decision":
+                    msg = (
+                        f"device={values.get('device')} | "
+                        f"action={values.get('action')} | "
+                        f"reason={values.get('reason')} | "
+                        f"success={values.get('success')} | "
+                        f"extra={values.get('extra')}"
+                    )
+
+                elif log_type == "device_state_change":
+                    if "description" in values:
+                        msg = values.get("description")
+                    else:
+                        msg = (
+                            f"device={values.get('device')} | "
+                            f"{values.get('old_state')} → {values.get('new_state')}"
+                        )
+
+                elif log_type == "api_error":
+                    # NEW + backward compatible
+                    msg = values.get("message") or (
+                        f"API error at "
+                        f"{values.get('endpoint')}: {values.get('error')}"
+                    )
+
+                else:
+                    msg = values.get("message")
+
+                results.append({
+                    "time": ts,
+                    "message": msg
+                })
+
+        return results

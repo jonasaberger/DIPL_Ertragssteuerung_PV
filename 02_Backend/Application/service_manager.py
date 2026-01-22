@@ -94,6 +94,9 @@ class ServiceManager:
         # Monitoring-/State Enpoint
         self.app.add_url_rule('/api/state', 'state', self.get_state, methods=['GET'])
 
+        # Logging endpoints
+        self.app.add_url_rule('/api/logging', 'logging', self.get_logging, methods=['GET'])
+
     # ----- Route Handlers -----
     def _json(self, payload, status=200):
         """Helper for consistent JSON responses."""
@@ -382,3 +385,37 @@ class ServiceManager:
             status["boiler"] = "error"
 
         return jsonify(status), 200
+    
+    # Logging endpoint: Returns filtered log entries from InfluxDB logging bucket
+    def get_logging(self):
+
+        log_type = request.args.get("type")
+        limit = int(request.args.get("limit", 50))
+
+        if not log_type:
+            return self._json(
+                {"error": "Missing query parameter: type"},
+                400
+            )
+
+        try:
+            logs = self.logger.query_logs(
+                log_type=log_type,
+                limit=limit,
+                days=30
+            )
+            return self._json(logs, 200)
+
+        except ValueError as e:
+            return self._json({"error": str(e)}, 400)
+
+        except Exception as e:
+            self.logger.system_event(
+                level="error",
+                source="logging",
+                message=f"Failed to fetch logging data: {e}"
+            )
+            return self._json(
+                {"error": "Failed to fetch logging data"},
+                500
+            )
