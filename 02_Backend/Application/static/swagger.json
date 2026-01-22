@@ -57,6 +57,65 @@
         }
       }
     },
+    "/api/logging": {
+      "get": {
+        "summary": "Query system logs",
+        "description": "Returns filtered log entries from the logging database (monthly). Intended for diagnostics and monitoring only.",
+        "tags": ["Logging"],
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": true,
+            "description": "Type of log entries to query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "system_event",
+                "api_error",
+                "control_decision",
+                "device_state_change"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of log entries to return",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filtered log entries",
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "_time": "2025-12-30T23:24:10+01:00",
+                    "_measurement": "api_error",
+                    "api": "wallbox",
+                    "endpoint": "/api/wallbox/latest",
+                    "error": "Connection timeout"
+                  }
+                ]
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or missing query parameters"
+          },
+          "500": {
+            "description": "Logging query failed"
+          }
+        }
+      }
+    },
+
     "/api/pv/latest": {
       "get": {
         "summary": "Get latest PV data",
@@ -68,39 +127,23 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PVMeasurement"
-                },
-                "example": {
-                  "pv_power": 1147.7,
-                  "grid_power": -56.5,
-                  "load_power": -375.46,
-                  "battery_power": -660.34,
-                  "soc": 93.9,
-                  "e_day": 0,
-                  "e_year": 0,
-                  "e_total": 20084390.95,
-                  "rel_autonomy": 100,
-                  "rel_selfconsumption": 86.92,
-                  "_time": "2025-10-09T12:34:56Z"
                 }
               }
             }
           },
-          "404": {
-            "description": "No data found"
-          }
+          "404": { "description": "No data found" }
         }
       }
     },
+
     "/api/pv/daily": {
       "get": {
         "summary": "Get daily PV data",
-        "description": "Returns PV measurements for the current day from 00:00 to 23:45 in 15-minute resolution (96 values).",
-         "parameters": [
+        "parameters": [
           {
             "name": "date",
             "in": "query",
             "required": false,
-            "description": "Date to query in format YYYY-MM-DD",
             "schema": {
               "type": "string",
               "example": "2025-12-24"
@@ -108,32 +151,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Daily PV time series",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PVMeasurement"
-                  }
-                },
-                "example": [
-                  {
-                    "_time": "2026-01-03T12:00:00+01:00",
-                    "pv_power": 4094.5,
-                    "grid_power": -336.7,
-                    "load_power": -732.0,
-                    "battery_power": -2991.8,
-                    "soc": 16.6,
-                    "e_total": 21224854.8,
-                    "rel_autonomy": 100,
-                    "rel_selfconsumption": 68.4
-                  }
-                ]
-              }
-            }
-          },
+          "200": { "description": "Daily PV time series" },
           "404": { "description": "No daily data found" }
         }
       }
@@ -142,13 +160,11 @@
     "/api/pv/monthly": {
       "get": {
         "summary": "Get monthly PV data",
-        "description": "Returns PV measurements for the current calendar month in 15-minute resolution (96 values per day).",
-         "parameters": [
+        "parameters": [
           {
             "name": "month",
             "in": "query",
             "required": false,
-            "description": "Month to query in format YYYY-MM",
             "schema": {
               "type": "string",
               "example": "2025-11"
@@ -156,30 +172,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Monthly PV time series",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PVMeasurement"
-                  }
-                },
-                "example": [
-                  {
-                    "_time": "2026-01-01T08:30:00+01:00",
-                    "pv_power": 87.6,
-                    "grid_power": 83.2,
-                    "load_power": -143.6,
-                    "battery_power": -0.4,
-                    "soc": 4.1,
-                    "e_total": 21223683.62
-                  }
-                ]
-              }
-            }
-          },
+          "200": { "description": "Monthly PV time series" },
           "404": { "description": "No monthly data found" }
         }
       }
@@ -188,13 +181,11 @@
     "/api/pv/yearly": {
       "get": {
         "summary": "Get yearly PV data",
-        "description": "Returns PV measurements for the current calendar year in 2-hour resolution (12 values per day, ~4,380 per year).",
         "parameters": [
           {
             "name": "year",
             "in": "query",
             "required": false,
-            "description": "Year to query in format YYYY",
             "schema": {
               "type": "integer",
               "example": 2024
@@ -202,30 +193,7 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Yearly PV time series",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PVMeasurement"
-                  }
-                },
-                "example": [
-                  {
-                    "_time": "2026-06-15T12:00:00+02:00",
-                    "pv_power": 5120.3,
-                    "grid_power": -1240.5,
-                    "load_power": -980.2,
-                    "battery_power": -2900.1,
-                    "soc": 72.4,
-                    "e_total": 24500123.9
-                  }
-                ]
-              }
-            }
-          },
+          "200": { "description": "Yearly PV time series" },
           "404": { "description": "No yearly data found" }
         }
       }
@@ -234,31 +202,10 @@
     "/api/wallbox/latest": {
       "get": {
         "summary": "Get latest Wallbox data",
-        "description": "Returns the most recent wallbox measurements fetched live from the wallbox device. This endpoint is read-only.",
         "responses": {
-          "200": {
-            "description": "Latest Wallbox measurement",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/WallboxLatest" },
-                "example": {
-                  "_time": "2025-10-09T12:35:10Z",
-                  "amp": 16,
-                  "car": 1,
-                  "alw": 1,
-                  "wst": 0,
-                  "eto": 123456.7,
-                  "pha_L1": 1,
-                  "pha_L2": 1,
-                  "pha_L3": 1,
-                  "pha_count": 3,
-                  "charging": 1
-                }
-              }
-            }
-          },
+          "200": { "description": "Latest Wallbox measurement" },
           "404": { "description": "No wallbox data found" },
-          "502": { "description": "Wallbox not reachable or communication error" }
+          "502": { "description": "Wallbox not reachable" }
         }
       }
     },
@@ -266,22 +213,6 @@
     "/api/wallbox/setCharging": {
       "post": {
         "summary": "Enable or disable wallbox charging",
-        "description": "Controls whether the wallbox is allowed to charge. Setting allow=true enables charging, allow=false disables charging.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["allow"],
-                "properties": {
-                  "allow": { "type": "boolean" }
-                }
-              },
-              "example": { "allow": true }
-            }
-          }
-        },
         "responses": {
           "200": { "description": "Charging state updated successfully" },
           "400": { "description": "Invalid input payload" },
@@ -293,20 +224,8 @@
     "/api/boiler/latest": {
       "get": {
         "summary": "Get latest Boiler temperature",
-        "description": "Returns the most recent boiler temperature measurement stored in InfluxDB.",
         "responses": {
-          "200": {
-            "description": "Latest boiler temperature measurement",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/BoilerLatest" },
-                "example": {
-                  "_time": "2025-11-23T06:15:00Z",
-                  "boiler_temp": 62
-                }
-              }
-            }
-          },
+          "200": { "description": "Latest boiler temperature" },
           "404": { "description": "No boiler data found" }
         }
       }
@@ -315,16 +234,8 @@
     "/api/boiler/state": {
       "get": {
         "summary": "Get boiler heating state",
-        "description": "Returns the current logical heating state of the boiler (on/off).",
         "responses": {
-          "200": {
-            "description": "Current boiler heating state",
-            "content": {
-              "application/json": {
-                "example": { "heating": true }
-              }
-            }
-          },
+          "200": { "description": "Current boiler heating state" },
           "500": { "description": "Failed to read boiler state" }
         }
       }
@@ -333,25 +244,8 @@
     "/api/boiler/control": {
       "post": {
         "summary": "Control boiler relay",
-        "description": "Controls the boiler relay by switching it on, off or toggling its current state.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/BoilerControl" },
-              "example": { "action": "on" }
-            }
-          }
-        },
         "responses": {
-          "200": {
-            "description": "Boiler control action executed successfully",
-            "content": {
-              "application/json": {
-                "example": { "action": "on", "result": true }
-              }
-            }
-          },
+          "200": { "description": "Boiler control action executed successfully" },
           "400": { "description": "Invalid control action" },
           "500": { "description": "Boiler control failed" }
         }
@@ -361,20 +255,8 @@
     "/api/epex/latest": {
       "get": {
         "summary": "Get latest EPEX data",
-        "description": "Returns the most recent EPEX electricity market price stored in InfluxDB.",
         "responses": {
-          "200": {
-            "description": "Latest EPEX market price",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/EpexLatest" },
-                "example": {
-                  "_time": "2025-12-09T12:45:00Z",
-                  "epex_value": 42.75
-                }
-              }
-            }
-          },
+          "200": { "description": "Latest EPEX market price" },
           "404": { "description": "No EPEX data found" }
         }
       }
@@ -382,67 +264,67 @@
   },
 
   "components": {
-  "schemas": {
-    "PVMeasurement": {
-      "type": "object",
-      "additionalProperties": true,
-      "properties": {
-        "_time": { "type": "string", "format": "date-time" },
-        "pv_power": { "type": "number" },
-        "grid_power": { "type": "number" },
-        "load_power": { "type": "number" },
-        "battery_power": { "type": "number" },
-        "soc": { "type": "number" },
-        "e_total": { "type": "number" },
-        "rel_autonomy": { "type": "number" },
-        "rel_selfconsumption": { "type": "number" }
-      }
-    },
-
-    "WallboxLatest": {
-      "type": "object",
-      "required": ["_time","amp","car","alw","wst","eto","pha_L1","pha_L2","pha_L3","pha_count","charging"],
-      "properties": {
-        "_time": { "type": "string", "format": "date-time" },
-        "amp": { "type": "integer" },
-        "car": { "type": "integer" },
-        "alw": { "type": "integer" },
-        "wst": { "type": "integer" },
-        "eto": { "type": "number" },
-        "pha_L1": { "type": "integer" },
-        "pha_L2": { "type": "integer" },
-        "pha_L3": { "type": "integer" },
-        "pha_count": { "type": "integer" },
-        "charging": { "type": "integer" }
-      }
-    },
-
-    "BoilerLatest": {
-      "type": "object",
-      "properties": {
-        "_time": { "type": "string", "format": "date-time" },
-        "boiler_temp": { "type": "number" }
-      }
-    },
-
-    "BoilerControl": {
-      "type": "object",
-      "required": ["action"],
-      "properties": {
-        "action": {
-          "type": "string",
-          "enum": ["on", "off", "toggle"]
+    "schemas": {
+      "PVMeasurement": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "_time": { "type": "string", "format": "date-time" },
+          "pv_power": { "type": "number" },
+          "grid_power": { "type": "number" },
+          "load_power": { "type": "number" },
+          "battery_power": { "type": "number" },
+          "soc": { "type": "number" },
+          "e_total": { "type": "number" },
+          "rel_autonomy": { "type": "number" },
+          "rel_selfconsumption": { "type": "number" }
         }
-      }
-    },
+      },
 
-    "EpexLatest": {
-      "type": "object",
-      "properties": {
-        "_time": { "type": "string", "format": "date-time" },
-        "epex_value": { "type": "number" }
+      "WallboxLatest": {
+        "type": "object",
+        "required": ["_time","amp","car","alw","wst","eto","pha_L1","pha_L2","pha_L3","pha_count","charging"],
+        "properties": {
+          "_time": { "type": "string", "format": "date-time" },
+          "amp": { "type": "integer" },
+          "car": { "type": "integer" },
+          "alw": { "type": "integer" },
+          "wst": { "type": "integer" },
+          "eto": { "type": "number" },
+          "pha_L1": { "type": "integer" },
+          "pha_L2": { "type": "integer" },
+          "pha_L3": { "type": "integer" },
+          "pha_count": { "type": "integer" },
+          "charging": { "type": "integer" }
+        }
+      },
+
+      "BoilerLatest": {
+        "type": "object",
+        "properties": {
+          "_time": { "type": "string", "format": "date-time" },
+          "boiler_temp": { "type": "number" }
+        }
+      },
+
+      "BoilerControl": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["on", "off", "toggle"]
+          }
+        }
+      },
+
+      "EpexLatest": {
+        "type": "object",
+        "properties": {
+          "_time": { "type": "string", "format": "date-time" },
+          "epex_value": { "type": "number" }
+        }
       }
     }
   }
-}
 }
