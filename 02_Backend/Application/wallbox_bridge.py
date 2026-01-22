@@ -1,30 +1,42 @@
 import os
+import json
 import requests
 from decimal import Decimal
 from datetime import datetime
 from zoneinfo import ZoneInfo
-from dotenv import load_dotenv, find_dotenv
+
 
 class Wallbox_Bridge:
-    def __init__(self):
+    def __init__(self, config_path: str = "config/devices.json"):
+        # Load device configuration from JSON configuration file
+        self.config_path = os.path.abspath(config_path)
 
-        # Load environment variables from .env file
-        env_path = find_dotenv()
-        if not env_path:
-            raise FileNotFoundError("No .env file found - please create one")
-        load_dotenv(env_path)
+        if not os.path.exists(self.config_path):
+            raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
-        self.status_url = os.getenv("WALLBOX_URL_STATUS")   #  http://192.168.0.2:25000/status
-        self.api_status_url = os.getenv("WALLBOX_URL_API")  #  http://192.168.0.2:25000/api/status
-        self.mqtt_url = "http://192.168.0.2:25000/mqtt"     #  MQTT endpoint for control
+        with open(self.config_path, "r") as f:
+            config = json.load(f)
 
-     # Safely convert a value to Decimal (avoids None or invalid numbers) 
+        # Get wallbox configuration
+        wallbox_config = config.get("devices", {}).get("wallbox")
+        if not wallbox_config:
+            raise ValueError("Wallbox configuration not found in devices.json")
+
+        # Build URLs from config
+        base_url = wallbox_config.get("baseUrl")
+        endpoints = wallbox_config.get("endpoints", {})
+
+        self.status_url = f"{base_url}{endpoints.get('status', '/status')}"
+        self.api_status_url = f"{base_url}{endpoints.get('api', '/api/status')}"
+        self.mqtt_url = f"{base_url}/mqtt"
+
+    # Safely convert a value to Decimal (avoids None or invalid numbers)
     def safe_decimal(self, value):
         try:
             return Decimal(value)
         except (TypeError, ValueError, ArithmeticError):
             return Decimal(0)
-        
+
     # Fetch and combine data from both Wallbox endpoints
     def fetch_data(self):
         try:
@@ -38,19 +50,19 @@ class Wallbox_Bridge:
 
             # Extract phase info (normalize to 3 phases)
             pha = api_data.get("pha", [])
-            pha = [1 if v else 0 for v in (pha + [0,0,0])[:3]]
+            pha = [1 if v else 0 for v in (pha + [0, 0, 0])[:3]]
 
             data = {
-                "_time": datetime.now(ZoneInfo("Europe/Vienna")).isoformat(),   # Current timestamp in ISO 8601 format
-                "amp": int(status_data.get("amp", 0)),                          # Current (A)
-                "car": 1 if int(status_data.get("car", 0)) > 0 else 0,          # Car connected (1/0)
-                "alw": int(api_data.get("alw", 0)),                             # Charging allowed (1/0)
-                "wst": int(status_data.get("wst", 0)),                          # Wallbox status code
-                "eto": float(status_data.get("eto", 0)),                        # Total energy charged (Wh)
-                "pha_L1": pha[0],                                               # Phase L1 active (1/0)
-                "pha_L2": pha[1],                                               # Phase L2 active (1/0)
-                "pha_L3": pha[2],                                               # Phase L3 active (1/0)
-                "pha_count": sum(pha)                                           # Number of active phases
+                "_time": datetime.now(ZoneInfo("Europe/Vienna")).isoformat(),  # Current timestamp in ISO 8601 format
+                "amp": int(status_data.get("amp", 0)),  # Current (A)
+                "car": 1 if int(status_data.get("car", 0)) > 0 else 0,  # Car connected (1/0)
+                "alw": int(api_data.get("alw", 0)),  # Charging allowed (1/0)
+                "wst": int(status_data.get("wst", 0)),  # Wallbox status code
+                "eto": float(status_data.get("eto", 0)),  # Total energy charged (Wh)
+                "pha_L1": pha[0],  # Phase L1 active (1/0)
+                "pha_L2": pha[1],  # Phase L2 active (1/0)
+                "pha_L3": pha[2],  # Phase L3 active (1/0)
+                "pha_count": sum(pha)  # Number of active phases
             }
 
             # Determine if charging is currently active
@@ -63,7 +75,7 @@ class Wallbox_Bridge:
         except Exception as e:
             print(f"Error fetching Wallbox data: {e}")
             raise
-    
+
     # Enable / disable charging via MQTT (alw flag)
     def set_allow_charging(self, allow: bool):
         # allow = True  -> alw=1 (Auto darf laden)

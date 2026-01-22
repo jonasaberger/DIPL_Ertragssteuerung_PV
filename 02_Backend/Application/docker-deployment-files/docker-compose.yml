@@ -22,3 +22,6 @@ services:
     # On PI: GPIOZERO_PIN_FACTORY=rpigpio
     devices:
       - /dev/gpiomem:/dev/gpiomem
+
+    volumes:
+      - ./config:/app/config

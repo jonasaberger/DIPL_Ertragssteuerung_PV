@@ -11,3 +11,6 @@ services:
     # On PI: GPIOZERO_PIN_FACTORY=rpigpio
     environment:
       - GPIOZERO_PIN_FACTORY=mock
+
+    volumes:
+      - ./config:/app/config

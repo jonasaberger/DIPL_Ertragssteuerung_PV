@@ -108,6 +108,7 @@ class ServiceManager:
             self.device_manager.verify_admin_pw,
             methods=['POST']
         )
+        self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.device_manager.edit_device_endpoint, methods=['POST'])
 
     # ----- Route Handlers -----
     def _json(self, payload, status=200):
