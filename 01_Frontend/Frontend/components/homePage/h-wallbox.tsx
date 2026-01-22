@@ -157,7 +157,7 @@ export default function HWallbox({
                           styles.radioButtonActive,
                       ]}
                     >
-                      <View style={styles.radioButtonInner} />
+                      {selectedSetting === 'SETTING_1' && <View style={styles.radioButtonInner} />}
                     </View>
                     <View style={styles.settingTextContainer}>
                       <Text style={styles.settingButtonText}>
@@ -187,7 +187,7 @@ export default function HWallbox({
                           styles.radioButtonActive,
                       ]}
                     >
-                      <View style={styles.radioButtonInner} />
+                      {selectedSetting === 'SETTING_2' && <View style={styles.radioButtonInner} />}
                     </View>
                     <View style={styles.settingTextContainer}>
                       <Text style={styles.settingButtonText}>

@@ -15,18 +15,7 @@ const INITIAL_PRIORITIES: PriorityItem[] = [
 ]
 
 type EGoWallboxSetting = 'SETTING_1' | 'SETTING_2'
-type BoilerSetting = 'SETTING_1' | 'SETTING_2'
-
-let currentEGoWallboxSetting: EGoWallboxSetting = 'SETTING_1'
-let currentBoilerSetting: BoilerSetting = 'SETTING_1'
-
-export function getCurrentEGoWallboxSetting() {
-  return currentEGoWallboxSetting
-}
-
-export function getCurrentBoilerSetting() {
-  return currentBoilerSetting
-}
+type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 
 export default function HomeScreen() {
   const { pvData, boilerData, epexData, wallboxData, systemState } = useUpdateDataScheduler()
@@ -39,8 +28,8 @@ export default function HomeScreen() {
 
   // UI States grouped
   const [uiState, setUiState] = useState({
-    selectedWallboxSetting: currentEGoWallboxSetting as EGoWallboxSetting,
-    selectedBoilerSetting: currentBoilerSetting as BoilerSetting,
+    selectedWallboxSetting: 'SETTING_1' as EGoWallboxSetting,
+    selectedBoilerSetting: 'MANUAL_OFF' as BoilerSetting,
     priorities: INITIAL_PRIORITIES as PriorityItem[],
   })
 
@@ -55,12 +44,10 @@ export default function HomeScreen() {
   // Handlers
   const handleWallboxSelect = (setting: EGoWallboxSetting) => {
     setUiState((prev) => ({ ...prev, selectedWallboxSetting: setting }))
-    currentEGoWallboxSetting = setting
   }
 
   const handleBoilerSelect = (setting: BoilerSetting) => {
     setUiState((prev) => ({ ...prev, selectedBoilerSetting: setting }))
-    currentBoilerSetting = setting
   }
 
   const handlePriorityDragEnd = (data: PriorityItem[]) => {
@@ -80,11 +67,12 @@ export default function HomeScreen() {
           pricePerKWh={epexData?.pricePerKWh ?? 0}
         />
         <HBoiler
-          temperatureC={boilerData?.temp}
-          isHeating={boilerData?.heating}
+          temperatureC={boilerData?.temp ?? 0}
+          isHeating={boilerData?.heating ?? false}
           selectedSetting={uiState.selectedBoilerSetting}
           onSelect={handleBoilerSelect}
           available={available.boiler}
+          
         />
 
         <HWallbox
@@ -92,6 +80,8 @@ export default function HomeScreen() {
           isCharging={wallboxData?.isCharging ?? false}
           selectedSetting={uiState.selectedWallboxSetting}
           onSelect={handleWallboxSelect}
+          carConnected={wallboxData?.carConnected ?? false}
+          ampere={wallboxData?.ampere ?? 0}
           available={systemState?.wallbox === 'ok'}     // Availability dynamisch geregelt
         />
       </ScrollView>
