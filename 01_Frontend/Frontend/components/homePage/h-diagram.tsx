@@ -1,6 +1,6 @@
 import Card from '@/components/card'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   Easing,
@@ -16,11 +16,13 @@ type Point = { x: number; y: number }
 
 export type DiagramData = {
   total: number
-  house: number              // PV -> Haus (gedeckter Anteil)
-  houseActual?: number       // echter Hausverbrauch (für Klammern)
-  battery: number
-  grid: number
-  houseOverPv?: boolean
+  house: number               // PV -> Haus (gedeckt)
+  houseActual?: number        // echter Hausverbrauch
+  battery: number             // PV -> Batterie (Laden)
+  grid: number                // PV -> Netz (Einspeisung)
+
+  gridImport?: number         // Netzbezug (positiv)
+  gridToHouse?: number        // Netz -> Haus Flow
 }
 
 type Props = {
@@ -28,17 +30,23 @@ type Props = {
 }
 
 type ParticleLineProps = {
-  start: Point
-  end: Point
+  start?: Point
+  end?: Point
+  path?: Point[]
   color: string
   duration?: number
 }
 
-function ParticleLine({ start, end, color, duration = 2200 }: ParticleLineProps) {
+function ParticleLine({
+  start,
+  end,
+  path,
+  color,
+  duration = 2200,
+}: ParticleLineProps) {
   const moveAnim = useRef(new Animated.Value(0)).current
   const scaleAnim = useRef(new Animated.Value(0)).current
 
-  // Zufall pro Partikel (aber stabil, nicht pro Render neu)
   const minScale = useRef(0.6 + Math.random() * 0.3).current
   const maxScale = useRef(1.0 + Math.random() * 0.5).current
   const scaleDuration = useRef(800 + Math.random() * 700).current
@@ -79,20 +87,46 @@ function ParticleLine({ start, end, color, duration = 2200 }: ParticleLineProps)
     }
   }, [moveAnim, scaleAnim, duration, scaleDuration])
 
-  const translateX = moveAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [start.x, end.x],
-  })
-
-  const translateY = moveAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [start.y, end.y],
-  })
-
   const scale = scaleAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [minScale, maxScale],
   })
+
+  const translateXStraight = moveAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [start?.x ?? 0, end?.x ?? 0],
+  })
+
+  const translateYStraight = moveAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [start?.y ?? 0, end?.y ?? 0],
+  })
+
+  const curve = path && path.length >= 2 ? path : null
+
+  const { inputRange, xOut, yOut } = useMemo(() => {
+    if (!curve)
+      return {
+        inputRange: null as number[] | null,
+        xOut: null as number[] | null,
+        yOut: null as number[] | null,
+      }
+    const n = curve.length
+    const ir = Array.from({ length: n }).map((_, i) => i / (n - 1))
+    const xo = curve.map((p) => p.x)
+    const yo = curve.map((p) => p.y)
+    return { inputRange: ir, xOut: xo, yOut: yo }
+  }, [curve])
+
+  const translateX =
+    curve && inputRange && xOut
+      ? moveAnim.interpolate({ inputRange, outputRange: xOut })
+      : translateXStraight
+
+  const translateY =
+    curve && inputRange && yOut
+      ? moveAnim.interpolate({ inputRange, outputRange: yOut })
+      : translateYStraight
 
   return (
     <Animated.View
@@ -139,18 +173,42 @@ function ParticlesGroup({
   )
 }
 
-const formatW = (v: number, showZero = false) => {
-  if (!Number.isFinite(v)) return ''
-  if (v <= 0) return showZero ? '0 W' : ''
-  return `${v} W`
+function ParticlesCurveGroup({
+  path,
+  color,
+  count = 6,
+  duration = 2200,
+}: {
+  path: Point[]
+  color: string
+  count?: number
+  duration?: number
+}) {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => {
+        const extra = (duration / count) * i
+        return (
+          <ParticleLine
+            key={i}
+            path={path}
+            color={color}
+            duration={duration + extra}
+          />
+        )
+      })}
+    </>
+  )
 }
+
+const round1 = (v: number) => Math.round(v * 10) / 10
+const formatW = (v: number) => `${round1(v)} W`
 
 export default function HDiagram({ data }: Props) {
   const [diagramWidth, setDiagramWidth] = useState<number | null>(null)
 
   const handleDiagramLayout = (e: LayoutChangeEvent) => {
-    const { width } = e.nativeEvent.layout
-    setDiagramWidth(width)
+    setDiagramWidth(e.nativeEvent.layout.width)
   }
 
   let sun: Point | null = null
@@ -170,16 +228,42 @@ export default function HDiagram({ data }: Props) {
     grid = { x: w * 0.77, y: SIDE_Y }
   }
 
-  const showHouseFlow = data.total > 0 && data.house > 0
-  const showBatteryFlow = data.total > 0 && data.battery > 0
-  const showGridFlow = data.total > 0 && data.grid > 0
+  const pvToHouse = Math.max(0, data.house)
+  const pvToBattery = Math.max(0, data.battery)
+  const pvToGrid = Math.max(0, data.grid)
 
-  const isHouseWarning = !!data.houseOverPv
-  const showHouseActual =
-    isHouseWarning &&
-    typeof data.houseActual === 'number' &&
-    Number.isFinite(data.houseActual) &&
-    data.houseActual > 0
+  const gridImport = Math.max(0, data.gridImport ?? 0)
+  const gridToHouse = Math.max(0, data.gridToHouse ?? 0)
+
+  const houseActualValue = Math.max(0, data.houseActual ?? 0)
+
+  const showPvHouse = data.total > 0 && pvToHouse > 0
+  const showPvBattery = data.total > 0 && pvToBattery > 0
+  const showPvGrid = data.total > 0 && pvToGrid > 0
+  const showGridHouse = gridToHouse > 0
+
+  const gridToHousePath = useMemo(() => {
+    if (!grid || !house) return null
+
+    const start = grid
+    const end = house
+    const control: Point = {
+      x: (start.x + end.x) / 2,
+      y: Math.min(start.y, end.y) - 140,
+    }
+
+    const steps = 16
+    const pts: Point[] = []
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps
+      const one = 1 - t
+      pts.push({
+        x: one * one * start.x + 2 * one * t * control.x + t * t * end.x,
+        y: one * one * start.y + 2 * one * t * control.y + t * t * end.y,
+      })
+    }
+    return pts
+  }, [grid, house])
 
   return (
     <Card height={520}>
@@ -192,7 +276,7 @@ export default function HDiagram({ data }: Props) {
         {diagramWidth !== null && sun && house && battery && grid && (
           <>
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-              {showHouseFlow && (
+              {showPvHouse && (
                 <ParticlesGroup
                   start={sun}
                   end={house}
@@ -202,7 +286,7 @@ export default function HDiagram({ data }: Props) {
                 />
               )}
 
-              {showBatteryFlow && (
+              {showPvBattery && (
                 <ParticlesGroup
                   start={sun}
                   end={battery}
@@ -212,13 +296,22 @@ export default function HDiagram({ data }: Props) {
                 />
               )}
 
-              {showGridFlow && (
+              {showPvGrid && (
                 <ParticlesGroup
                   start={sun}
                   end={grid}
                   color="#ff7f3f"
                   count={6}
                   duration={2800}
+                />
+              )}
+
+              {showGridHouse && gridToHousePath && (
+                <ParticlesCurveGroup
+                  path={gridToHousePath}
+                  color="#ff7f3f"
+                  count={6}
+                  duration={2400}
                 />
               )}
             </View>
@@ -246,13 +339,12 @@ export default function HDiagram({ data }: Props) {
                 {
                   position: 'absolute',
                   top: sun.y - CIRCLE_SIZE / 2 - 28,
-                  left: sun.x - 60,
-                  width: 120,
-                  zIndex: 2,
+                  left: sun.x - 70,
+                  width: 140,
                 },
               ]}
             >
-              {formatW(data.total, true)}
+              {formatW(Math.max(0, data.total))}
             </Text>
 
             {/* Haus */}
@@ -268,32 +360,20 @@ export default function HDiagram({ data }: Props) {
             >
               <MaterialCommunityIcons name="home" size={42} color="#474646" />
             </View>
-
-            {/* Haus-Text: Hauptwert + optional echter Verbrauch drunter */}
-            <View
-              style={{
-                position: 'absolute',
-                top: house.y + CIRCLE_SIZE / 2 + 8,
-                left: house.x - 70,
-                width: 140,
-                alignItems: 'center',
-              }}
+            <Text
+              style={[
+                styles.valueText,
+                {
+                  position: 'absolute',
+                  top: house.y + CIRCLE_SIZE / 2 + 8,
+                  left: house.x - 60,
+                  width: 120,
+                  textAlign: 'center',
+                },
+              ]}
             >
-              <Text
-                style={[
-                  styles.valueText,
-                  isHouseWarning ? styles.valueTextWarning : null,
-                ]}
-              >
-                {formatW(data.house, true)}
-              </Text>
-
-              {showHouseActual && (
-                <Text style={styles.subValueText}>
-                  ({formatW(data.houseActual!, true)})
-                </Text>
-              )}
-            </View>
+              {formatW(houseActualValue)}
+            </Text>
 
             {/* Batterie */}
             <View
@@ -314,7 +394,7 @@ export default function HDiagram({ data }: Props) {
             </View>
             <Text
               style={[
-                styles.valueText,
+                pvToBattery > 0 ? styles.valueText : styles.valueTextMuted,
                 {
                   position: 'absolute',
                   top: battery.y + CIRCLE_SIZE / 2 + 8,
@@ -323,7 +403,7 @@ export default function HDiagram({ data }: Props) {
                 },
               ]}
             >
-              {formatW(data.battery)}
+              {formatW(pvToBattery)}
             </Text>
 
             {/* Netz */}
@@ -339,19 +419,34 @@ export default function HDiagram({ data }: Props) {
             >
               <MaterialCommunityIcons name="sitemap" size={42} color="#474646" />
             </View>
-            <Text
-              style={[
-                styles.valueText,
-                {
-                  position: 'absolute',
-                  top: grid.y + CIRCLE_SIZE / 2 + 8,
-                  left: grid.x - 60,
-                  width: 120,
-                },
-              ]}
+
+            <View
+              style={{
+                position: 'absolute',
+                top: grid.y + CIRCLE_SIZE / 2 + 8,
+                left: grid.x - 70,
+                width: 140,
+                alignItems: 'center',
+              }}
             >
-              {formatW(data.grid)}
-            </Text>
+              <Text
+                style={[
+                  pvToGrid > 0 || gridImport > 0
+                    ? styles.valueText
+                    : styles.valueTextMuted,
+                ]}
+              >
+                {pvToGrid > 0 ? formatW(pvToGrid) : formatW(gridImport)}
+              </Text>
+
+              {gridImport > 0 && pvToGrid <= 0 && (
+                <Text style={styles.subValueText}>(Bezug)</Text>
+              )}
+
+              {pvToGrid > 0 && (
+                <Text style={styles.subValueText}>(Einspeisung)</Text>
+              )}
+            </View>
           </>
         )}
       </View>
@@ -389,16 +484,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  subValueText: {
-    marginTop: 2,
-    fontSize: 16,
+  valueTextMuted: {
+    fontSize: 20,
     fontWeight: '700',
-    color: '#474646',
+    color: '#9A9898',
     textAlign: 'center',
   },
 
-  valueTextWarning: {
-    color: '#C1121F',
+  subValueText: {
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6E6C6C',
+    textAlign: 'center',
   },
 
   circle: {
@@ -410,18 +508,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  sunCircle: {
-    backgroundColor: '#FFFF2E',
-  },
-  houseCircle: {
-    backgroundColor: '#6CD3ED',
-  },
-  batteryCircle: {
-    backgroundColor: '#2EFF74',
-  },
-  gridCircle: {
-    backgroundColor: '#FF702E',
-  },
+  sunCircle: { backgroundColor: '#FFFF2E' },
+  houseCircle: { backgroundColor: '#6CD3ED' },
+  batteryCircle: { backgroundColor: '#2EFF74' },
+  gridCircle: { backgroundColor: '#FF702E' },
 
   particle: {
     position: 'absolute',

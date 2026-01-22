@@ -52,16 +52,17 @@ export default function HomeScreen() {
   // --- Rohwerte
   const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
 
-  // Hausverbrauch: oft negativ geliefert -> als Betrag interpretieren
+  // Hausverbrauch: oft negativ geliefert -> Betrag
   const rawLoad = toNum(pvData?.load_power ?? 0)
   const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
 
-  // Batterie: im PV-Flow nur Laden
+  // Batterie: im PV-Verteilbild nur "Laden"
   const rawBattery = toNum(pvData?.battery_power ?? 0)
   const batteryChargeDemand = clamp0(rawBattery)
 
   // Netz: positiv = Bezug, negativ = Einspeisung
   const rawGrid = toNum(pvData?.grid_power ?? 0)
+  const gridImport = rawGrid > 0 ? clamp0(rawGrid) : 0
   const gridFeedInDemand = rawGrid < 0 ? clamp0(-rawGrid) : 0
 
   // --- PV-Verteilung (House -> Battery -> Grid)
@@ -73,15 +74,18 @@ export default function HomeScreen() {
 
   const pvToGrid = Math.min(gridFeedInDemand, remaining2)
 
-  const houseOverPv = houseDemand > pvTotal && pvTotal > 0
+  // --- Netz -> Haus (wenn Haus mehr will als PV liefert UND Netzbezug da ist)
+  const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)
+  const gridToHouse = Math.min(gridImport, houseDeficitAfterPv)
 
   const diagramData: DiagramData = {
     total: pvTotal,
-    house: pvToHouse,
-    houseActual: houseDemand, // <-- neu: echter Hausverbrauch für die Klammern
-    battery: pvToBattery,
-    grid: pvToGrid,
-    houseOverPv,
+    house: pvToHouse,           // PV -> Haus (gedeckt)
+    houseActual: houseDemand,   // echter Hausverbrauch
+    battery: pvToBattery,       // PV -> Batterie (Laden)
+    grid: pvToGrid,             // PV -> Netz (Einspeisung)
+    gridImport,                 // Netzbezug (Anzeige/Label)
+    gridToHouse,                // Netz -> Haus Partikel
   }
 
   function handleSelect(setting: EGoWallboxSetting) {
