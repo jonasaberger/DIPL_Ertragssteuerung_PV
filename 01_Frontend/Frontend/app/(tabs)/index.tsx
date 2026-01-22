@@ -4,11 +4,8 @@ import HPriority, { PriorityItem } from '@/components/homePage/h-priority'
 import HWallbox from '@/components/homePage/h-wallbox'
 import HBoiler from '@/components/homePage/h-boiler'
 import { ThemedView } from '@/components/themed-view'
-import { EpexData, fetchEpexData } from '@/services/epex_service'
-import {BoilerData, fetchBoilerData} from '@/services/boiler_service'
-import {PV_Data, fetchLatestPVData} from '@/services/pv_services'
 import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 
 const INITIAL_PRIORITIES: PriorityItem[] = [
@@ -18,95 +15,74 @@ const INITIAL_PRIORITIES: PriorityItem[] = [
 ]
 
 type EGoWallboxSetting = 'SETTING_1' | 'SETTING_2'
-type BoilerSetting = 'SETTING_1' | 'SETTING_2'
-let currentEGoWallboxSetting: EGoWallboxSetting = 'SETTING_1'
-let currentBoilerSetting: BoilerSetting = 'SETTING_1'
-
-// Variable, damit ich die Einstellung auch dann einfach fürs Backend habe
-export function getCurrentEGoWallboxSetting() {
-  return currentEGoWallboxSetting
-}
-
-export function getCurrentBoilerSetting() {
-  return currentBoilerSetting
-}
-
-const MOCK_ENERGY = 9
-const MOCK_IS_CHARGING = true
-
-const MOCK_BOILER_TEMP = 58
-const MOCK_IS_HEATING = true
+type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 
 export default function HomeScreen() {
-  // Speichert die aktuell ausgewählte Einstellung der e-Go Wallbox
-  const [selectedSetting, setSelectedSetting] = useState<EGoWallboxSetting>(
-    currentEGoWallboxSetting
-  )
+  const { pvData, boilerData, epexData, wallboxData, systemState } = useUpdateDataScheduler()
 
-  // Speichert die aktuell ausgewählte Einstellung des Boilers
-  const [selectedBoilerSetting, setSelectedBoilerSetting] =
-    useState<BoilerSetting>(currentBoilerSetting)
+  // Availability Flags
+  const available = {
+    wallbox: systemState?.wallbox === 'ok',
+    boiler: systemState?.boiler === 'ok',
+  }
 
-  // Speichert die aktuelle Reihenfolge der Prioritäten
-  const [priorities, setPriorities] =
-    useState<PriorityItem[]>(INITIAL_PRIORITIES)
+  // UI States grouped
+  const [uiState, setUiState] = useState({
+    selectedWallboxSetting: 'SETTING_1' as EGoWallboxSetting,
+    selectedBoilerSetting: 'MANUAL_OFF' as BoilerSetting,
+    priorities: INITIAL_PRIORITIES as PriorityItem[],
+  })
 
-  const { pvData, boilerData, epexData } = useUpdateDataScheduler()
-
+  // Diagram Data
   const diagramData: DiagramData = {
-    total: pvData?.pv_power ?? 0,       // gesamte PV-Leistung
-    house: pvData?.load_power ?? 0,     // Hausverbrauch
-    battery: pvData?.battery_power ?? 0,// ins Batterie gespeist
-    grid: pvData?.grid_power ?? 0,      // ins Netz eingespeist
+    total: pvData?.pv_power ?? 0,
+    house: pvData?.load_power ?? 0,
+    battery: pvData?.battery_power ?? 0,
+    grid: pvData?.grid_power ?? 0,
   }
 
-
-  function handleSelect(setting: EGoWallboxSetting) {
-    setSelectedSetting(setting)
-    currentEGoWallboxSetting = setting
+  // Handlers
+  const handleWallboxSelect = (setting: EGoWallboxSetting) => {
+    setUiState((prev) => ({ ...prev, selectedWallboxSetting: setting }))
   }
 
-  // Wird aufgerufen wenn eine Boiler-Einstellung ausgewählt wird
-  function handleBoilerSelect(setting: BoilerSetting) {
-    setSelectedBoilerSetting(setting)
-    currentBoilerSetting = setting
+  const handleBoilerSelect = (setting: BoilerSetting) => {
+    setUiState((prev) => ({ ...prev, selectedBoilerSetting: setting }))
   }
 
-  // Wird aufgerufen wenn die Prioritäten neu angeordnet wurden
-  // Data ist die neu geordnete Liste
   const handlePriorityDragEnd = (data: PriorityItem[]) => {
-    setPriorities(data)
-    const orderIds = data.map((item) => item.id)
-    console.log('Ladeprioritäten:', orderIds)
+    setUiState((prev) => ({ ...prev, priorities: data }))
+    console.log('Ladeprioritäten:', data.map((item) => item.id))
   }
 
   return (
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <HDiagram data={diagramData} />
-        <HPriority priorities={priorities} onDragEnd={handlePriorityDragEnd} />
-
-        {/* HPrices with updated EPEX data */}
+        <HPriority priorities={uiState.priorities} onDragEnd={handlePriorityDragEnd} />
         <HPrices
           date={epexData?.date ?? ''}
           time={epexData?.time ?? 'Loading...'}
           location="Österreich"
           pricePerKWh={epexData?.pricePerKWh ?? 0}
         />
-
-        <HWallbox
-          energyKWh={MOCK_ENERGY}
-          isCharging={MOCK_IS_CHARGING}
-          selectedSetting={selectedSetting}
-          onSelect={handleSelect}
+        <HBoiler
+          temperatureC={boilerData?.temp ?? 0}
+          isHeating={boilerData?.heating ?? false}
+          selectedSetting={uiState.selectedBoilerSetting}
+          onSelect={handleBoilerSelect}
+          available={available.boiler}
+          
         />
 
-        {/* Die Card mit dem Warmwasserboiler – ausgelagert */}
-        <HBoiler
-          temperatureC={boilerData?.temp}
-          isHeating={boilerData?.heating}
-          selectedSetting={selectedBoilerSetting}
-          onSelect={handleBoilerSelect}
+        <HWallbox
+          energyKWh={wallboxData?.energy ?? 0}         // Fallback 0
+          isCharging={wallboxData?.isCharging ?? false}
+          selectedSetting={uiState.selectedWallboxSetting}
+          onSelect={handleWallboxSelect}
+          carConnected={wallboxData?.carConnected ?? false}
+          ampere={wallboxData?.ampere ?? 0}
+          available={systemState?.wallbox === 'ok'}     // Availability dynamisch geregelt
         />
       </ScrollView>
     </ThemedView>

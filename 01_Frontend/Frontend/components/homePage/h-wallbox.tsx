@@ -6,97 +6,203 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 type Props = {
   energyKWh: number
   isCharging: boolean
+  carConnected: boolean
+  ampere: number
+  phases?: number
   selectedSetting: 'SETTING_1' | 'SETTING_2'
   onSelect: (setting: 'SETTING_1' | 'SETTING_2') => void
+  available: boolean
 }
 
 export default function HWallbox({
   energyKWh,
   isCharging,
+  carConnected,
+  ampere,
+  phases = 3,
   selectedSetting,
   onSelect,
+  available,
 }: Props) {
   return (
-    // Die Card mit der E-GO Wallbox
     <Card>
       <View style={styles.wallboxCard}>
-        <View style={styles.wallboxHeaderRow}>
-          <View>
-            <Text style={styles.wallboxTitle}>E-GO Wallbox</Text>
-            <Text style={styles.wallboxEnergyText}>
-              <Text style={styles.wallboxEnergyValue}>{energyKWh} kWh</Text>{' '}
-              zugeführt
-            </Text>
-          </View>
-
-          {/* Status oben rechts („Laden…“ / „Lädt nicht“) */}
-          <View
-            pointerEvents="none"
-            style={[
-              styles.wallboxStatusContainer,
-              { overflow: 'hidden' },
-            ]}
-          >
+        {!available ? (
+          /* ================= NOT AVAILABLE STATE ================= */
+          <View style={styles.unavailableContainer}>
             <MaterialCommunityIcons
-              name={isCharging ? 'flash' : 'close'}
-              size={18}
-              color={isCharging ? '#16C75C' : '#d01212ff'}
+              name="alert-circle-outline"
+              size={36}
+              color="#8E8E93"
             />
-            <Text
-              style={[
-                styles.wallboxStatusText,
-                isCharging
-                  ? styles.wallboxStatusTextCharging
-                  : styles.wallboxStatusTextIdle,
-              ]}
-            >
-              {isCharging ? 'Laden…' : 'Lädt nicht'}
+            <Text style={styles.unavailableTitle}>
+              Wallbox nicht verfügbar
+            </Text>
+            <Text style={styles.unavailableSubtitle}>
+              Verbindung zur Wallbox konnte nicht hergestellt werden
             </Text>
           </View>
-        </View>
+        ) : (
+          /* ================= NORMAL STATE ================= */
+          <>
+            {/* Header */}
+            <View style={styles.headerSection}>
+              <Text style={styles.wallboxTitle}>E-GO Wallbox</Text>
 
-        {/* Die zwei Settings-Buttons */}
-        <View style={styles.wallboxSettingsContainer}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[
-              styles.wallboxSettingButton,
-              selectedSetting === 'SETTING_1' &&
-                styles.wallboxSettingButtonActive,
-            ]}
-            onPress={() => onSelect('SETTING_1')}
-          >
-            <Text
-              style={[
-                styles.wallboxSettingText,
-                selectedSetting === 'SETTING_1' &&
-                  styles.wallboxSettingTextActive,
-              ]}
-            >
-              Setting 1
-            </Text>
-          </TouchableOpacity>
+              <View
+                style={[
+                  styles.statusBadge,
+                  isCharging
+                    ? styles.statusBadgeCharging
+                    : styles.statusBadgeIdle,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name={isCharging ? 'flash' : 'flash-off'}
+                  size={16}
+                  color={isCharging ? '#16C75C' : '#FF3B30'}
+                />
+                <Text
+                  style={[
+                    styles.statusBadgeText,
+                    isCharging
+                      ? styles.statusTextCharging
+                      : styles.statusTextIdle,
+                  ]}
+                >
+                  {isCharging ? 'Lädt' : 'Inaktiv'}
+                </Text>
+              </View>
+            </View>
 
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={[
-              styles.wallboxSettingButton,
-              selectedSetting === 'SETTING_2' &&
-                styles.wallboxSettingButtonActive,
-            ]}
-            onPress={() => onSelect('SETTING_2')}
-          >
-            <Text
-              style={[
-                styles.wallboxSettingText,
-                selectedSetting === 'SETTING_2' &&
-                  styles.wallboxSettingTextActive,
-              ]}
-            >
-              Setting 2
-            </Text>
-          </TouchableOpacity>
-        </View>
+            {/* Energie */}
+            <View style={styles.energySection}>
+              <View style={styles.energyDisplay}>
+                <Text style={styles.energyValue}>
+                  {energyKWh.toFixed(1)}
+                </Text>
+                <Text style={styles.energyUnit}>kWh</Text>
+              </View>
+              <Text style={styles.energyLabel}>Gesamtenergie</Text>
+            </View>
+
+            {/* Status */}
+            <View style={styles.statusGrid}>
+              <View style={styles.statusItem}>
+                <View style={styles.statusIconContainer}>
+                  <MaterialCommunityIcons
+                    name="car-electric"
+                    size={20}
+                    color={carConnected ? '#16C75C' : '#8E8E93'}
+                  />
+                </View>
+                <View style={styles.statusContent}>
+                  <Text style={styles.statusLabel}>Fahrzeug</Text>
+                  <Text
+                    style={[
+                      styles.statusValue,
+                      { color: carConnected ? '#16C75C' : '#8E8E93' },
+                    ]}
+                  >
+                    {carConnected ? 'Verbunden' : 'Getrennt'}
+                  </Text>
+                </View>
+              </View>
+
+              {isCharging && (
+                <View style={styles.statusItem}>
+                  <View style={styles.statusIconContainer}>
+                    <MaterialCommunityIcons
+                      name="lightning-bolt"
+                      size={20}
+                      color="#1EAFF3"
+                    />
+                  </View>
+                  <View style={styles.statusContent}>
+                    <Text style={styles.statusLabel}>Leistung</Text>
+                    <Text
+                      style={[
+                        styles.statusValue,
+                        { color: '#1EAFF3' },
+                      ]}
+                    >
+                      {ampere}A · {phases}Ph
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Settings */}
+            <View style={styles.settingsSection}>
+              <Text style={styles.settingsTitle}>Lademodus</Text>
+
+              <View style={styles.settingsButtons}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={[
+                    styles.settingButton,
+                    selectedSetting === 'SETTING_1' &&
+                      styles.settingButtonActive,
+                  ]}
+                  onPress={() => onSelect('SETTING_1')}
+                >
+                  <View style={styles.settingButtonContent}>
+                    <View
+                      style={[
+                        styles.radioButton,
+                        selectedSetting === 'SETTING_1' &&
+                          styles.radioButtonActive,
+                      ]}
+                    >
+                      {selectedSetting === 'SETTING_1' && <View style={styles.radioButtonInner} />}
+                    </View>
+                    <View style={styles.settingTextContainer}>
+                      <Text style={styles.settingButtonText}>
+                        Laden erlauben
+                      </Text>
+                      <Text style={styles.settingButtonSubtext}>
+                        Automatisches Laden bei Verbindung
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={[
+                    styles.settingButton,
+                    selectedSetting === 'SETTING_2' &&
+                      styles.settingButtonActive,
+                  ]}
+                  onPress={() => onSelect('SETTING_2')}
+                >
+                  <View style={styles.settingButtonContent}>
+                    <View
+                      style={[
+                        styles.radioButton,
+                        selectedSetting === 'SETTING_2' &&
+                          styles.radioButtonActive,
+                      ]}
+                    >
+                      {selectedSetting === 'SETTING_2' && <View style={styles.radioButtonInner} />}
+                    </View>
+                    <View style={styles.settingTextContainer}>
+                      <Text style={styles.settingButtonText}>
+                        Laden sperren
+                      </Text>
+                      <Text style={styles.settingButtonSubtext}>
+                        Laden blockieren bei Verbindung.
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </>
+        )}
       </View>
     </Card>
   )
@@ -104,70 +210,193 @@ export default function HWallbox({
 
 const styles = StyleSheet.create({
   wallboxCard: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
+    padding: 14,
   },
-  wallboxHeaderRow: {
+  headerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 4,
+    alignItems: 'center',
+    marginBottom: 12,
   },
   wallboxTitle: {
-    fontSize: 30,
-    fontWeight: '600',
-    color: '#474646',
-    marginBottom: 2,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1C1C1E',
+    letterSpacing: -0.5,
   },
-  wallboxEnergyText: {
-    fontSize: 18,
-    color: '#474646',
-  },
-  wallboxEnergyValue: {
-    color: '#1EAFF3',
-    fontWeight: '600',
-  },
-  wallboxStatusContainer: {
+  statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    alignSelf: 'flex-end',
-    padding: 0,
-    margin: 0,
-    backgroundColor: 'transparent',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
   },
-  wallboxStatusText: {
-    fontSize: 17,
-    fontWeight: '500',
+  statusBadgeCharging: {
+    backgroundColor: '#E8F8ED',
   },
-  wallboxStatusTextCharging: {
-    color: '#16C75C',
+  statusBadgeIdle: {
+    backgroundColor: '#FFE8E8',
   },
-  wallboxStatusTextIdle: {
-    color: '#d01212ff',
-  },
-  wallboxSettingsContainer: {
-    gap: 8,
-  },
-  wallboxSettingButton: {
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#E7E7E7',
-  },
-  wallboxSettingButtonActive: {
-    backgroundColor: '#D9ECFF',
-    borderWidth: 1,
-    borderColor: '#1EAFF3',
-  },
-  wallboxSettingText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#474646',
-  },
-  wallboxSettingTextActive: {
-    color: '#1EAFF3',
+  statusBadgeText: {
+    fontSize: 12,
     fontWeight: '600',
   },
+  statusTextCharging: {
+    color: '#16C75C',
+  },
+  statusTextIdle: {
+    color: '#FF3B30',
+  },
+  energySection: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  energyDisplay: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+  },
+  energyValue: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1EAFF3',
+    letterSpacing: -1,
+  },
+  energyUnit: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1EAFF3',
+    opacity: 0.8,
+  },
+  energyLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#1C1C1E',
+    marginTop: 2,
+  },
+  statusGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  statusItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 10,
+  },
+  statusIconContainer: {
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+  },
+  statusContent: {
+    flex: 1,
+  },
+  statusLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: '#1C1C1E',
+    marginBottom: 1,
+  },
+  statusValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E5EA',
+    marginVertical: 12,
+  },
+  settingsSection: {
+    gap: 8,
+  },
+  settingsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginBottom: 2,
+  },
+  settingsButtons: {
+    gap: 8,
+  },
+  settingButton: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  settingButtonActive: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#1EAFF3',
+  },
+  settingButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 10,
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#C7C7CC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioButtonActive: {
+    borderColor: '#1EAFF3',
+  },
+  radioButtonInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#1EAFF3',
+  },
+  settingTextContainer: {
+    flex: 1,
+  },
+  settingButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginBottom: 1,
+  },
+  settingButtonTextActive: {
+    color: '#1EAFF3',
+  },
+  settingButtonSubtext: {
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#8E8E93',
+  },
+unavailableContainer: {
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingVertical: 32,
+  gap: 6,
+},
+
+unavailableTitle: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: '#1C1C1E',
+},
+
+unavailableSubtitle: {
+  fontSize: 12,
+  color: '#8E8E93',
+  textAlign: 'center',
+},
 })

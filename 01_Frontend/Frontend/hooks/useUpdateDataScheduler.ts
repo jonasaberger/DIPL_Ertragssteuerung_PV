@@ -2,20 +2,16 @@ import { useEffect, useState } from 'react'
 import { fetchLatestPVData, PV_Data } from '@/services/pv_services'
 import { fetchBoilerData, BoilerData } from '@/services/boiler_service'
 import { fetchEpexData, EpexData } from '@/services/epex_service'
+import { fetchSystemState, SystemState } from '@/services/state_service'
+import { fetchEGoData, EGoData } from '@/services/e_go_service'
 
-/* =========================
-   Zeit-Berechnung
-========================= */
 function msUntilNextQuarterHour() {
   const now = new Date()
   const minutes = now.getMinutes()
   const nextQuarter = Math.ceil(minutes / 15) * 15
-
   const next = new Date(now)
   next.setMinutes(nextQuarter, 0, 0)
-
   if (next <= now) next.setMinutes(next.getMinutes() + 15)
-
   return next.getTime() - now.getTime()
 }
 
@@ -26,72 +22,132 @@ function msUntilNextHourWithBuffer(bufferMinutes = 2) {
   return next.getTime() - now.getTime()
 }
 
-/* =========================
-   Hook
-========================= */
 export function useUpdateDataScheduler() {
   const [pvData, setPvData] = useState<PV_Data | null>(null)
   const [boilerData, setBoilerData] = useState<BoilerData | null>(null)
   const [epexData, setEpexData] = useState<EpexData | null>(null)
+  const [systemState, setSystemState] = useState<SystemState | null>(null)
+  const [wallboxData, setWallboxData] = useState<EGoData | null>(null)
 
   useEffect(() => {
     let isMounted = true
 
     let pvTimeout: ReturnType<typeof setTimeout>
     let pvInterval: ReturnType<typeof setInterval>
-
     let epexTimeout: ReturnType<typeof setTimeout>
     let epexInterval: ReturnType<typeof setInterval>
+    let stateInterval: ReturnType<typeof setInterval>
+    let wallboxInterval: ReturnType<typeof setInterval>
 
-    /* -------- Fetcher -------- */
-    const fetchPVAndBoiler = async () => {
+    /* -------- Fetch system state -------- */
+    const fetchState = async () => {
       try {
-        const [pv, boiler] = await Promise.all([
-          fetchLatestPVData(),
-          fetchBoilerData(),
-        ])
+        const state = await fetchSystemState()
         if (!isMounted) return
-        if (pv) setPvData(pv)
-        if (boiler) setBoilerData(boiler)
-        console.log('PV+Boiler updated', pv, boiler)
+        setSystemState(state)
+        return state
       } catch (err) {
-        console.error('Error fetching PV+Boiler:', err)
+        console.error('Error fetching system state:', err)
+        return null
       }
     }
 
-    const fetchEpex = async () => {
+    /* -------- Fetch PV + Boiler if available -------- */
+    const fetchPVAndBoiler = async (state: SystemState | null) => {
+      if (!state) return
+
+      const promises: Promise<any>[] = []
+
+      if (state.influx === 'ok') promises.push(fetchLatestPVData())
+      else setPvData(null)
+
+      if (state.boiler === 'ok') promises.push(fetchBoilerData())
+      else setBoilerData(null)
+
+      try {
+        const [pv, boiler] = await Promise.all(promises)
+        if (!isMounted) return
+        if (pv) setPvData(pv)
+        if (boiler) setBoilerData(boiler)
+      } catch (err) {
+        console.error('Error fetching PV/Boiler:', err)
+      }
+    }
+
+    /* -------- Fetch EPEX if backend is OK -------- */
+    const fetchEpex = async (state: SystemState | null) => {
+      if (!state) return
+      if (state.backend !== 'ok') {
+        setEpexData(null)
+        return
+      }
+
       try {
         const data = await fetchEpexData()
-        if (isMounted && data) setEpexData(data)
-        console.log('EPEX updated', data)
+        if (!isMounted) return
+        if (data) setEpexData(data)
       } catch (err) {
         console.error('Error fetching EPEX:', err)
       }
     }
 
-    /* -------- Initial Load -------- */
-    fetchPVAndBoiler()
-    fetchEpex()
+    /* -------- Fetch Wallbox if available -------- */
+    const fetchWallbox = async (state: SystemState | null) => {
+      if (!state) return
+      if (state.wallbox !== 'ok') {
+        setWallboxData(null)
+        return
+      }
 
-    /* -------- PV + Boiler Scheduler (Viertelstunde) -------- */
-    pvTimeout = setTimeout(() => {
-      fetchPVAndBoiler()
-      pvInterval = setInterval(fetchPVAndBoiler, 15 * 60 * 1000)
+      try {
+        const data = await fetchEGoData()
+        if (!isMounted) return
+        if (data) setWallboxData(data)
+      } catch (err) {
+        console.error('Error fetching Wallbox:', err)
+      }
+    }
+
+    /* -------- Initial load -------- */
+    const initialize = async () => {
+      const state = await fetchState()
+      await Promise.all([
+        fetchPVAndBoiler(state),
+        fetchEpex(state),
+        fetchWallbox(state),
+      ])
+    }
+
+    initialize()
+
+    /* -------- Schedulers -------- */
+    pvTimeout = setTimeout(async () => {
+      const state = await fetchState()
+      await fetchPVAndBoiler(state)
+      pvInterval = setInterval(() => fetchPVAndBoiler(state), 15 * 60 * 1000)
     }, msUntilNextQuarterHour())
 
-    /* -------- EPEX Scheduler (volle Stunde + Puffer) -------- */
-    epexTimeout = setTimeout(() => {
-      fetchEpex()
-      epexInterval = setInterval(fetchEpex, 60 * 60 * 1000)
-    }, msUntilNextHourWithBuffer(2)) // 2 Minuten Puffer
+    epexTimeout = setTimeout(async () => {
+      const state = await fetchState()
+      await fetchEpex(state)
+      epexInterval = setInterval(() => fetchEpex(state), 60 * 60 * 1000)
+    }, msUntilNextHourWithBuffer(2))
 
-    /* -------- Cleanup -------- */
+    wallboxInterval = setInterval(async () => {
+      const state = await fetchState()
+      await fetchWallbox(state)
+    }, 15 * 60 * 1000) // Wallbox alle 15 Minuten prüfen
+
+    stateInterval = setInterval(fetchState, 30 * 1000)
+
     return () => {
       isMounted = false
       clearTimeout(pvTimeout)
       clearInterval(pvInterval)
       clearTimeout(epexTimeout)
       clearInterval(epexInterval)
+      clearInterval(stateInterval)
+      clearInterval(wallboxInterval)
     }
   }, [])
 
@@ -99,5 +155,7 @@ export function useUpdateDataScheduler() {
     pvData,
     boilerData,
     epexData,
+    wallboxData,
+    systemState,
   }
 }
