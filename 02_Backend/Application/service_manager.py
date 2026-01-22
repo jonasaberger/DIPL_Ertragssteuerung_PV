@@ -102,7 +102,12 @@ class ServiceManager:
         # Device IP-Manager
         self.app.add_url_rule('/api/devices/get_devices', 'get_devices', self.device_manager.get_devices, methods=['GET'])
         self.app.add_url_rule('/api/devices/get_device', 'get_device', self.device_manager.get_device, methods=['GET'])
-        self.app.add_url_rule('/api/devices/get_endpoint_url', 'get_endpoint_url', self.device_manager.get_endpoint_url, methods=['GET'])
+        self.app.add_url_rule(
+            '/api/devices/admin/verify_admin_pw',
+            'verify_admin_pw',
+            self.device_manager.verify_admin_pw,
+            methods=['POST']
+        )
 
     # ----- Route Handlers -----
     def _json(self, payload, status=200):

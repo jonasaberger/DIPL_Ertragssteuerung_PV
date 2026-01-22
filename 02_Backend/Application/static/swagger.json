@@ -65,6 +65,50 @@
         }
       }
     },
+    "/api/devices/admin/verify_admin_pw": {
+      "post": {
+        "summary": "Verify admin password",
+        "description": "Checks if the provided password matches the stored admin password hash. Requires JSON body: { 'password': '...' }",
+        "tags": ["Admin"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["password"],
+                "properties": {
+                  "password": { "type": "string", "format": "password" }
+                }
+              },
+              "example": { "password": "meinAdminPw" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password verified successfully",
+            "content": {
+              "application/json": { "example": { "verified": true } }
+            }
+          },
+          "400": {
+            "description": "Password missing in request body",
+            "content": {
+              "application/json": { "example": { "error": "Password is required" } }
+            }
+          },
+          "401": {
+            "description": "Password incorrect",
+            "content": {
+              "application/json": { "example": { "verified": false } }
+            }
+          }
+        }
+      }
+    },
+
+
     "/api/pv/latest": { "get": { "summary": "Get latest PV data" } },
     "/api/pv/daily": { "get": { "summary": "Get daily PV data" } },
     "/api/pv/monthly": { "get": { "summary": "Get monthly PV data" } },
