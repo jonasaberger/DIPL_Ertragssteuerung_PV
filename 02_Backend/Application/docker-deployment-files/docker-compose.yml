@@ -2,12 +2,23 @@ version: "3.9"
 
 services:
   backend:
-    build: .
+    build: ..
+    container_name: pv-backend
+    restart: always
+
     ports:
       - "5050:5050"
+
     env_file:
-      - .env
+      - ../.env
+
+    user: root
+    privileged: true
+
+    environment:
+      - GPIOZERO_PIN_FACTORY=rpigpio
+
     # Use mock GPIO pins for testing purposes -> to really test GPIO functionality -> start Application on Pi
     # On PI: GPIOZERO_PIN_FACTORY=rpigpio
-    environment:
-      - GPIOZERO_PIN_FACTORY=mock
+    devices:
+      - /dev/gpiomem:/dev/gpiomem
