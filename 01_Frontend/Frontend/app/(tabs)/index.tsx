@@ -6,6 +6,7 @@ import HBoiler from '@/components/homePage/h-boiler'
 import { ThemedView } from '@/components/themed-view'
 import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
 import React, { useState } from 'react'
+
 import { ScrollView, StyleSheet } from 'react-native'
 
 const INITIAL_PRIORITIES: PriorityItem[] = [
@@ -16,6 +17,26 @@ const INITIAL_PRIORITIES: PriorityItem[] = [
 
 type EGoWallboxSetting = 'SETTING_1' | 'SETTING_2'
 type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'
+let currentEGoWallboxSetting: EGoWallboxSetting = 'SETTING_1'
+let currentBoilerSetting: BoilerSetting = 'MANUAL_OFF'
+
+// Variable, damit ich die Einstellung auch dann einfach fürs Backend habe
+export function getCurrentEGoWallboxSetting() {
+  return currentEGoWallboxSetting
+}
+
+export function getCurrentBoilerSetting() {
+  return currentBoilerSetting
+}
+
+const toNum = (v: any) => (Number.isFinite(v) ? Number(v) : 0)
+const clamp0 = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0)
+
+const MOCK_ENERGY = 9
+const MOCK_IS_CHARGING = true
+
+const MOCK_BOILER_TEMP = 58
+const MOCK_IS_HEATING = true
 
 export default function HomeScreen() {
   const { pvData, boilerData, epexData, wallboxData, systemState } = useUpdateDataScheduler()
@@ -33,13 +54,45 @@ export default function HomeScreen() {
     priorities: INITIAL_PRIORITIES as PriorityItem[],
   })
 
-  // Diagram Data
+  // --- Rohwerte
+  const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
+
+  // Hausverbrauch: oft negativ geliefert -> Betrag
+  const rawLoad = toNum(pvData?.load_power ?? 0)
+  const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
+
+  // Batterie: im PV-Verteilbild nur "Laden"
+  const rawBattery = toNum(pvData?.battery_power ?? 0)
+  const batteryChargeDemand = clamp0(rawBattery)
+
+  // Netz: positiv = Bezug, negativ = Einspeisung
+  const rawGrid = toNum(pvData?.grid_power ?? 0)
+  const gridImport = rawGrid > 0 ? clamp0(rawGrid) : 0
+  const gridFeedInDemand = rawGrid < 0 ? clamp0(-rawGrid) : 0
+
+  // --- PV-Verteilung (House -> Battery -> Grid)
+  const pvToHouse = Math.min(houseDemand, pvTotal)
+  const remaining1 = pvTotal - pvToHouse
+
+  const pvToBattery = Math.min(batteryChargeDemand, remaining1)
+  const remaining2 = remaining1 - pvToBattery
+
+  const pvToGrid = Math.min(gridFeedInDemand, remaining2)
+
+  // --- Netz -> Haus (wenn Haus mehr will als PV liefert UND Netzbezug da ist)
+  const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)
+  const gridToHouse = Math.min(gridImport, houseDeficitAfterPv)
+
   const diagramData: DiagramData = {
-    total: pvData?.pv_power ?? 0,
-    house: pvData?.load_power ?? 0,
-    battery: pvData?.battery_power ?? 0,
-    grid: pvData?.grid_power ?? 0,
+    total: pvTotal,
+    house: pvToHouse,           // PV -> Haus (gedeckt)
+    houseActual: houseDemand,   // echter Hausverbrauch
+    battery: pvToBattery,       // PV -> Batterie (Laden)
+    grid: pvToGrid,             // PV -> Netz (Einspeisung)
+    gridImport,                 // Netzbezug (Anzeige/Label)
+    gridToHouse,                // Netz -> Haus Partikel
   }
+
 
   // Handlers
   const handleWallboxSelect = (setting: EGoWallboxSetting) => {

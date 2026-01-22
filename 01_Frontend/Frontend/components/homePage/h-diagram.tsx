@@ -1,6 +1,6 @@
 import Card from '@/components/card'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Animated,
   Easing,
@@ -12,81 +12,136 @@ import {
 
 const CIRCLE_SIZE = 72
 
-//Typ für x/y Positionen
 type Point = { x: number; y: number }
 
-//Typ für die Daten, die vom Home-Screen kommen
 export type DiagramData = {
   total: number
-  house: number
-  battery: number
-  grid: number
+  house: number               // PV -> Haus (gedeckt)
+  houseActual?: number        // echter Hausverbrauch
+  battery: number             // PV -> Batterie (Laden)
+  grid: number                // PV -> Netz (Einspeisung)
+
+  gridImport?: number         // Netzbezug (positiv)
+  gridToHouse?: number        // Netz -> Haus Flow
 }
 
-//Props von index.tsx
 type Props = {
   data: DiagramData
 }
 
-//Props für die Partikel-Animation
 type ParticleLineProps = {
-  start: Point
-  end: Point
+  start?: Point
+  end?: Point
+  path?: Point[]
   color: string
   duration?: number
 }
 
-//Eine einzelne Partikel-Linie
-function ParticleLine({ start, end, color, duration = 2200 }: ParticleLineProps) {
-  //useREF damit der Animationswert über renders hinweg erhalten bleibt
-  const anim = useRef(new Animated.Value(0)).current
+function ParticleLine({
+  start,
+  end,
+  path,
+  color,
+  duration = 2200,
+}: ParticleLineProps) {
+  const moveAnim = useRef(new Animated.Value(0)).current
+  const scaleAnim = useRef(new Animated.Value(0)).current
 
-  //Erstellt eine endlose Animation die den Wert von 0 auf 1 ändert
-  //duration ist in Millisekunden
+  const minScale = useRef(0.6 + Math.random() * 0.3).current
+  const maxScale = useRef(1.0 + Math.random() * 0.5).current
+  const scaleDuration = useRef(800 + Math.random() * 700).current
+
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(anim, {
+    const moveLoop = Animated.loop(
+      Animated.timing(moveAnim, {
         toValue: 1,
         duration,
         easing: Easing.linear,
-        //Wichtigster Teil für Performance
         useNativeDriver: true,
       })
     )
-    //Startet die Endlosschleife
-    loop.start()
-    return () => loop.stop()
-  }, [anim, duration])
 
-  //anim ist ein Wert zwischen 0 und 1
-  //interpolate() wandelt diesen Wert in einen Wert zwischen start.x und end.x um
-  const translateX = anim.interpolate({
+    const scaleLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scaleAnim, {
+          toValue: 1,
+          duration: scaleDuration,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 0,
+          duration: scaleDuration,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    )
+
+    moveLoop.start()
+    scaleLoop.start()
+
+    return () => {
+      moveLoop.stop()
+      scaleLoop.stop()
+    }
+  }, [moveAnim, scaleAnim, duration, scaleDuration])
+
+  const scale = scaleAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [start.x, end.x],
+    outputRange: [minScale, maxScale],
   })
 
-  const translateY = anim.interpolate({
+  const translateXStraight = moveAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [start.y, end.y],
+    outputRange: [start?.x ?? 0, end?.x ?? 0],
   })
+
+  const translateYStraight = moveAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [start?.y ?? 0, end?.y ?? 0],
+  })
+
+  const curve = path && path.length >= 2 ? path : null
+
+  const { inputRange, xOut, yOut } = useMemo(() => {
+    if (!curve)
+      return {
+        inputRange: null as number[] | null,
+        xOut: null as number[] | null,
+        yOut: null as number[] | null,
+      }
+    const n = curve.length
+    const ir = Array.from({ length: n }).map((_, i) => i / (n - 1))
+    const xo = curve.map((p) => p.x)
+    const yo = curve.map((p) => p.y)
+    return { inputRange: ir, xOut: xo, yOut: yo }
+  }, [curve])
+
+  const translateX =
+    curve && inputRange && xOut
+      ? moveAnim.interpolate({ inputRange, outputRange: xOut })
+      : translateXStraight
+
+  const translateY =
+    curve && inputRange && yOut
+      ? moveAnim.interpolate({ inputRange, outputRange: yOut })
+      : translateYStraight
 
   return (
-    //Animated.View ist wie ein normales View, kann aber animierte Styles haben
-    //styles.particle macht den Partikel einfach zu einem kleinen Kreis
     <Animated.View
       pointerEvents="none"
       style={[
         styles.particle,
         {
           backgroundColor: color,
-          transform: [{ translateX }, { translateY }],
+          transform: [{ translateX }, { translateY }, { scale }],
         },
       ]}
     />
   )
 }
 
-//Eine Gruppe mehrerer Partikel-Linien
 function ParticlesGroup({
   start,
   end,
@@ -103,9 +158,7 @@ function ParticlesGroup({
   return (
     <>
       {Array.from({ length: count }).map((_, i) => {
-        //jede Linie etwas versetzt, damit sie nicht gleichzeitig ankommen
         const extra = (duration / count) * i
-
         return (
           <ParticleLine
             key={i}
@@ -120,69 +173,142 @@ function ParticlesGroup({
   )
 }
 
+function ParticlesCurveGroup({
+  path,
+  color,
+  count = 6,
+  duration = 2200,
+}: {
+  path: Point[]
+  color: string
+  count?: number
+  duration?: number
+}) {
+  return (
+    <>
+      {Array.from({ length: count }).map((_, i) => {
+        const extra = (duration / count) * i
+        return (
+          <ParticleLine
+            key={i}
+            path={path}
+            color={color}
+            duration={duration + extra}
+          />
+        )
+      })}
+    </>
+  )
+}
+
+const round1 = (v: number) => Math.round(v * 10) / 10
+const formatW = (v: number) => `${round1(v)} W`
+
 export default function HDiagram({ data }: Props) {
-  //Wird genutzt um die Breite des Diagrammbereichs zu speichern
-  //Auf unterschiedlichen Bildschirmgrößen kann die Breite variieren
   const [diagramWidth, setDiagramWidth] = useState<number | null>(null)
 
-  //Layout-Callback
-  //Wenn sich das Layout des Diagrammbereichs ändert (z.B. durch Bildschirmdrehung), wird die Breite aktualisiert
   const handleDiagramLayout = (e: LayoutChangeEvent) => {
-    const { width } = e.nativeEvent.layout
-    setDiagramWidth(width)
+    setDiagramWidth(e.nativeEvent.layout.width)
   }
 
-  //Positionen der Diagramm-Elemente
   let sun: Point | null = null
   let house: Point | null = null
   let battery: Point | null = null
   let grid: Point | null = null
 
-  //Wenn die Breite vorhanden ist, können wir Positionen berechnen
   if (diagramWidth !== null) {
     const w = diagramWidth
-
-    //Vordefinierte Y-Positionen für die Elemente
     const SUN_Y = 120
     const BOTTOM_CENTER_Y = 360
     const SIDE_Y = BOTTOM_CENTER_Y - 40
 
-    //Setzt die Positionen basierend auf der Diagrammbreite
     sun = { x: w / 2, y: SUN_Y }
-    battery = { x: w / 2, y: BOTTOM_CENTER_Y}
+    battery = { x: w / 2, y: BOTTOM_CENTER_Y }
     house = { x: w * 0.23, y: SIDE_Y }
     grid = { x: w * 0.77, y: SIDE_Y }
   }
 
+  const pvToHouse = Math.max(0, data.house)
+  const pvToBattery = Math.max(0, data.battery)
+  const pvToGrid = Math.max(0, data.grid)
+
+  const gridImport = Math.max(0, data.gridImport ?? 0)
+  const gridToHouse = Math.max(0, data.gridToHouse ?? 0)
+
+  const houseActualValue = Math.max(0, data.houseActual ?? 0)
+
+  const showPvHouse = data.total > 0 && pvToHouse > 0
+  const showPvBattery = data.total > 0 && pvToBattery > 0
+  const showPvGrid = data.total > 0 && pvToGrid > 0
+  const showGridHouse = gridToHouse > 0
+
+  const gridToHousePath = useMemo(() => {
+    if (!grid || !house) return null
+
+    const start = grid
+    const end = house
+    const control: Point = {
+      x: (start.x + end.x) / 2,
+      y: Math.min(start.y, end.y) - 140,
+    }
+
+    const steps = 16
+    const pts: Point[] = []
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps
+      const one = 1 - t
+      pts.push({
+        x: one * one * start.x + 2 * one * t * control.x + t * t * end.x,
+        y: one * one * start.y + 2 * one * t * control.y + t * t * end.y,
+      })
+    }
+    return pts
+  }, [grid, house])
+
   return (
-    //Die komplette Card wird hier drin gekapselt
     <Card height={520}>
       <View style={styles.diagram} onLayout={handleDiagramLayout}>
         {diagramWidth !== null && sun && house && battery && grid && (
           <>
-            {/* Partikel-Ebene */}
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
-              <ParticlesGroup
-                start={sun}
-                end={house}
-                color="#1EAFF3"
-                count={7}
-                duration={2600}
-              />
-              <ParticlesGroup
-                start={sun}
-                end={battery}
-                color="#16c172"
-                count={9}
-                duration={2400}
-              />
-              <ParticlesGroup
-                start={sun}
-                end={grid}
-                color="#ff7f3f"
-                count={6}
-                duration={2800}
-              />
+              {showPvHouse && (
+                <ParticlesGroup
+                  start={sun}
+                  end={house}
+                  color="#1EAFF3"
+                  count={7}
+                  duration={2600}
+                />
+              )}
+
+              {showPvBattery && (
+                <ParticlesGroup
+                  start={sun}
+                  end={battery}
+                  color="#16c172"
+                  count={9}
+                  duration={2400}
+                />
+              )}
+
+              {showPvGrid && (
+                <ParticlesGroup
+                  start={sun}
+                  end={grid}
+                  color="#ff7f3f"
+                  count={6}
+                  duration={2800}
+                />
+              )}
+
+              {showGridHouse && gridToHousePath && (
+                <ParticlesCurveGroup
+                  path={gridToHousePath}
+                  color="#ff7f3f"
+                  count={6}
+                  duration={2400}
+                />
+              )}
             </View>
 
             {/* Sonne */}
@@ -207,15 +333,13 @@ export default function HDiagram({ data }: Props) {
                 styles.valueText,
                 {
                   position: 'absolute',
-                  // Text über dem Sonnen-Kreis
                   top: sun.y - CIRCLE_SIZE / 2 - 28,
-                  left: sun.x - 60,
-                  width: 120,
-                  zIndex: 2,
+                  left: sun.x - 70,
+                  width: 140,
                 },
               ]}
             >
-              {data.total} W
+              {formatW(Math.max(0, data.total))}
             </Text>
 
             {/* Haus */}
@@ -239,10 +363,11 @@ export default function HDiagram({ data }: Props) {
                   top: house.y + CIRCLE_SIZE / 2 + 8,
                   left: house.x - 60,
                   width: 120,
+                  textAlign: 'center',
                 },
               ]}
             >
-              {data.house} W
+              {formatW(houseActualValue)}
             </Text>
 
             {/* Batterie */}
@@ -251,7 +376,6 @@ export default function HDiagram({ data }: Props) {
                 styles.circle,
                 styles.batteryCircle,
                 {
-                  // /2 damit der Kreis zentriert ist
                   left: battery.x - CIRCLE_SIZE / 2,
                   top: battery.y - CIRCLE_SIZE / 2,
                 },
@@ -265,20 +389,19 @@ export default function HDiagram({ data }: Props) {
             </View>
             <Text
               style={[
-                styles.valueText,
+                pvToBattery > 0 ? styles.valueText : styles.valueTextMuted,
                 {
                   position: 'absolute',
-                  // + 8 damit der Text etwas Abstand zum Kreis hat
                   top: battery.y + CIRCLE_SIZE / 2 + 8,
                   left: battery.x - 60,
                   width: 120,
                 },
               ]}
             >
-              {data.battery} W
+              {formatW(pvToBattery)}
             </Text>
 
-            {/* Einspeisenetz */}
+            {/* Netz */}
             <View
               style={[
                 styles.circle,
@@ -291,19 +414,34 @@ export default function HDiagram({ data }: Props) {
             >
               <MaterialCommunityIcons name="sitemap" size={42} color="#474646" />
             </View>
-            <Text
-              style={[
-                styles.valueText,
-                {
-                  position: 'absolute',
-                  top: grid.y + CIRCLE_SIZE / 2 + 8,
-                  left: grid.x - 60,
-                  width: 120,
-                },
-              ]}
+
+            <View
+              style={{
+                position: 'absolute',
+                top: grid.y + CIRCLE_SIZE / 2 + 8,
+                left: grid.x - 70,
+                width: 140,
+                alignItems: 'center',
+              }}
             >
-              {data.grid} W
-            </Text>
+              <Text
+                style={[
+                  pvToGrid > 0 || gridImport > 0
+                    ? styles.valueText
+                    : styles.valueTextMuted,
+                ]}
+              >
+                {pvToGrid > 0 ? formatW(pvToGrid) : formatW(gridImport)}
+              </Text>
+
+              {gridImport > 0 && pvToGrid <= 0 && (
+                <Text style={styles.subValueText}>(Bezug)</Text>
+              )}
+
+              {pvToGrid > 0 && (
+                <Text style={styles.subValueText}>(Einspeisung)</Text>
+              )}
+            </View>
           </>
         )}
       </View>
@@ -328,7 +466,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
 
-  //Diagramm Container
   diagram: {
     width: '100%',
     height: '100%',
@@ -342,6 +479,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+  valueTextMuted: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#9A9898',
+    textAlign: 'center',
+  },
+
+  subValueText: {
+    marginTop: 2,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6E6C6C',
+    textAlign: 'center',
+  },
+
   circle: {
     position: 'absolute',
     width: CIRCLE_SIZE,
@@ -351,18 +503,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  sunCircle: {
-    backgroundColor: '#FFFF2E',
-  },
-  houseCircle: {
-    backgroundColor: '#6CD3ED',
-  },
-  batteryCircle: {
-    backgroundColor: '#2EFF74',
-  },
-  gridCircle: {
-    backgroundColor: '#FF702E',
-  },
+  sunCircle: { backgroundColor: '#FFFF2E' },
+  houseCircle: { backgroundColor: '#6CD3ED' },
+  batteryCircle: { backgroundColor: '#2EFF74' },
+  gridCircle: { backgroundColor: '#FF702E' },
 
   particle: {
     position: 'absolute',
