@@ -10,6 +10,7 @@ import platform
 from datetime import datetime
 from logging_bridge import LoggingBridge
 from zoneinfo import ZoneInfo
+from datetime import timedelta
 
 SWAGGER_URL = '/swagger'
 API_URL = '/static/swagger.json'  
@@ -344,37 +345,35 @@ class ServiceManager:
     
     # Monitoring / Status endpoint: Returns a compact system health overview. This endpoint does NOT control anything – read-only monitoring.
     def get_state(self):
-
         status = {
             "backend": "ok",
             "influx": "unknown",
             "wallbox": "unknown",
             "boiler": "unknown",
+            "epex": "unknown",
             "timestamp": datetime.now(ZoneInfo("Europe/Vienna")).isoformat()
         }
 
-        # InfluxDB status
+        # InfluxDB
         try:
             self.db_bridge.check_connection()
             status["influx"] = "ok"
         except Exception as e:
             status["influx"] = "error"
-
-            # Log only real system errors
             self.logger.system_event(
                 level="error",
                 source="monitoring",
                 message=f"InfluxDB not reachable: {e}"
             )
 
-        # Wallbox status
+        # Wallbox
         try:
             data = self.wallbox_bridge.fetch_data()
             status["wallbox"] = "ok" if data else "no_data"
         except Exception:
             status["wallbox"] = "timeout"
-            
-        # Boiler status
+
+        # Boiler
         try:
             if not hasattr(self.boiler_bridge, "get_state"):
                 status["boiler"] = "unavailable"
@@ -383,6 +382,29 @@ class ServiceManager:
                 status["boiler"] = "simulated" if simulated else "ok"
         except Exception:
             status["boiler"] = "error"
+
+        # EPEX
+        try:
+            epex_data = self.db_bridge.get_latest_epex_data()
+
+            if not epex_data or "_time" not in epex_data:
+                status["epex"] = "no_data"
+            else:
+                epex_ts = datetime.fromisoformat(epex_data["_time"])
+                now = datetime.now(ZoneInfo("Europe/Vienna"))
+
+                if now - epex_ts > timedelta(hours=2):
+                    status["epex"] = "stale"
+                else:
+                    status["epex"] = "ok"
+
+        except Exception as e:
+            status["epex"] = "error"
+            self.logger.system_event(
+                level="error",
+                source="monitoring",
+                message=f"EPEX data check failed: {e}"
+        )
 
         return jsonify(status), 200
     
