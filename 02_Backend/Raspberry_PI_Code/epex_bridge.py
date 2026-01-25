@@ -1,13 +1,18 @@
 import requests
 from dotenv import load_dotenv
+
+from Raspberry_PI_Code.device_manager import DeviceManager
 from db_bridge import DB_Bridge
 from datetime import datetime
 import os
 
 class EpexBridge: 
     def __init__(self):
-        load_dotenv()
-        self.api_url = os.getenv("URL_EPEX")
+        self.device_manager = DeviceManager("http://100.120.107.71:5050/api/devices")
+        self.api_url = self.device_manager.get_device_url(
+            "epex",
+            "price"
+        )
 
         # Connect to the InfluxDB
         self.db = DB_Bridge()

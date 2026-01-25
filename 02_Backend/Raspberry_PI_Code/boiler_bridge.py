@@ -24,11 +24,11 @@ class Boiler_Bridge:
             # no 1-wire sensor on non-Linux systems
             self.device_file = None
         else:
-            base_dir = '/sys/bus/w1/devices/'
+            base_dir = '/sys/bus/w1/config/'
             device_folders = glob.glob(base_dir + '28*')
             if not device_folders:
                 raise FileNotFoundError(
-                    "No DS18B20 temperature sensor found under /sys/bus/w1/devices/"
+                    "No DS18B20 temperature sensor found under /sys/bus/w1/config/"
                 )
             self.device_file = device_folders[0] + '/w1_slave'
 

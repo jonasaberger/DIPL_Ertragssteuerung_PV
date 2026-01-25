@@ -1,11 +1,13 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
+
+from device_manager import DeviceManager
 from db_bridge import DB_Bridge
 from wallbox_bridge import Wallbox_Bridge
 from dotenv import load_dotenv, find_dotenv
 from boiler_controller import BoilerController
-import os
+
 import platform
 from datetime import datetime
 from logging_bridge import LoggingBridge
@@ -45,6 +47,9 @@ class ServiceManager:
 
         # Initialize logging bridge
         self.logger = LoggingBridge()
+
+        # Initialize the IP-/Device-Manager
+        self.device_manager = DeviceManager()
 
         # ---- SYSTEM EVENT LOG ----
         self.logger.system_event(
@@ -97,6 +102,17 @@ class ServiceManager:
 
         # Logging endpoints
         self.app.add_url_rule('/api/logging', 'logging', self.get_logging, methods=['GET'])
+
+        # Device IP-Manager
+        self.app.add_url_rule('/api/devices/get_devices', 'get_devices', self.device_manager.get_devices, methods=['GET'])
+        self.app.add_url_rule('/api/devices/get_device', 'get_device', self.device_manager.get_device, methods=['GET'])
+        self.app.add_url_rule(
+            '/api/devices/admin/verify_admin_pw',
+            'verify_admin_pw',
+            self.device_manager.verify_admin_pw,
+            methods=['POST']
+        )
+        self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.device_manager.edit_device_endpoint, methods=['POST'])
 
     # ----- Route Handlers -----
     def _json(self, payload, status=200):

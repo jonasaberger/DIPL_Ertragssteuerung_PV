@@ -4,9 +4,12 @@ from dotenv import load_dotenv
 import os
 
 class PV_Bridge:
-    def __init__(self):
-        load_dotenv()
-        self.url = os.getenv("URL_PV")  # http://192.168.0.101/solar_api/v1/GetPowerFlowRealtimeData.fcgi
+    def __init__(self, device_manager):
+        self.device_manager = device_manager
+        self.url = self.device_manager.get_device_url(
+            "pv",
+            "powerflow"
+        ) # http://192.168.0.101/solar_api/v1/GetPowerFlowRealtimeData.fcgi
 
     # Safely convert a value to Decimal (avoids None or invalid numbers) 
     def safe_decimal(self, value):

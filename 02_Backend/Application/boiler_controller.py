@@ -1,5 +1,4 @@
 import platform
-from dotenv import load_dotenv, find_dotenv
 
 # ! Install / Import gpiozero for relay control (only works on Pi)
 try:
@@ -12,10 +11,6 @@ except Exception:
 
 class BoilerController:
     def __init__(self, gpio_pin=26, inverted_logic=True):
-        # Load environment variables from .env file (if any)
-        env_path = find_dotenv()
-        if env_path:
-            load_dotenv(env_path)
 
         # Relay control: use gpiozero on Pi, simulate on others
         self.gpio_pin = gpio_pin
