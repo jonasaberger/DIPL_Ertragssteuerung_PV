@@ -24,7 +24,7 @@ class Boiler_Bridge:
             # no 1-wire sensor on non-Linux systems
             self.device_file = None
         else:
-            base_dir = '/sys/bus/w1/config/'
+            base_dir = '/sys/bus/w1/devices/'
             device_folders = glob.glob(base_dir + '28*')
             if not device_folders:
                 raise FileNotFoundError(
