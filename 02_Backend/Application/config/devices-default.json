@@ -4,7 +4,7 @@
     "pv": {
       "baseUrl": "http://192.168.0.101",
       "endpoints": {
-        "powerflow": "/solar_api/v1/GetPowerFlowRealtimeData.fcgis"
+        "powerflow": "/solar_api/v1/GetPowerFlowRealtimeData.fcgi"
       }
     },
     "wallbox": {
@@ -19,9 +19,6 @@
       "endpoints": {
         "price": "/market/v1/price"
       }
-    },
-    "test": {
-      "name": "Test Device"
     }
   }
 }
