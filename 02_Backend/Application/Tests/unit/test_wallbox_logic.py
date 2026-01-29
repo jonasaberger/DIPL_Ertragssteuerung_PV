@@ -2,11 +2,8 @@ from datetime import datetime
 from wallbox_bridge import Wallbox_Bridge
 from decimal import Decimal
 
-# Testet die Wallbox_Bridge-Klasse ohne echte Wallbox
-# HTTP-Aufrufe (requests.get) und Zeitzugriffe werden gemockt
-
+# Simulierter HTTP-Response der Wallbox
 def test_wallbox_fetch_data(mocker):
-    # Simulierter HTTP-Response der Wallbox
     fake_response = mocker.Mock()
     fake_response.json.return_value = {
         "amp": 16,
@@ -36,15 +33,8 @@ def test_wallbox_fetch_data(mocker):
     assert data["amp"] == 16
     assert data["car"] == 1
 
-# --------------------------------------------------
-# Edge-Case & Error-Tests für Wallbox_Bridge
-# --------------------------------------------------
-
+# Prüft, dass ungültige Eingaben nicht zu Exceptions führen
 def test_safe_decimal_handles_invalid_input():
-    """
-    Prüft, dass ungültige Eingaben nicht
-    zu Exceptions führen.
-    """
     wb = Wallbox_Bridge()
 
     result = wb.safe_decimal("not_a_number")

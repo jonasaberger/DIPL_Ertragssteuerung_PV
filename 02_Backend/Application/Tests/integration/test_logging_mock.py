@@ -1,5 +1,4 @@
-# Testet die Initialisierung der LoggingBridge.
-# Keine echte InfluxDB-Logging-Verbindung notwendig.
+# Testet die Initialisierung der LoggingBridge, Keine echte InfluxDB-Logging-Verbindung
 
 from logging_bridge import LoggingBridge
 
