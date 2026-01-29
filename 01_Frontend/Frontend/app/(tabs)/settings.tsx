@@ -3,6 +3,7 @@ import { ScrollView, StyleSheet } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 
 import SSystemSettings from '@/components/settings/s-systemsettings'
+import SProtocol from '@/components/settings/s-protocol'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
 
 export default function SettingsScreen() {
@@ -17,13 +18,11 @@ export default function SettingsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Wenn in diesem Fokus schon entsperrt → NICHT nochmal fragen
       if (!unlockedThisFocus.current) {
         setAuthorized(false)
         setAskPw(true)
       }
 
-      // Beim Verlassen: Reset für nächstes Betreten
       return () => {
         unlockedThisFocus.current = false
         setAuthorized(false)
@@ -35,12 +34,12 @@ export default function SettingsScreen() {
   return (
     <>
       <ScrollView contentContainerStyle={styles.container}>
-        {authorized && (
-          <SSystemSettings
-            ipAddress={ipAddress}
-            onChangeIpAddress={setIpAddress}
-          />
-        )}
+        {authorized ? (
+          <>
+            <SSystemSettings ipAddress={ipAddress} onChangeIpAddress={setIpAddress} />
+            <SProtocol />
+          </>
+        ) : null}
       </ScrollView>
 
       <SPasswordModal
@@ -50,7 +49,6 @@ export default function SettingsScreen() {
           router.replace('/')
         }}
         onSuccess={() => {
-          // Reihenfolge ist KRITISCH
           unlockedThisFocus.current = true
           setAuthorized(true)
           setAskPw(false)
@@ -64,5 +62,6 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     marginTop: 30,
+    gap: 12,
   },
 })
