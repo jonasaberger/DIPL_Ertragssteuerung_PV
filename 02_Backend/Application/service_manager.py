@@ -113,6 +113,12 @@ class ServiceManager:
             methods=['POST']
         )
         self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.device_manager.edit_device_endpoint, methods=['POST'])
+        self.app.add_url_rule(
+            '/api/devices/reset_devices',
+            'reset_devices',
+            self.device_manager.reset_devices_endpoint,
+            methods=["POST"]
+        )
 
     # ----- Route Handlers -----
     def _json(self, payload, status=200):

@@ -1,7 +1,6 @@
 import requests
 from dotenv import load_dotenv
-
-from Raspberry_PI_Code.device_manager import DeviceManager
+from device_manager import DeviceManager
 from db_bridge import DB_Bridge
 from datetime import datetime
 import os
