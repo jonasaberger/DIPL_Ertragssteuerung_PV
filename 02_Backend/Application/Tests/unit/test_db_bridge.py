@@ -1,10 +1,6 @@
 from datetime import datetime
 from db_bridge import DB_Bridge
 
-# Testet die Datenaufbereitung der DB_Bridge-Klasse,
-# ohne eine echte InfluxDB-Verbindung aufzubauen
-# Die InfluxDB-Client-Komponenten werden vollständig gemockt
-
 def test_get_latest_pv_data_mocked(mocker):
     # Simulierter Zeitstempel (bewusst OHNE echte Zeitzone,
     # um plattformabhängige Probleme zu vermeiden)
@@ -46,18 +42,9 @@ def test_get_latest_pv_data_mocked(mocker):
     assert data is not None
     assert data["pv_power"] == 1234
 
-
-# --------------------------------------------------
-# Error-Handling Tests für DB_Bridge
-# --------------------------------------------------
-
+# Simuliert einen InfluxDB-Ausfall und prüft,dass die Methode sauber mit None reagiert, statt zu crashen.
 def test_get_latest_pv_data_handles_influx_error(mocker):
-    """
-    Simuliert einen InfluxDB-Ausfall und prüft,
-    dass die Methode sauber mit None reagiert
-    statt zu crashen.
-    """
-
+  
     fake_query_api = mocker.Mock()
     fake_query_api.query.side_effect = Exception("InfluxDB not reachable")
 

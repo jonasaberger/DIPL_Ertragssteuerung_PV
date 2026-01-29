@@ -30,5 +30,5 @@
 ### How to start Tests
 - venv has to be active
 - cd \DIPL_Ertragssteuerung_PV\02_Backend\Application
-- pytest
+-  paytest / pytest -m hardware
 

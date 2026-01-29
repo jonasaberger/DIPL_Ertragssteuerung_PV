@@ -1,7 +1,5 @@
 from boiler_controller import BoilerController
-
-# Testet den BoilerController ohne echte Hardware (GPIO) -> GPIO-Test auskommentiert
-# Da auf Windows / CI kein GPIO verfügbar ist, arbeitet der BoilerController automatisch im Simulationsmodus
+import pytest
 
 def test_boiler_controller_can_be_created():
     # Initialisierung des BoilerControllers testen
@@ -49,45 +47,18 @@ def test_boiler_toggle():
     assert bc.get_state() is False
 
 
-""" 
-GPIO TEST -> Only should work on Pi / Linux with real GPIO access
-
-def test_boiler_gpio_called(mocker):
-    fake_led = mocker.Mock()
-    mocker.patch("boiler_controller.LED", return_value=fake_led)
-    mocker.patch("platform.system", return_value="Linux")
-
-    bc = BoilerController()
-    bc.turn_on()
-
-    fake_led.on.assert_called_once()
-"""
-
-# --------------------------------------------------
-# Error- & Validierungstests für BoilerController
-# --------------------------------------------------
-
-import pytest
-from boiler_controller import BoilerController
-
-
+# Prüft, dass ungültige Steueraktionen korrekt mit einer Exception abgefangen werden
 def test_control_invalid_action_raises_value_error():
-    """
-    Prüft, dass ungültige Steueraktionen korrekt
-    mit einer Exception abgefangen werden.
-    """
+
     bc = BoilerController()
 
     # Ungültige Aktion → ValueError erwartet
     with pytest.raises(ValueError):
         bc.control("invalid")
 
-
+# Prüft, dass die control()-Methode immer, eine konsistente Rückgabestruktur liefert
 def test_control_returns_valid_result_structure():
-    """
-    Prüft, dass die control()-Methode immer
-    eine konsistente Rückgabestruktur liefert.
-    """
+
     bc = BoilerController()
 
     result = bc.control("on")

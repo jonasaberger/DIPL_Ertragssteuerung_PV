@@ -1,5 +1,4 @@
-# Testet die Validierung von API-Eingaben im ServiceManager
-# Stellt sicher, dass fehlerhafte Requests korrekt abgewiesen werden
+# Testet die Validierung von API-Eingaben im ServiceManager Stellt sicher, dass fehlerhafte Requests korrekt abgewiesen werden
 
 def test_wallbox_api_missing_payload(client):
     # Kein JSON-Body
