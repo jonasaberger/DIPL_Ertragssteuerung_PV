@@ -1,4 +1,4 @@
-from Raspberry_PI_Code.device_manager import DeviceManager
+from device_manager import DeviceManager
 from pv_bridge import PV_Bridge
 from boiler_bridge import Boiler_Bridge
 from db_bridge import DB_Bridge
