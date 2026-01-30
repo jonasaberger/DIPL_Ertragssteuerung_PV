@@ -9,6 +9,7 @@ try:
 except Exception:
     LED = None
 
+
 class BoilerController:
     def __init__(self, gpio_pin=26, inverted_logic=True):
 
@@ -26,12 +27,17 @@ class BoilerController:
         # simulation state for non-Pi environments (Windows, CI, dev)
         self._sim_state = False
 
+        # logical boiler state (single source of truth)
+        self._state = False
+
     ########### Relay Logic ############
     def _apply_logic(self, logical_on: bool):
         """
         Handles relay logic with optional inverted behavior.
         logical_on = True  -> boiler should heat
         """
+        self._state = logical_on
+
         # Hardware relay available (Pi)
         if self.relay:
             physical_on = not logical_on if self.inverted_logic else logical_on
@@ -57,29 +63,19 @@ class BoilerController:
 
     def toggle(self):
         """ Toggle boiler heating state """
-        state = self.get_state()
-        if state is None:
-            return None
-        return self._apply_logic(not state)
+        return self._apply_logic(not self._state)
 
     def get_state(self):
         """
-        Returns logical boiler state (True/False)  
-        or simulated state when running without GPIO.
+        Returns logical boiler state (True/False)
         """
-        if self.relay:
-            phys = self.relay.is_lit
-            logical = not phys if self.inverted_logic else phys
-            return logical
-
-        return self._sim_state
+        return self._state
 
     ########### API-style control helper ############
-
     def control(self, action: str):
         """
-        Executes boiler control action: on/off/toggle  
-        Returns: {"action": action, "result": True|False|None}
+        Executes boiler control action: on/off/toggle
+        Returns: {"action": action, "result": True|False}
         """
         action = (action or "").lower()
 
