@@ -48,15 +48,14 @@ class ServiceManager:
         # Initialize logging bridge
         self.logger = LoggingBridge()
 
-        # Initialize the IP-/Device-Manager
-        self.device_manager = DeviceManager()
-
-        # ---- SYSTEM EVENT LOG ----
         self.logger.system_event(
             level="info",
             source="backend",
             message="PV Backend Service started"
         )
+
+        # Initialize the IP-/Device-Manager
+        self.device_manager = DeviceManager()
 
         # Simple startup logs: platform + boiler control availability
         print(f"[{datetime.now().isoformat()}] Service starting on platform: {platform.system()}")
@@ -68,10 +67,10 @@ class ServiceManager:
 
         # Configure all routes
         self.configure_routes()
-
+        
     def start_server(self):
         self.app.run(host=self.host_ip, port=self.server_port)
-
+     
     def get_app(self):
         return self.app
 
@@ -113,7 +112,7 @@ class ServiceManager:
             methods=['POST']
         )
         self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.device_manager.edit_device_endpoint, methods=['POST'])
-
+    
     # ----- Route Handlers -----
     def _json(self, payload, status=200):
         """Helper for consistent JSON responses."""
@@ -197,7 +196,7 @@ class ServiceManager:
         except Exception as e:
             # ---- API ERROR LOG ----
             self.logger.api_error(
-                api="wallbox",
+                device="wallbox",
                 endpoint="/api/wallbox/latest",
                 error=e
             )
@@ -226,7 +225,7 @@ class ServiceManager:
         except Exception as e:
             # ---- API ERROR LOG ----
             self.logger.api_error(
-                api="wallbox",
+                device="wallbox",
                 endpoint="/api/wallbox/setCharging",
                 error=e
             )
@@ -240,7 +239,7 @@ class ServiceManager:
         except Exception as e:
             # ---- API ERROR LOG ----
             self.logger.api_error(
-                api="influxdb",
+                device="influxdb",
                 endpoint="get_latest_boiler_data",
                 error=e
             )
@@ -261,90 +260,69 @@ class ServiceManager:
             state = self.boiler_bridge.get_state()
             simulated = getattr(self.boiler_bridge, "relay", None) is None
 
-            if state is None:
-                return self._json({"heating": None, "simulated": simulated, "message": "Hardware unavailable or simulated"}, 502)
-
-            return self._json({"heating": state, "simulated": simulated}, 200)
+            return self._json(
+                {
+                    "heating": state,
+                    "simulated": simulated
+                },
+                200
+            )
 
         except Exception as e:
-            # ---- API ERROR LOG ----
             self.logger.api_error(
-                api="boiler",
+                device="boiler",
                 endpoint="/api/boiler/state",
                 error=e
             )
-            err = f"Failed to read boiler state: {e}"
-            print(err)
-            return self._json({"error": err}, 500)
+            return self._json({"error": str(e)}, 500)
+
         
-    # POST JSON: { "action": "on" | "off" | "toggle" }, Controls the boiler relay.
+    # POST JSON: { "action": "on" | "off" | "toggle" }
     def control_boiler(self):
-        try:
-            payload = request.get_json(silent=True)
-            if not payload:
-                return self._json({"error": "Missing JSON body"}, 400)
+        payload = request.get_json(silent=True)
+        if not payload:
+            return self._json({"error": "Missing JSON body"}, 400)
 
-            action = (payload.get("action") or "").lower()
-            if action not in ("on", "off", "toggle"):
-                return self._json({"error": "Invalid action. Use: on/off/toggle"}, 400)
+        action = (payload.get("action") or "").lower()
+        if action not in ("on", "off", "toggle"):
+            return self._json({"error": "Invalid action. Use: on/off/toggle"}, 400)
 
-            if not hasattr(self.boiler_bridge, "control"):
-                return self._json({"error": "Boiler control not available"}, 502)
+        old_state = self.boiler_bridge.get_state()
 
-            old_state = self.boiler_bridge.get_state()
+        # Redundante Aktionen verhindern
+        if action == "on" and old_state is True:
+            return self._json({"heating": True, "message": "already on"}, 200)
 
-            try:
-                result = self.boiler_bridge.control(action)
-            except ValueError as e:
-                return self._json({"error": str(e)}, 400)
-            except Exception as e:
-                # ---- API ERROR LOG ----
-                self.logger.api_error(
-                    api="boiler",
-                    endpoint="/api/boiler/control",
-                    error=e
-                )
-                err = f"Failed to execute control action: {e}"
-                print(err)
-                return self._json({"error": err}, 500)
+        if action == "off" and old_state is False:
+            return self._json({"heating": False, "message": "already off"}, 200)
 
-            new_state = self.boiler_bridge.get_state()
+        # Aktion ausführen
+        self.boiler_bridge.control(action)
+        new_state = self.boiler_bridge.get_state()
 
-            # ---- DEVICE STATE CHANGE LOG ----
+        self.logger.control_decision(
+            device="boiler",
+            action=action,
+            reason="manual_api_call",
+            success=True
+        )
+
+        if old_state != new_state:
             self.logger.device_state_change(
                 device="boiler",
                 old_state=old_state,
                 new_state=new_state
             )
 
-            # ---- CONTROL DECISION LOG ----
-            self.logger.control_decision(
-                device="boiler",
-                action=action,
-                reason="manual_api_call",
-                success=True
-            )
+        simulated = getattr(self.boiler_bridge, "relay", None) is None
 
-            simulated = getattr(self.boiler_bridge, "relay", None) is None
-
-            extended = {
-                "action": result["action"],
-                "result": result["result"],
+        return self._json(
+            {
+                "heating": new_state,
                 "simulated": simulated
-            }
-
-            return self._json(extended, 200)
-
-        except Exception as e:
-            # ---- SYSTEM ERROR LOG ----
-            self.logger.system_event(
-                level="error",
-                source="boiler",
-                message=f"Unexpected error in control_boiler: {e}"
-            )
-            err = f"Unexpected error in control_boiler: {e}"
-            print(err)
-            return self._json({"error": err}, 500)
+            },
+            200
+        )
 
     def get_epex_latest(self):
         try:
@@ -353,7 +331,7 @@ class ServiceManager:
         except Exception as e:
             # ---- API ERROR LOG ----
             self.logger.api_error(
-                api="epex",
+                device="epex",
                 endpoint="/api/epex/latest",
                 error=e
             )

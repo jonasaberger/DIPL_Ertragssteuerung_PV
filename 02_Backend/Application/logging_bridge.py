@@ -52,8 +52,8 @@ class LoggingBridge:
         point = (
             Point("control_decision")
             .tag("device", device)             # wallbox / boiler
-            .tag("action", action)             # on / off / toggle / set_allow
-            .tag("success", str(success))
+            .field("action", action)             # on / off / toggle / set_allow
+            .field("success", str(success))
             .field("reason", reason)           # manual / pv_surplus / scheduler
             .field("extra", str(extra) if extra else "")
             .time(datetime.now(timezone.utc), WritePrecision.NS)
@@ -62,14 +62,26 @@ class LoggingBridge:
 
     # System-level events
     def system_event(self, level, source, message):
-        point = (
-            Point("system_event")
-            .tag("level", level)               # info / warning / error
-            .tag("source", source)             # backend / monitoring
-            .field("message", message)
-            .time(datetime.now(timezone.utc), WritePrecision.NS)
-        )
-        self._write(point)
+        with InfluxDBClient(
+            url=self.url,
+            token=self.token,
+            org=self.org
+        ) as client:
+            write_api = client.write_api(write_options=SYNCHRONOUS)
+
+            point = (
+                Point("system_event")
+                .tag("level", level)
+                .tag("source", source)
+                .field("message", message)
+                .time(datetime.now(timezone.utc), WritePrecision.NS)
+            )
+
+            write_api.write(
+                bucket=self.bucket,
+                org=self.org,
+                record=point
+            )
 
     # External API errors (WITH DEVICE INFORMATION)
     def api_error(self, device, endpoint, error):
@@ -90,12 +102,13 @@ class LoggingBridge:
 
     # Device state changes
     def device_state_change(self, device, old_state, new_state):
-        """
-        Logs ONLY real logical state transitions.
-        Do NOT call this when state is unknown / timeout.
-        """
-
+      
+        # Skip invalid / unknown states (timeouts, device unreachable)
         if old_state is None or new_state is None:
+            return
+
+        # Skip redundant transitions (ON → ON, OFF → OFF)
+        if old_state == new_state:
             return
 
         if device == "boiler":
@@ -126,10 +139,10 @@ class LoggingBridge:
         |> range(start: -{days}d)
         |> filter(fn: (r) => r["_measurement"] == "{log_type}")
         |> pivot(
-                rowKey:["_time"],
-                columnKey: ["_field"],
-                valueColumn: "_value"
-            )
+            rowKey: ["_time"],
+            columnKey: ["_field"],
+            valueColumn: "_value"
+        )
         |> sort(columns: ["_time"], desc: true)
         |> limit(n: {limit})
         '''
@@ -140,7 +153,6 @@ class LoggingBridge:
         for table in tables:
             for r in table.records:
                 values = r.values
-
                 ts = values["_time"].astimezone(
                     ZoneInfo("Europe/Vienna")
                 ).isoformat(timespec="seconds")
@@ -155,20 +167,19 @@ class LoggingBridge:
                     )
 
                 elif log_type == "device_state_change":
-                    if "description" in values:
-                        msg = values.get("description")
-                    else:
-                        msg = (
-                            f"device={values.get('device')} | "
-                            f"{values.get('old_state')} → {values.get('new_state')}"
-                        )
+                    msg = values.get("description") or "device state changed"
 
                 elif log_type == "api_error":
-                    # NEW + backward compatible
-                    msg = values.get("message") or (
-                        f"API error at "
-                        f"{values.get('endpoint')}: {values.get('error')}"
+                    device = values.get("device", "unknown")
+                    endpoint = values.get("endpoint", "unknown")
+
+                    error_text = (
+                        values.get("message")
+                        or values.get("error")
+                        or "unknown error"
                     )
+
+                    msg = f"{device} | {endpoint} | {error_text}"
 
                 else:
                     msg = values.get("message")
