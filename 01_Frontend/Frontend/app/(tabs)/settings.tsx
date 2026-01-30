@@ -4,13 +4,13 @@ import { useFocusEffect, useRouter } from 'expo-router'
 
 import SSystemSettings from '@/components/settings/s-systemsettings'
 import SProtocol from '@/components/settings/s-protocol'
+import SDeviceStates from '@/components/settings/s-devicestates'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
 
 export default function SettingsScreen() {
   const router = useRouter()
 
   const [ipAddress, setIpAddress] = useState('192.168.14.67')
-
   const [authorized, setAuthorized] = useState(false)
   const [askPw, setAskPw] = useState(false)
 
@@ -36,8 +36,14 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         {authorized ? (
           <>
-            <SSystemSettings ipAddress={ipAddress} onChangeIpAddress={setIpAddress} />
+            <SSystemSettings
+              ipAddress={ipAddress}
+              onChangeIpAddress={setIpAddress}
+            />
+
             <SProtocol />
+
+            <SDeviceStates />
           </>
         ) : null}
       </ScrollView>

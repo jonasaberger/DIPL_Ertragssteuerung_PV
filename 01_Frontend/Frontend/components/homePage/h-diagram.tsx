@@ -23,6 +23,8 @@ export type DiagramData = {
 
   gridImport?: number         // Netzbezug (positiv)
   gridToHouse?: number        // Netz -> Haus Flow
+
+  batteryPower?: number
 }
 
 type Props = {
@@ -204,6 +206,19 @@ function ParticlesCurveGroup({
 const round1 = (v: number) => Math.round(v * 10) / 10
 const formatW = (v: number) => `${round1(v)} W`
 
+function makeQuadCurve(start: Point, end: Point, control: Point, steps = 16) {
+  const pts: Point[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const one = 1 - t
+    pts.push({
+      x: one * one * start.x + 2 * one * t * control.x + t * t * end.x,
+      y: one * one * start.y + 2 * one * t * control.y + t * t * end.y,
+    })
+  }
+  return pts
+}
+
 export default function HDiagram({ data }: Props) {
   const [diagramWidth, setDiagramWidth] = useState<number | null>(null)
 
@@ -228,19 +243,117 @@ export default function HDiagram({ data }: Props) {
     grid = { x: w * 0.77, y: SIDE_Y }
   }
 
-  const pvToHouse = Math.max(0, data.house)
-  const pvToBattery = Math.max(0, data.battery)
-  const pvToGrid = Math.max(0, data.grid)
+  const pvPower = Math.max(0, Number(data.total ?? 0))
 
-  const gridImport = Math.max(0, data.gridImport ?? 0)
-  const gridToHouse = Math.max(0, data.gridToHouse ?? 0)
+  const legacyPvToHouse = Math.max(0, data.house)
+  const legacyPvToBattery = Math.max(0, data.battery)
+  const legacyPvToGrid = Math.max(0, data.grid)
 
-  const houseActualValue = Math.max(0, data.houseActual ?? 0)
+  const legacyGridImport = Math.max(0, data.gridImport ?? 0)
+  const legacyGridToHouse = Math.max(0, data.gridToHouse ?? 0)
 
-  const showPvHouse = data.total > 0 && pvToHouse > 0
-  const showPvBattery = data.total > 0 && pvToBattery > 0
-  const showPvGrid = data.total > 0 && pvToGrid > 0
-  const showGridHouse = gridToHouse > 0
+  const legacyHouseActual = Math.max(0, data.houseActual ?? 0)
+
+  const rawMode =
+    data.batteryPower !== undefined ||
+    (data.houseActual !== undefined && Number(data.houseActual) < 0) ||
+    (data.gridImport !== undefined && Number(data.gridImport) < 0)
+
+  const computed = useMemo(() => {
+    if (!rawMode) {
+      return {
+        pvToHouse: legacyPvToHouse,
+        pvToBattery: legacyPvToBattery,
+        pvToGrid: legacyPvToGrid,
+        gridImport: legacyGridImport,
+        gridExport: 0,
+        gridToHouse: legacyGridToHouse,
+        gridToBattery: 0,
+        batteryToHouse: 0,
+        houseActual: legacyHouseActual,
+        batteryShown: legacyPvToBattery,
+        batteryIsCharging: legacyPvToBattery > 0,
+        batteryIsDischarging: false,
+        gridShown: legacyPvToGrid > 0 ? legacyPvToGrid : legacyGridImport,
+        gridIsImporting: legacyGridImport > 0 && legacyPvToGrid <= 0,
+        gridIsExporting: legacyPvToGrid > 0,
+      }
+    }
+
+    const loadSigned = Number(data.houseActual ?? 0)
+    const gridSigned = Number(data.gridImport ?? 0)
+    const batterySigned = Number(data.batteryPower ?? 0)
+
+    const houseActual = Math.max(0, loadSigned < 0 ? -loadSigned : loadSigned)
+    const gridImport = Math.max(0, gridSigned)
+    const gridExport = Math.max(0, -gridSigned)
+
+    const batteryCharge = Math.max(0, batterySigned)
+    const batteryDischarge = Math.max(0, -batterySigned)
+
+    const pvToHouse = Math.min(pvPower, houseActual)
+    const pvLeftAfterHouse = Math.max(0, pvPower - pvToHouse)
+
+    const pvToBattery = Math.min(pvLeftAfterHouse, batteryCharge)
+    const gridToBattery = Math.max(0, batteryCharge - pvToBattery)
+
+    const pvLeftAfterBattery = Math.max(0, pvLeftAfterHouse - pvToBattery)
+
+    const remainingAfterPv = Math.max(0, houseActual - pvToHouse)
+    const batteryToHouse = Math.min(batteryDischarge, remainingAfterPv)
+
+    const remainingAfterPvBattery = Math.max(0, remainingAfterPv - batteryToHouse)
+    const gridToHouse = Math.min(gridImport, remainingAfterPvBattery)
+
+    const pvToGrid = Math.min(pvLeftAfterBattery, gridExport)
+
+    const batteryShown = batteryCharge > 0 ? batteryCharge : batteryDischarge
+    const batteryIsCharging = batteryCharge > 0
+    const batteryIsDischarging = batteryDischarge > 0 && !batteryIsCharging
+
+    const gridShown = gridExport > 0 ? gridExport : gridImport
+    const gridIsImporting = gridImport > 0 && gridExport <= 0
+    const gridIsExporting = gridExport > 0
+
+    return {
+      pvToHouse,
+      pvToBattery,
+      pvToGrid,
+      gridImport,
+      gridExport,
+      gridToHouse,
+      gridToBattery,
+      batteryToHouse,
+      houseActual,
+      batteryShown,
+      batteryIsCharging,
+      batteryIsDischarging,
+      gridShown,
+      gridIsImporting,
+      gridIsExporting,
+    }
+  }, [
+    rawMode,
+    pvPower,
+    data.houseActual,
+    data.gridImport,
+    data.batteryPower,
+    legacyPvToHouse,
+    legacyPvToBattery,
+    legacyPvToGrid,
+    legacyGridImport,
+    legacyGridToHouse,
+    legacyHouseActual,
+  ])
+
+  const showPvHouse = pvPower > 0 && computed.pvToHouse > 0
+  const showPvBattery = pvPower > 0 && computed.pvToBattery > 0
+  const showPvGrid = pvPower > 0 && computed.pvToGrid > 0
+
+  const showGridHouse = computed.gridToHouse > 0
+  const showGridBattery = computed.gridToBattery > 0
+
+  const showBatteryHouse = computed.batteryToHouse > 0
 
   const gridToHousePath = useMemo(() => {
     if (!grid || !house) return null
@@ -252,18 +365,34 @@ export default function HDiagram({ data }: Props) {
       y: Math.min(start.y, end.y) - 140,
     }
 
-    const steps = 16
-    const pts: Point[] = []
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps
-      const one = 1 - t
-      pts.push({
-        x: one * one * start.x + 2 * one * t * control.x + t * t * end.x,
-        y: one * one * start.y + 2 * one * t * control.y + t * t * end.y,
-      })
-    }
-    return pts
+    return makeQuadCurve(start, end, control, 16)
   }, [grid, house])
+
+  const batteryToHousePath = useMemo(() => {
+    if (!battery || !house) return null
+
+    const start = battery
+    const end = house
+    const control: Point = {
+      x: (start.x + end.x) / 2 - 40,
+      y: Math.min(start.y, end.y) - 120,
+    }
+
+    return makeQuadCurve(start, end, control, 16)
+  }, [battery, house])
+
+  const gridToBatteryPath = useMemo(() => {
+    if (!grid || !battery) return null
+
+    const start = grid
+    const end = battery
+    const control: Point = {
+      x: (start.x + end.x) / 2 + 40,
+      y: Math.min(start.y, end.y) - 120,
+    }
+
+    return makeQuadCurve(start, end, control, 16)
+  }, [grid, battery])
 
   return (
     <Card height={520}>
@@ -304,6 +433,24 @@ export default function HDiagram({ data }: Props) {
               {showGridHouse && gridToHousePath && (
                 <ParticlesCurveGroup
                   path={gridToHousePath}
+                  color="#ff7f3f"
+                  count={6}
+                  duration={2400}
+                />
+              )}
+
+              {showBatteryHouse && batteryToHousePath && (
+                <ParticlesCurveGroup
+                  path={batteryToHousePath}
+                  color="#16c172"
+                  count={7}
+                  duration={2400}
+                />
+              )}
+
+              {showGridBattery && gridToBatteryPath && (
+                <ParticlesCurveGroup
+                  path={gridToBatteryPath}
                   color="#ff7f3f"
                   count={6}
                   duration={2400}
@@ -367,7 +514,7 @@ export default function HDiagram({ data }: Props) {
                 },
               ]}
             >
-              {formatW(houseActualValue)}
+              {formatW(computed.houseActual)}
             </Text>
 
             {/* Batterie */}
@@ -382,24 +529,43 @@ export default function HDiagram({ data }: Props) {
               ]}
             >
               <MaterialCommunityIcons
-                name="battery-charging"
+                name={
+                  computed.batteryIsDischarging
+                    ? 'battery-minus'
+                    : computed.batteryIsCharging
+                      ? 'battery-charging'
+                      : 'battery'
+                }
                 size={42}
                 color="#474646"
               />
             </View>
-            <Text
-              style={[
-                pvToBattery > 0 ? styles.valueText : styles.valueTextMuted,
-                {
-                  position: 'absolute',
-                  top: battery.y + CIRCLE_SIZE / 2 + 8,
-                  left: battery.x - 60,
-                  width: 120,
-                },
-              ]}
+
+            <View
+              style={{
+                position: 'absolute',
+                top: battery.y + CIRCLE_SIZE / 2 + 8,
+                left: battery.x - 70,
+                width: 140,
+                alignItems: 'center',
+              }}
             >
-              {formatW(pvToBattery)}
-            </Text>
+              <Text
+                style={[
+                  computed.batteryShown > 0 ? styles.valueText : styles.valueTextMuted,
+                ]}
+              >
+                {formatW(computed.batteryShown)}
+              </Text>
+
+              {computed.batteryIsDischarging && (
+                <Text style={styles.subValueText}>(Entladung)</Text>
+              )}
+
+              {computed.batteryIsCharging && (
+                <Text style={styles.subValueText}>(Laden)</Text>
+              )}
+            </View>
 
             {/* Netz */}
             <View
@@ -426,19 +592,17 @@ export default function HDiagram({ data }: Props) {
             >
               <Text
                 style={[
-                  pvToGrid > 0 || gridImport > 0
-                    ? styles.valueText
-                    : styles.valueTextMuted,
+                  computed.gridShown > 0 ? styles.valueText : styles.valueTextMuted,
                 ]}
               >
-                {pvToGrid > 0 ? formatW(pvToGrid) : formatW(gridImport)}
+                {formatW(computed.gridShown)}
               </Text>
 
-              {gridImport > 0 && pvToGrid <= 0 && (
+              {computed.gridIsImporting && (
                 <Text style={styles.subValueText}>(Bezug)</Text>
               )}
 
-              {pvToGrid > 0 && (
+              {computed.gridIsExporting && (
                 <Text style={styles.subValueText}>(Einspeisung)</Text>
               )}
             </View>

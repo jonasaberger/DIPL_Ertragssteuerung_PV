@@ -32,12 +32,6 @@ export function getCurrentBoilerSetting() {
 const toNum = (v: any) => (Number.isFinite(v) ? Number(v) : 0)
 const clamp0 = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0)
 
-const MOCK_ENERGY = 9
-const MOCK_IS_CHARGING = true
-
-const MOCK_BOILER_TEMP = 58
-const MOCK_IS_HEATING = true
-
 export default function HomeScreen() {
   const { pvData, boilerData, epexData, wallboxData, systemState } = useUpdateDataScheduler()
 
@@ -55,43 +49,43 @@ export default function HomeScreen() {
   })
 
   // --- Rohwerte
-  const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
+const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
 
-  // Hausverbrauch: oft negativ geliefert -> Betrag
-  const rawLoad = toNum(pvData?.load_power ?? 0)
-  const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
+// Hausverbrauch: negativ geliefert -> Betrag
+const rawLoad = toNum(pvData?.load_power ?? 0)
+const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
 
-  // Batterie: im PV-Verteilbild nur "Laden"
-  const rawBattery = toNum(pvData?.battery_power ?? 0)
-  const batteryChargeDemand = clamp0(rawBattery)
+// Batterie: SIGNED weiterreichen (positiv = Laden, negativ = Entladen)
+const batteryPower = toNum(pvData?.battery_power ?? 0)
 
-  // Netz: positiv = Bezug, negativ = Einspeisung
-  const rawGrid = toNum(pvData?.grid_power ?? 0)
-  const gridImport = rawGrid > 0 ? clamp0(rawGrid) : 0
-  const gridFeedInDemand = rawGrid < 0 ? clamp0(-rawGrid) : 0
+// Netz: positiv = Bezug, negativ = Einspeisung
+const rawGrid = toNum(pvData?.grid_power ?? 0)
+const gridImport = rawGrid > 0 ? clamp0(rawGrid) : 0
+const gridFeedIn = rawGrid < 0 ? clamp0(-rawGrid) : 0
 
-  // --- PV-Verteilung (House -> Battery -> Grid)
-  const pvToHouse = Math.min(houseDemand, pvTotal)
-  const remaining1 = pvTotal - pvToHouse
+// --- PV-Verteilung (nur PV!)
+const pvToHouse = Math.min(houseDemand, pvTotal)
+const remaining1 = pvTotal - pvToHouse
 
-  const pvToBattery = Math.min(batteryChargeDemand, remaining1)
-  const remaining2 = remaining1 - pvToBattery
+const pvToBattery = Math.min(Math.max(0, batteryPower), remaining1)
+const remaining2 = remaining1 - pvToBattery
 
-  const pvToGrid = Math.min(gridFeedInDemand, remaining2)
+const pvToGrid = Math.min(gridFeedIn, remaining2)
 
-  // --- Netz -> Haus (wenn Haus mehr will als PV liefert UND Netzbezug da ist)
-  const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)
-  const gridToHouse = Math.min(gridImport, houseDeficitAfterPv)
+// --- Netz -> Haus (nur wenn PV nicht reicht)
+const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)
+const gridToHouse = Math.min(gridImport, houseDeficitAfterPv)
 
-  const diagramData: DiagramData = {
-    total: pvTotal,
-    house: pvToHouse,           // PV -> Haus (gedeckt)
-    houseActual: houseDemand,   // echter Hausverbrauch
-    battery: pvToBattery,       // PV -> Batterie (Laden)
-    grid: pvToGrid,             // PV -> Netz (Einspeisung)
-    gridImport,                 // Netzbezug (Anzeige/Label)
-    gridToHouse,                // Netz -> Haus Partikel
-  }
+const diagramData: DiagramData = {
+  total: pvTotal,
+  house: pvToHouse,
+  houseActual: houseDemand,
+  battery: pvToBattery,
+  grid: pvToGrid,
+  gridImport,
+  gridToHouse,
+  batteryPower, // <<< DAS ist der entscheidende Fix
+}
 
 
   // Handlers

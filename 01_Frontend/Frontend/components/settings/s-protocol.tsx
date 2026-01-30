@@ -65,9 +65,7 @@ export default function SProtocol() {
       reason: e.reason,
       success: e.success,
       extra:
-        e.extra && e.extra !== 'None'
-          ? softBreak(String(e.extra))
-          : undefined,
+        e.extra && e.extra !== 'None' ? softBreak(String(e.extra)) : undefined,
     }))
   }, [data])
 
@@ -88,7 +86,13 @@ export default function SProtocol() {
             <Text style={styles.stateText}>Keine Einträge</Text>
           </View>
         ) : (
-          <ScrollView style={styles.scroll} showsVerticalScrollIndicator>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+          >
             {items.map((it, idx) => (
               <View key={it.id}>
                 <View style={styles.row}>
@@ -106,7 +110,7 @@ export default function SProtocol() {
                       {it.title}
                     </Text>
 
-                    {it.reason && (
+                    {it.reason ? (
                       <Text
                         style={styles.metaText}
                         numberOfLines={1}
@@ -114,15 +118,15 @@ export default function SProtocol() {
                       >
                         reason: {it.reason}
                       </Text>
-                    )}
+                    ) : null}
 
-                    {typeof it.success === 'boolean' && (
+                    {typeof it.success === 'boolean' ? (
                       <Text style={styles.metaText}>
                         success: {it.success ? 'true' : 'false'}
                       </Text>
-                    )}
+                    ) : null}
 
-                    {it.extra && (
+                    {it.extra ? (
                       <Text
                         style={styles.extraText}
                         numberOfLines={2}
@@ -130,7 +134,7 @@ export default function SProtocol() {
                       >
                         extra: {it.extra}
                       </Text>
-                    )}
+                    ) : null}
                   </View>
                 </View>
 
@@ -154,6 +158,9 @@ const styles = StyleSheet.create({
 
   scroll: {
     maxHeight: 260,
+  },
+  scrollContent: {
+    paddingBottom: 2,
   },
 
   stateBox: {
