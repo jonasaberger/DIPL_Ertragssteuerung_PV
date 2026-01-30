@@ -5,19 +5,21 @@ import { StyleSheet, Text, View } from 'react-native'
 
 // Props kommen aus index.tsx (damit das Datenhandling dort bleibt)
 type Props = {
-  date: string
-  time: string
-  location: string
-  pricePerKWh: number
+    date: string
+    time: string
+    location: string
+    pricePerKWh: number
+    available: boolean
 }
 
 export default function HPrices({
-  date,
-  time,
-  location,
-  pricePerKWh,
+    date,
+    time,
+    location,
+    pricePerKWh,
+    available
 }: Props) {
-  return (
+    return (
     // Die Card mit dem Strompreis
     <Card>
       <View style={styles.priceCard}>
@@ -30,6 +32,7 @@ export default function HPrices({
           </View>
         </View>
 
+
         <View style={styles.priceBottomRow}>
           <View style={styles.locationRow}>
             <MaterialCommunityIcons
@@ -41,52 +44,63 @@ export default function HPrices({
           </View>
           <Text style={styles.priceValue}>{pricePerKWh} ¢ / kWh</Text>
         </View>
+                {!available && (
+                    <Text style={styles.offlineInfo}>
+                      EPEX-API momentan nicht verfügbar
+                    </Text>
+                  )}
       </View>
     </Card>
-  )
+ )
 }
 
 const styles = StyleSheet.create({
-  priceCard: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  priceTitle: {
-    fontSize: 27,
-    fontWeight: 'bold',
-    color: '#474646',
-    marginBottom: 2,
-  },
-  priceMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  priceMetaText: {
-    fontSize: 14,
-    color: '#474646',
-  },
-  priceBottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  locationText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1EAFF3',
-  },
-  priceValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1EAFF3',
-  },
+    priceCard: {
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        justifyContent: 'space-between',
+        gap: 12,
+    },
+    priceTitle: {
+        fontSize: 27,
+        fontWeight: 'bold',
+        color: '#474646',
+        marginBottom: 2,
+    },
+    priceMetaRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
+    },
+    priceMetaText: {
+        fontSize: 14,
+        color: '#474646',
+    },
+    priceBottomRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: 8,
+    },
+    locationRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    locationText: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#1EAFF3',
+    },
+    priceValue: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#1EAFF3',
+    },
+    offlineInfo: {
+        marginTop: 4,
+        fontSize: 13,
+        color: '#9A9A9A',
+        fontStyle: 'italic',
+    },
 })

@@ -43,7 +43,7 @@ export function useUpdateDataScheduler() {
     const fetchState = async () => {
       try {
         const state = await fetchSystemState()
-        if (!isMounted) return
+        if (!isMounted) return null
         setSystemState(state)
         return state
       } catch (err) {
@@ -73,6 +73,7 @@ export function useUpdateDataScheduler() {
         console.error('Error fetching PV/Boiler:', err)
       }
     }
+
 
     /* -------- Fetch EPEX if backend is OK -------- */
     const fetchEpex = async (state: SystemState | null) => {
@@ -151,11 +152,19 @@ export function useUpdateDataScheduler() {
     }
   }, [])
 
+
+  // Rollback function to refetch boiler data
+  const refetchBoilerData = async () => {
+    const data = await fetchBoilerData()
+    setBoilerData(data)
+  }
+
   return {
     pvData,
     boilerData,
     epexData,
     wallboxData,
     systemState,
+    refetchBoilerData
   }
 }

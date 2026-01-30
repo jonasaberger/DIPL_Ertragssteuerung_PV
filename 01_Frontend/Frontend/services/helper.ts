@@ -14,6 +14,31 @@ export async function fetchJson<T>(path: string): Promise<T> {
   return response.json() as Promise<T>
 }
 
+// POST - Helper
+export async function postJson<T = any>(
+  path: string,
+  body: Record<string, any>
+): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(
+      `API POST ${path} failed: ${response.status} ${response.statusText} ${text}`
+    )
+  }
+  console.log(`API POST ${path} succeeded.`)
+
+  // Immer JSON erwarten - wenn nicht, Error werfen
+  return response.json() as Promise<T>
+}
+
 // TimeConvert - Helper
 export function parseInfluxTime(rawTime: string): {
   date: string
