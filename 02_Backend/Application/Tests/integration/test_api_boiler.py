@@ -29,7 +29,7 @@ def test_api_boiler_control(client, mocker):
     # - HTTP 200 OK
     # - Boiler wurde erfolgreich eingeschaltet
     assert response.status_code == 200
-    assert response.json["result"] is True
+    assert response.json["heating"] is True
 
 #  Prüft, dass ein fehlender JSON-Body  korrekt mit HTTP 400 beantwortet wird
 def test_boiler_control_missing_payload(client):
