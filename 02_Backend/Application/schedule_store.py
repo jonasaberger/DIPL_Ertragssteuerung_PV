@@ -15,34 +15,37 @@ class ScheduleStore:
         self._default = self._load(self.default_path)
         self._override = self._load(self.path)
 
-        print("DEFAULT LOADED:", self._default)
-        print("OVERRIDE LOADED:", self._override)
-
     def _load(self, path: Path):
         if not path.exists():
             return {}
         with path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
-    def get(self):
+    # ---------- API ----------
+    def get_override(self) -> dict:
+        """Nur das, was der User gesetzt hat"""
+        return self._override
+
+    # ---------- LOGIK ----------
+    def get_effective(self) -> dict:
+        """Default + Override (für Scheduler)"""
         result = copy.deepcopy(self._default)
+
         for device, seasons in self._override.items():
             result.setdefault(device, {})
             for season, values in seasons.items():
                 result[device][season] = values
+
         return result
 
     def update(self, new_config: dict):
-        print("UPDATE CALLED WITH:", new_config) 
-
         for device, seasons in new_config.items():
             self._override.setdefault(device, {})
             for season, values in seasons.items():
                 self._override[device][season] = values
-
         self.save()
 
     def save(self):
-        print("SAVING OVERRIDE:", self._override) 
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("w", encoding="utf-8") as f:
             json.dump(self._override, f, indent=2)

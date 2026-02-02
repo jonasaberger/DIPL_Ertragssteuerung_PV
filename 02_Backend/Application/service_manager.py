@@ -505,7 +505,7 @@ class ServiceManager:
     def schedule_endpoint(self):
         # GET: aktuelle Konfiguration
         if request.method == "GET":
-            return self._json(self.schedule_store.get())
+            return self._json(self.schedule_store.get_override())
 
         # PUT: neue Konfiguration speichern
         payload = request.get_json(force=True)

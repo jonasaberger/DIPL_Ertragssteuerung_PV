@@ -20,7 +20,7 @@ class ScheduleManager:
             return None
 
     def is_active(self, device: str) -> bool:
-        config = self.store.get()
+        config = self.store.get_effective()
         season = self.determine_season()
 
         entry = config.get(device, {}).get(season)
