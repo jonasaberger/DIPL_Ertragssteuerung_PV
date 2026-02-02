@@ -1,13 +1,15 @@
+import React, { useState } from 'react'
+import { ScrollView, StyleSheet, Alert } from 'react-native'
+import { ThemedView } from '@/components/themed-view'
+
 import HDiagram, { DiagramData } from '@/components/homePage/h-diagram'
 import HPrices from '@/components/homePage/h-prices'
 import HPriority, { PriorityItem } from '@/components/homePage/h-priority'
 import HWallbox from '@/components/homePage/h-wallbox'
 import HBoiler from '@/components/homePage/h-boiler'
-import { ThemedView } from '@/components/themed-view'
-import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
-import React, { useState } from 'react'
 
-import { ScrollView, StyleSheet } from 'react-native'
+import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
+import { toggleBoilerSetting } from '@/services/boiler_service'
 
 const INITIAL_PRIORITIES: PriorityItem[] = [
   { id: 'boiler', label: 'Boiler' },
@@ -39,12 +41,14 @@ const MOCK_BOILER_TEMP = 58
 const MOCK_IS_HEATING = true
 
 export default function HomeScreen() {
-  const { pvData, boilerData, epexData, wallboxData, systemState } = useUpdateDataScheduler()
+  const { pvData, boilerData, epexData, wallboxData, systemState, refetchBoilerData } = useUpdateDataScheduler()
 
   // Availability Flags
   const available = {
+    influx: systemState?.influx === 'ok',
     wallbox: systemState?.wallbox === 'ok',
     boiler: systemState?.boiler === 'ok',
+    epex: systemState?.epex === 'ok',
   }
 
   // UI States grouped
@@ -53,6 +57,20 @@ export default function HomeScreen() {
     selectedBoilerSetting: 'MANUAL_OFF' as BoilerSetting,
     priorities: INITIAL_PRIORITIES as PriorityItem[],
   })
+
+  React.useEffect(() => {
+    if (boilerData?.heating !== undefined) {
+      const initialSetting: BoilerSetting = boilerData.heating ? 'MANUAL_ON' : 'MANUAL_OFF'
+      setUiState((prev) => {
+        // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
+        if (prev.selectedBoilerSetting !== initialSetting) {
+          currentBoilerSetting = initialSetting
+          return { ...prev, selectedBoilerSetting: initialSetting }
+        }
+        return prev
+      })
+    }
+  }, [boilerData?.heating])
 
   // --- Rohwerte
   const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
@@ -99,8 +117,28 @@ export default function HomeScreen() {
     setUiState((prev) => ({ ...prev, selectedWallboxSetting: setting }))
   }
 
-  const handleBoilerSelect = (setting: BoilerSetting) => {
+  const handleBoilerSelect = async (setting: BoilerSetting) => {
+    // Save Old Settings for potential Rollback
+    const previousSetting = uiState.selectedBoilerSetting
+
+    // Optimistic Update
     setUiState((prev) => ({ ...prev, selectedBoilerSetting: setting }))
+    currentBoilerSetting = setting
+
+    const success = await toggleBoilerSetting(setting)
+
+    if (success) {
+      await refetchBoilerData()
+    }
+    else {
+      // Reset UI State 
+      console.warn('Failed to update boiler setting on backend - reverting UI')
+      setUiState((prev) => ({ ...prev, selectedBoilerSetting: previousSetting }))
+      currentBoilerSetting = previousSetting
+
+      // User-Feedback (Toast/Alert)
+      Alert.alert('Fehler', 'Boiler-Einstellung konnte nicht geändert werden')
+    }
   }
 
   const handlePriorityDragEnd = (data: PriorityItem[]) => {
@@ -118,6 +156,7 @@ export default function HomeScreen() {
           time={epexData?.time ?? 'Loading...'}
           location="Österreich"
           pricePerKWh={epexData?.pricePerKWh ?? 0}
+          available={available.epex}
         />
         <HBoiler
           temperatureC={boilerData?.temp ?? 0}
@@ -125,7 +164,6 @@ export default function HomeScreen() {
           selectedSetting={uiState.selectedBoilerSetting}
           onSelect={handleBoilerSelect}
           available={available.boiler}
-          
         />
 
         <HWallbox

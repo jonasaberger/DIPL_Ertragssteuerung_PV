@@ -8,6 +8,7 @@
   "paths": {
     "/connection": {
       "get": {
+        "tags": ["Monitoring"],
         "summary": "Check InfluxDB connection",
         "description": "Tests the connection between the backend service and the InfluxDB database.",
         "responses": {
@@ -205,6 +206,45 @@
       }
     },
 
+    "/api/devices/reset_devices": {
+      "post": {
+        "summary": "Reset all device configurations to default",
+        "description": "Resets the device configuration to its default state by restoring the original devices.json.",
+        "tags": ["Configuration"],
+        "responses": {
+          "200": {
+            "description": "Devices successfully reset to default configuration",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DeviceConfigResponse" },
+                "example": {
+                  "success": true,
+                  "devices": {
+                    "pv": {
+                      "baseUrl": "http://192.168.0.101",
+                      "endpoints": {
+                        "powerflow": "/solar_api/v1/GetPowerFlowRealtimeData.fcgis"
+                      }
+                    },
+                    "wallbox": {
+                      "baseUrl": "http://192.168.0.2:25000",
+                      "endpoints": {
+                        "status": "/status",
+                        "api": "/api/status"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Reset operation failed"
+          }
+        }
+      }
+    },
+
     "/api/devices/admin/verify_admin_pw": {
       "post": {
         "summary": "Verify admin password",
@@ -252,7 +292,7 @@
       "post": {
         "summary": "Edit a device configuration",
         "description": "Allows updating a device's configuration (baseUrl or endpoints) after verifying the admin password. Returns the full updated devices configuration.",
-        "tags": ["Configuration", "Admin"],
+        "tags": ["Admin"],
         "requestBody": {
           "required": true,
           "content": {

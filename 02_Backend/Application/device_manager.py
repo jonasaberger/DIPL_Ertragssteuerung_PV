@@ -4,15 +4,16 @@ import bcrypt
 import os
 
 class DeviceManager:
-    def __init__(self, config_path: str = "config/devices.json", admin_pw_path: str = "config/admin-pw.txt"):
+    def __init__(self, config_path: str = "config/devices.json", default_path: str = "config/devices-default.json"):
         self.config_path = config_path
-        self.admin_pw_path = admin_pw_path
+        self.default_path = default_path
+        self.admin_pw = os.getenv("ADMIN_PW")
 
-        # Verify files exist
+        if not self.admin_pw:
+            raise RuntimeError("ADMIN_PW not set in environment")
+
         if not os.path.exists(self.config_path):
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
-        if not os.path.exists(self.admin_pw_path):
-            raise FileNotFoundError(f"Admin password file not found: {self.admin_pw_path}")
 
         self._config = None
         self.load()
@@ -25,6 +26,26 @@ class DeviceManager:
     def save(self):
         with open(self.config_path, "w") as f:
             json.dump(self._config, f, indent=2)
+
+    def reset_devices(self):
+        with open(self.default_path, "r") as orig:
+            self._config = json.load(orig)
+        with open(self.config_path, "w") as f:
+            json.dump(self._config, f, indent=2)
+
+    # Reset-Devices Endpoint
+    def reset_devices_endpoint(self):
+        try:
+            self.reset_devices()
+            return jsonify({
+                "success": True,
+                "devices": self.get_devices()
+            }), 200
+        except Exception as e:
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
 
     # -------- READ METHODS --------
     def get_devices(self) -> dict:
@@ -39,46 +60,31 @@ class DeviceManager:
 
     # -------- ADMIN METHODS --------
 
-    ## PASSWORD-METHODS
-    def convert_plain_text_pw(self):
-        with open(self.admin_pw_path, "r") as f:
-            plain_pw = f.read().strip()
-
-        pw_hash = bcrypt.hashpw(plain_pw.encode(), bcrypt.gensalt()).decode()
-        print("[HASH CREATED]: " + pw_hash)
-
     def check_password(self, password: str) -> bool:
-        with open(self.admin_pw_path, "r") as f:
-            stored_pw_hash = f.read().strip().encode()
-        return bcrypt.checkpw(password.encode(), stored_pw_hash)
+        return password == self.admin_pw
 
     def verify_admin_pw(self):
         payload = request.get_json(silent=True)
         if not payload or "password" not in payload:
             return jsonify({"error": "Missing 'password' in request"}), 400
 
-        inc_password = payload["password"]
-        is_valid = self.check_password(inc_password)
-
-        if is_valid:
+        if self.check_password(payload["password"]):
             return jsonify({"success": True}), 200
-        else:
-            return jsonify({"success": False}), 401
+
+        return jsonify({"success": False}), 401
 
     ## DEVICE-EDITS
-    def edit_device_logic(self, device_id: str, payload: dict, password: str) -> dict | None:
+    def edit_device_logic(self, device_id: str, payload: dict, password: str):
         if not self.check_password(password):
-            return None  # wrong password
+            return None
 
         device = self._config["devices"].get(device_id)
         if not device:
             raise KeyError(f"Device '{device_id}' not found")
 
-        # Update device info
         device.update(payload)
         self.save()
 
-        # Return full devices dict
         return self._config["devices"]
 
     def edit_device_endpoint(self):
