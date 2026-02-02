@@ -8,6 +8,11 @@ from wallbox_bridge import Wallbox_Bridge
 from dotenv import load_dotenv, find_dotenv
 from boiler_controller import BoilerController
 
+from system_mode import SystemMode, SystemModeStore
+from schedule_store import ScheduleStore
+from schedule_manager import ScheduleManager
+from scheduler_service import SchedulerService
+
 import platform
 from datetime import datetime
 from logging_bridge import LoggingBridge
@@ -47,6 +52,20 @@ class ServiceManager:
 
         # Initialize logging bridge
         self.logger = LoggingBridge()
+
+        # Initialize system mode
+        self.mode_store = SystemModeStore()
+
+        self.schedule_store = ScheduleStore()
+        self.schedule_manager = ScheduleManager(self.schedule_store)
+
+        self.scheduler = SchedulerService(
+            mode_store=self.mode_store,
+            schedule_manager=self.schedule_manager,
+            boiler=self.boiler_bridge,
+            wallbox=self.wallbox_bridge
+        )
+        self.scheduler.start()
 
         self.logger.system_event(
             level="info",
@@ -112,6 +131,10 @@ class ServiceManager:
             methods=['POST']
         )
         self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.device_manager.edit_device_endpoint, methods=['POST'])
+
+        # 
+        self.app.add_url_rule('/api/mode', 'mode', self.mode_endpoint, methods=['GET', 'POST'])
+        self.app.add_url_rule( '/api/schedule', 'schedule', self.schedule_endpoint, methods=['GET', 'PUT'])
     
     # ----- Route Handlers -----
     def _json(self, payload, status=200):
@@ -205,6 +228,13 @@ class ServiceManager:
             return self._json({"error": err}, 502)
     
     def set_wallbox_allow(self):
+
+        if self.mode_store.get() == SystemMode.TIME_CONTROLLED:
+            return self._json(
+                {"error": "Manual wallbox control disabled in TIME_CONTROLLED mode"},
+                403
+            )
+
         payload = request.get_json(silent=True)
         if not payload or "allow" not in payload:
             return self._json({"error": "Missing 'allow' field"}, 400)
@@ -279,6 +309,13 @@ class ServiceManager:
         
     # POST JSON: { "action": "on" | "off" | "toggle" }
     def control_boiler(self):
+
+        if self.mode_store.get() == SystemMode.TIME_CONTROLLED:
+            return self._json(
+                {"error": "Manual boiler control disabled in TIME_CONTROLLED mode"},
+                403
+            )
+
         payload = request.get_json(silent=True)
         if not payload:
             return self._json({"error": "Missing JSON body"}, 400)
@@ -435,3 +472,52 @@ class ServiceManager:
                 {"error": "Failed to fetch logging data"},
                 500
             )
+        
+    
+    def mode_endpoint(self):
+
+        # Get: current mode
+        if request.method == 'GET':
+            return self._json({
+                "mode": self.mode_store.get().value
+            })
+        
+        # Post: set mode
+        payload = request.get_json(silent=True)
+        if not payload or "mode" not in payload:
+            return self._json({"error": "Missing 'mode' field"}, 400)
+        
+        try:
+            mode = SystemMode(payload["mode"])
+            self.mode_store.set(mode)
+
+            self.logger.system_event(
+                level="info",
+                source="mode",
+                message=f"System mode set to {mode.value}"
+            )
+
+            return self._json({"mode": mode.value})
+        
+        except ValueError:
+            return self._json({"error": "Invalid mode. Use AUTOMATIC | MANUAL | TIME_CONTROLLED"},400)
+        
+    def schedule_endpoint(self):
+        # GET: aktuelle Konfiguration
+        if request.method == "GET":
+            return self._json(self.schedule_store.get())
+
+        # PUT: neue Konfiguration speichern
+        payload = request.get_json(force=True)
+        if not payload:
+            return self._json({"error": "Missing JSON body"}, 400)
+
+        self.schedule_store.update(payload)
+
+        self.logger.system_event(
+            level="info",
+            source="schedule",
+            message="Schedule configuration updated"
+        )
+
+        return self._json({"status": "ok"})

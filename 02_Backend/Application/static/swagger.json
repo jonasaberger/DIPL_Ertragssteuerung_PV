@@ -1,613 +1,768 @@
-{
-  "openapi": "3.0.0",
-  "info": {
-    "title": "DIPL_Ertragssteuerung_PV API",
-    "version": "1.4.0",
-    "description": "API for accessing PV, Wallbox, Boiler measurements, EPEX market data, and device configuration"
-  },
-  "paths": {
-    "/connection": {
-      "get": {
-        "summary": "Check InfluxDB connection",
-        "description": "Tests the connection between the backend service and the InfluxDB database.",
-        "responses": {
-          "200": {
-            "description": "InfluxDB connection successful",
-            "content": {
-              "application/json": {
-                "example": { "status": "ok" }
-              }
-            }
-          },
-          "500": {
-            "description": "InfluxDB connection failed",
-            "content": {
-              "application/json": {
-                "example": {
-                  "status": "error",
-                  "message": "Connection error: Failed to connect to InfluxDB"
+  {
+    "openapi": "3.0.0",
+    "info": {
+      "title": "DIPL_Ertragssteuerung_PV API",
+      "version": "1.4.0",
+      "description": "API for accessing PV, Wallbox, Boiler measurements, EPEX market data, and device configuration"
+    },
+    "paths": {
+      "/connection": {
+        "get": {
+          "summary": "Check InfluxDB connection",
+          "description": "Tests the connection between the backend service and the InfluxDB database.",
+          "responses": {
+            "200": {
+              "description": "InfluxDB connection successful",
+              "content": {
+                "application/json": {
+                  "example": { "status": "ok" }
                 }
               }
-            }
-          }
-        }
-      }
-    },
-
-    "/api/state": {
-      "get": {
-        "summary": "System status overview",
-        "description": "Returns a compact health status of backend service, InfluxDB connection and connected devices. This endpoint is read-only and intended purely for monitoring.",
-        "tags": ["Monitoring"],
-        "responses": {
-          "200": {
-            "description": "Current system status",
-            "content": {
-              "application/json": {
-                "example": {
-                  "backend": "ok",
-                  "influx": "ok",
-                  "wallbox": "timeout",
-                  "boiler": "simulated",
-                  "timestamp": "2025-12-30T23:15:12"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/logging": {
-      "get": {
-        "summary": "Query system logs",
-        "description": "Returns filtered log entries from the logging database (monthly). Intended for diagnostics and monitoring only.",
-        "tags": ["Logging"],
-        "parameters": [
-          {
-            "name": "type",
-            "in": "query",
-            "required": true,
-            "description": "Type of log entries to query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "system_event",
-                "api_error",
-                "control_decision",
-                "device_state_change"
-              ]
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "description": "Maximum number of log entries to return",
-            "schema": {
-              "type": "integer",
-              "default": 50
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Filtered log entries",
-            "content": {
-              "application/json": {
-                "example": [
-                  {
-                    "_time": "2025-12-30T23:24:10+01:00",
-                    "_measurement": "api_error",
-                    "api": "wallbox",
-                    "endpoint": "/api/wallbox/latest",
-                    "error": "Connection timeout"
+            },
+            "500": {
+              "description": "InfluxDB connection failed",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "status": "error",
+                    "message": "Connection error: Failed to connect to InfluxDB"
                   }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "/api/state": {
+        "get": {
+          "summary": "System status overview",
+          "description": "Returns a compact health status of backend service, InfluxDB connection and connected devices. This endpoint is read-only and intended purely for monitoring.",
+          "tags": ["Monitoring"],
+          "responses": {
+            "200": {
+              "description": "Current system status",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "backend": "ok",
+                    "influx": "ok",
+                    "wallbox": "timeout",
+                    "boiler": "simulated",
+                    "timestamp": "2025-12-30T23:15:12"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/logging": {
+        "get": {
+          "summary": "Query system logs",
+          "description": "Returns filtered log entries from the logging database (monthly). Intended for diagnostics and monitoring only.",
+          "tags": ["Logging"],
+          "parameters": [
+            {
+              "name": "type",
+              "in": "query",
+              "required": true,
+              "description": "Type of log entries to query",
+              "schema": {
+                "type": "string",
+                "enum": [
+                  "system_event",
+                  "api_error",
+                  "control_decision",
+                  "device_state_change"
                 ]
               }
+            },
+            {
+              "name": "limit",
+              "in": "query",
+              "required": false,
+              "description": "Maximum number of log entries to return",
+              "schema": {
+                "type": "integer",
+                "default": 50
+              }
             }
-          },
-          "400": {
-            "description": "Invalid or missing query parameters"
-          },
-          "500": {
-            "description": "Logging query failed"
+          ],
+          "responses": {
+            "200": {
+              "description": "Filtered log entries",
+              "content": {
+                "application/json": {
+                  "example": [
+                    {
+                      "_time": "2025-12-30T23:24:10+01:00",
+                      "_measurement": "api_error",
+                      "api": "wallbox",
+                      "endpoint": "/api/wallbox/latest",
+                      "error": "Connection timeout"
+                    }
+                  ]
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid or missing query parameters"
+            },
+            "500": {
+              "description": "Logging query failed"
+            }
           }
         }
-      }
-    },
+      },
+     
+      "/api/mode": {
+        "get": {
+          "summary": "Get current system mode",
+          "description": "Returns the currently active backend operating mode.",
+          "tags": ["System"],
+          "responses": {
+            "200": {
+              "description": "Current system mode",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SystemModeResponse"
+                  },
+                  "example": {
+                    "mode": "AUTOMATIC"
+                  }
+                }
+              }
+            }
+          }
+        },
 
-
-    "/api/devices/get_devices": {
-      "get": {
-        "summary": "Get all devices",
-        "description": "Returns all device configurations including base URLs and endpoints",
-        "tags": ["Configuration"],
-        "responses": {
-          "200": {
-            "description": "All devices returned successfully",
+        "post": {
+          "summary": "Set system mode",
+          "description": "Sets the global backend operating mode.",
+          "tags": ["System"],
+          "requestBody": {
+            "required": true,
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/DeviceConfigResponse" },
+                "schema": {
+                  "$ref": "#/components/schemas/SystemModeResponse"
+                },
                 "example": {
-                  "pv": {
+                  "mode": "TIME_CONTROLLED"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Mode updated successfully",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SystemModeResponse"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid mode value"
+            }
+          }
+        }
+      },
+
+      "/api/schedule": {
+        "get": {
+          "summary": "Get schedule configuration",
+          "description": "Returns the persisted time-based schedule configuration used by the backend.",
+          "tags": ["Schedule"],
+          "responses": {
+            "200": {
+              "description": "Current schedule configuration",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ScheduleConfig"
+                  }
+                }
+              }
+            }
+          }
+        },
+
+        "put": {
+          "summary": "Update schedule configuration",
+          "description": "Updates and persists the schedule configuration. Changes take effect automatically.",
+          "tags": ["Schedule"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleConfig"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Schedule updated successfully",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "status": "ok"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid schedule configuration"
+            }
+          }
+        }
+      },
+
+      "/api/devices/get_devices": {
+        "get": {
+          "summary": "Get all devices",
+          "description": "Returns all device configurations including base URLs and endpoints",
+          "tags": ["Configuration"],
+          "responses": {
+            "200": {
+              "description": "All devices returned successfully",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/DeviceConfigResponse" },
+                  "example": {
+                    "pv": {
+                      "baseUrl": "http://192.168.0.101",
+                      "endpoints": {
+                        "powerflow": "/solar_api/v1/GetPowerFlowRealtimeData.fcgis"
+                      }
+                    },
+                    "wallbox": {
+                      "baseUrl": "http://192.168.0.2:25000",
+                      "endpoints": {
+                        "status": "/status",
+                        "api": "/api/status"
+                      }
+                    },
+                    "epex": {
+                      "baseUrl": "http://apis.smartenergy.at",
+                      "endpoints": {
+                        "price": "/market/v1/price"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "/api/devices/get_device": {
+        "get": {
+          "summary": "Get a single device by ID",
+          "description": "Returns the configuration for a single device. Requires query parameter 'deviceId'.",
+          "tags": ["Configuration"],
+          "parameters": [
+            {
+              "name": "deviceId",
+              "in": "query",
+              "required": true,
+              "description": "Device identifier (pv, wallbox, epex)",
+              "schema": { "type": "string", "example": "pv" }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Device returned successfully",
+              "content": {
+                "application/json": {
+                  "schema": { "$ref": "#/components/schemas/Device" },
+                  "example": {
                     "baseUrl": "http://192.168.0.101",
                     "endpoints": {
                       "powerflow": "/solar_api/v1/GetPowerFlowRealtimeData.fcgis"
                     }
-                  },
-                  "wallbox": {
-                    "baseUrl": "http://192.168.0.2:25000",
-                    "endpoints": {
-                      "status": "/status",
-                      "api": "/api/status"
-                    }
-                  },
-                  "epex": {
-                    "baseUrl": "http://apis.smartenergy.at",
-                    "endpoints": {
-                      "price": "/market/v1/price"
-                    }
                   }
+                }
+              }
+            },
+            "400": {
+              "description": "deviceId query parameter missing",
+              "content": {
+                "application/json": {
+                  "example": { "error": "Missing 'deviceId' query parameter" }
+                }
+              }
+            },
+            "404": {
+              "description": "Device not found",
+              "content": {
+                "application/json": {
+                  "example": { "error": "Device 'xyz' not found" }
                 }
               }
             }
           }
         }
-      }
-    },
+      },
 
-    "/api/devices/get_device": {
-      "get": {
-        "summary": "Get a single device by ID",
-        "description": "Returns the configuration for a single device. Requires query parameter 'deviceId'.",
-        "tags": ["Configuration"],
-        "parameters": [
-          {
-            "name": "deviceId",
-            "in": "query",
+      "/api/devices/admin/verify_admin_pw": {
+        "post": {
+          "summary": "Verify admin password",
+          "description": "Checks if the provided password matches the stored admin password hash. Requires JSON body: { 'password': '...' }",
+          "tags": ["Admin"],
+          "requestBody": {
             "required": true,
-            "description": "Device identifier (pv, wallbox, epex)",
-            "schema": { "type": "string", "example": "pv" }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Device returned successfully",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/Device" },
-                "example": {
-                  "baseUrl": "http://192.168.0.101",
-                  "endpoints": {
-                    "powerflow": "/solar_api/v1/GetPowerFlowRealtimeData.fcgis"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "deviceId query parameter missing",
-            "content": {
-              "application/json": {
-                "example": { "error": "Missing 'deviceId' query parameter" }
-              }
-            }
-          },
-          "404": {
-            "description": "Device not found",
-            "content": {
-              "application/json": {
-                "example": { "error": "Device 'xyz' not found" }
-              }
-            }
-          }
-        }
-      }
-    },
-
-    "/api/devices/admin/verify_admin_pw": {
-      "post": {
-        "summary": "Verify admin password",
-        "description": "Checks if the provided password matches the stored admin password hash. Requires JSON body: { 'password': '...' }",
-        "tags": ["Admin"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["password"],
-                "properties": {
-                  "password": { "type": "string", "format": "password" }
-                }
-              },
-              "example": { "password": "meinAdminPw" }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Password verified successfully",
-            "content": {
-              "application/json": { "example": { "success": true } }
-            }
-          },
-          "400": {
-            "description": "Password missing in request body",
-            "content": {
-              "application/json": { "example": { "error": "Missing 'password' in request" } }
-            }
-          },
-          "401": {
-            "description": "Password incorrect",
-            "content": {
-              "application/json": { "example": { "success": false } }
-            }
-          }
-        }
-      }
-    },
-
-    "/api/devices/edit_device": {
-      "post": {
-        "summary": "Edit a device configuration",
-        "description": "Allows updating a device's configuration (baseUrl or endpoints) after verifying the admin password. Returns the full updated devices configuration.",
-        "tags": ["Configuration", "Admin"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["deviceId", "password", "payload"],
-                "properties": {
-                  "deviceId": {
-                    "type": "string",
-                    "description": "ID of the device to edit (e.g., pv, wallbox, epex)"
-                  },
-                  "password": {
-                    "type": "string",
-                    "format": "password",
-                    "description": "Admin password"
-                  },
-                  "payload": {
-                    "type": "object",
-                    "description": "Device properties to update (baseUrl, endpoints, etc.)",
-                    "additionalProperties": true
-                  }
-                }
-              },
-              "example": {
-                "deviceId": "pv",
-                "password": "meinAdminPw",
-                "payload": {
-                  "baseUrl": "http://192.168.0.150",
-                  "endpoints": {
-                    "powerflow": "/new_endpoint.fcgis"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Device updated successfully, returns full devices config",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "devices": {
-                    "pv": {
-                      "baseUrl": "http://192.168.0.150",
-                      "endpoints": { "powerflow": "/new_endpoint.fcgis" }
-                    },
-                    "wallbox": {
-                      "baseUrl": "http://192.168.0.2:25000",
-                      "endpoints": { "status": "/status", "api": "/api/status" }
-                    },
-                    "epex": {
-                      "baseUrl": "http://apis.smartenergy.at",
-                      "endpoints": { "price": "/market/v1/price" }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Missing required fields (deviceId, password, payload)",
-            "content": {
-              "application/json": { "example": { "error": "Missing required fields: deviceId, password, payload" } }
-            }
-          },
-          "401": {
-            "description": "Admin password incorrect",
-            "content": {
-              "application/json": { "example": { "success": false, "message": "Invalid admin password" } }
-            }
-          },
-          "404": {
-            "description": "Device not found",
-            "content": {
-              "application/json": { "example": { "error": "Device 'xyz' not found" } }
-            }
-          }
-        }
-      }
-    },
-
-    "/api/pv/latest": {
-      "get": {
-        "summary": "Get latest PV data",
-        "description": "Returns the most recent PV measurements from InfluxDB.",
-        "tags": ["PV"],
-        "responses": {
-          "200": {
-            "description": "Latest PV measurement",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PVMeasurement"
+                  "type": "object",
+                  "required": ["password"],
+                  "properties": {
+                    "password": { "type": "string", "format": "password" }
+                  }
+                },
+                "example": { "password": "meinAdminPw" }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Password verified successfully",
+              "content": {
+                "application/json": { "example": { "success": true } }
+              }
+            },
+            "400": {
+              "description": "Password missing in request body",
+              "content": {
+                "application/json": { "example": { "error": "Missing 'password' in request" } }
+              }
+            },
+            "401": {
+              "description": "Password incorrect",
+              "content": {
+                "application/json": { "example": { "success": false } }
+              }
+            }
+          }
+        }
+      },
+
+      "/api/devices/edit_device": {
+        "post": {
+          "summary": "Edit a device configuration",
+          "description": "Allows updating a device's configuration (baseUrl or endpoints) after verifying the admin password. Returns the full updated devices configuration.",
+          "tags": ["Configuration", "Admin"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["deviceId", "password", "payload"],
+                  "properties": {
+                    "deviceId": {
+                      "type": "string",
+                      "description": "ID of the device to edit (e.g., pv, wallbox, epex)"
+                    },
+                    "password": {
+                      "type": "string",
+                      "format": "password",
+                      "description": "Admin password"
+                    },
+                    "payload": {
+                      "type": "object",
+                      "description": "Device properties to update (baseUrl, endpoints, etc.)",
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                "example": {
+                  "deviceId": "pv",
+                  "password": "meinAdminPw",
+                  "payload": {
+                    "baseUrl": "http://192.168.0.150",
+                    "endpoints": {
+                      "powerflow": "/new_endpoint.fcgis"
+                    }
+                  }
                 }
               }
             }
           },
-          "404": { "description": "No data found" }
-        }
-      }
-    },
-
-
-    "/api/pv/daily": {
-      "get": {
-        "summary": "Get daily PV data",
-        "description": "Returns PV measurements for the current day from 00:00 to 23:45 in 15-minute resolution (96 values).",
-        "tags": ["PV"],
-        "parameters": [
-          {
-            "name": "date",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "2025-12-24"
-            }
-          }
-        ],
-        "responses": {
-          "200": { "description": "Daily PV time series" },
-          "404": { "description": "No daily data found" }
-        }
-      }
-    },
-
-    "/api/pv/monthly": {
-      "get": {
-        "summary": "Get monthly PV data",
-        "description": "Returns PV measurements for the current calendar month in 15-minute resolution (96 values per day).",
-        "tags": ["PV"],
-        "parameters": [
-          {
-            "name": "month",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "2025-11"
-            }
-          }
-        ],
-        "responses": {
-          "200": { "description": "Monthly PV time series" },
-          "404": { "description": "No monthly data found" }
-        }
-      }
-    },
-
-    "/api/pv/yearly": {
-      "get": {
-        "summary": "Get yearly PV data",
-        "tags": ["PV"],
-        "parameters": [
-          {
-            "name": "year",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "example": 2024
-            }
-          }
-        ],
-        "responses": {
-          "200": { "description": "Yearly PV time series" },
-          "404": { "description": "No yearly data found" }
-        }
-      }
-    },
-
-    "/api/wallbox/latest": {
-      "get": {
-        "summary": "Get latest Wallbox data",
-        "tags": ["Wallbox"],
-        "responses": {
-          "200": { "description": "Latest Wallbox measurement" },
-          "404": { "description": "No wallbox data found" },
-          "502": { "description": "Wallbox not reachable" }
-        }
-      }
-    },
-
-    "/api/wallbox/setCharging": {
-      "post": {
-        "summary": "Enable or disable wallbox charging",
-        "description": "Controls whether the wallbox is allowed to charge. Setting allow=true enables charging, allow=false disables charging.",
-        "tags": ["Wallbox"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["allow"],
-                "properties": {
-                  "allow": { "type": "boolean" }
+          "responses": {
+            "200": {
+              "description": "Device updated successfully, returns full devices config",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "success": true,
+                    "devices": {
+                      "pv": {
+                        "baseUrl": "http://192.168.0.150",
+                        "endpoints": { "powerflow": "/new_endpoint.fcgis" }
+                      },
+                      "wallbox": {
+                        "baseUrl": "http://192.168.0.2:25000",
+                        "endpoints": { "status": "/status", "api": "/api/status" }
+                      },
+                      "epex": {
+                        "baseUrl": "http://apis.smartenergy.at",
+                        "endpoints": { "price": "/market/v1/price" }
+                      }
+                    }
+                  }
                 }
-              },
-              "example": { "allow": true }
+              }
+            },
+            "400": {
+              "description": "Missing required fields (deviceId, password, payload)",
+              "content": {
+                "application/json": { "example": { "error": "Missing required fields: deviceId, password, payload" } }
+              }
+            },
+            "401": {
+              "description": "Admin password incorrect",
+              "content": {
+                "application/json": { "example": { "success": false, "message": "Invalid admin password" } }
+              }
+            },
+            "404": {
+              "description": "Device not found",
+              "content": {
+                "application/json": { "example": { "error": "Device 'xyz' not found" } }
+              }
             }
           }
-        },
-        "responses": {
-          "200": { "description": "Charging state updated successfully" },
-          "400": { "description": "Invalid input payload" },
-          "502": { "description": "Wallbox communication failed" }
-        }
-      }
-    },
-
-    "/api/boiler/latest": {
-      "get": {
-        "summary": "Get latest Boiler temperature",
-        "tags": ["Boiler"],
-        "responses": {
-          "200": { "description": "Latest boiler temperature" },
-          "404": { "description": "No boiler data found" }
-        }
-      }
-    },
-
-    "/api/boiler/state": {
-      "get": {
-        "summary": "Get boiler heating state",
-        "tags": ["Boiler"],
-        "responses": {
-          "200": { "description": "Current boiler heating state" },
-          "500": { "description": "Failed to read boiler state" }
-        }
-      }
-    },
-
-    "/api/boiler/control": {
-      "post": {
-        "summary": "Control boiler relay",
-        "description": "Controls the boiler relay by switching it on, off or toggling its current state.",
-        "tags": ["Boiler"],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/BoilerControl" },
-              "example": { "action": "on" }
-            }
-          }
-        },
-        "responses": {
-          "200": { "description": "Boiler control action executed successfully" },
-          "400": { "description": "Invalid control action" },
-          "500": { "description": "Boiler control failed" }
-        }
-      }
-    },
-
-    "/api/epex/latest": {
-      "get": {
-        "summary": "Get latest EPEX data",
-        "tags": ["EPEX"],
-        "responses": {
-          "200": { "description": "Latest EPEX market price" },
-          "404": { "description": "No EPEX data found" }
-        }
-      }
-    }
-  },
-
-  "components": {
-      "schemas": {
-      "DeviceConfigResponse": {
-        "type": "object",
-        "properties": {
-          "pv": { "$ref": "#/components/schemas/Device" },
-          "wallbox": { "$ref": "#/components/schemas/Device" },
-          "boiler": { "$ref": "#/components/schemas/Device" },
-          "epex": { "$ref": "#/components/schemas/Device" }
         }
       },
-      "Device": {
-        "type": "object",
-        "properties": {
-          "baseUrl": { "type": "string", "format": "uri" },
-          "endpoints": {
+
+      "/api/pv/latest": {
+        "get": {
+          "summary": "Get latest PV data",
+          "description": "Returns the most recent PV measurements from InfluxDB.",
+          "tags": ["PV"],
+          "responses": {
+            "200": {
+              "description": "Latest PV measurement",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PVMeasurement"
+                  }
+                }
+              }
+            },
+            "404": { "description": "No data found" }
+          }
+        }
+      },
+
+
+      "/api/pv/daily": {
+        "get": {
+          "summary": "Get daily PV data",
+          "description": "Returns PV measurements for the current day from 00:00 to 23:45 in 15-minute resolution (96 values).",
+          "tags": ["PV"],
+          "parameters": [
+            {
+              "name": "date",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "string",
+                "example": "2025-12-24"
+              }
+            }
+          ],
+          "responses": {
+            "200": { "description": "Daily PV time series" },
+            "404": { "description": "No daily data found" }
+          }
+        }
+      },
+
+      "/api/pv/monthly": {
+        "get": {
+          "summary": "Get monthly PV data",
+          "description": "Returns PV measurements for the current calendar month in 15-minute resolution (96 values per day).",
+          "tags": ["PV"],
+          "parameters": [
+            {
+              "name": "month",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "string",
+                "example": "2025-11"
+              }
+            }
+          ],
+          "responses": {
+            "200": { "description": "Monthly PV time series" },
+            "404": { "description": "No monthly data found" }
+          }
+        }
+      },
+
+      "/api/pv/yearly": {
+        "get": {
+          "summary": "Get yearly PV data",
+          "tags": ["PV"],
+          "parameters": [
+            {
+              "name": "year",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer",
+                "example": 2024
+              }
+            }
+          ],
+          "responses": {
+            "200": { "description": "Yearly PV time series" },
+            "404": { "description": "No yearly data found" }
+          }
+        }
+      },
+
+      "/api/wallbox/latest": {
+        "get": {
+          "summary": "Get latest Wallbox data",
+          "tags": ["Wallbox"],
+          "responses": {
+            "200": { "description": "Latest Wallbox measurement" },
+            "404": { "description": "No wallbox data found" },
+            "502": { "description": "Wallbox not reachable" }
+          }
+        }
+      },
+
+      "/api/wallbox/setCharging": {
+        "post": {
+          "summary": "Enable or disable wallbox charging",
+          "description": "Controls whether the wallbox is allowed to charge. Setting allow=true enables charging, allow=false disables charging.",
+          "tags": ["Wallbox"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["allow"],
+                  "properties": {
+                    "allow": { "type": "boolean" }
+                  }
+                },
+                "example": { "allow": true }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Charging state updated successfully" },
+            "400": { "description": "Invalid input payload" },
+            "502": { "description": "Wallbox communication failed" }
+          }
+        }
+      },
+
+      "/api/boiler/latest": {
+        "get": {
+          "summary": "Get latest Boiler temperature",
+          "tags": ["Boiler"],
+          "responses": {
+            "200": { "description": "Latest boiler temperature" },
+            "404": { "description": "No boiler data found" }
+          }
+        }
+      },
+
+      "/api/boiler/state": {
+        "get": {
+          "summary": "Get boiler heating state",
+          "tags": ["Boiler"],
+          "responses": {
+            "200": { "description": "Current boiler heating state" },
+            "500": { "description": "Failed to read boiler state" }
+          }
+        }
+      },
+
+      "/api/boiler/control": {
+        "post": {
+          "summary": "Control boiler relay",
+          "description": "Controls the boiler relay by switching it on, off or toggling its current state.",
+          "tags": ["Boiler"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/BoilerControl" },
+                "example": { "action": "on" }
+              }
+            }
+          },
+          "responses": {
+            "200": { "description": "Boiler control action executed successfully" },
+            "400": { "description": "Invalid control action" },
+            "500": { "description": "Boiler control failed" }
+          }
+        }
+      },
+
+      "/api/epex/latest": {
+        "get": {
+          "summary": "Get latest EPEX data",
+          "tags": ["EPEX"],
+          "responses": {
+            "200": { "description": "Latest EPEX market price" },
+            "404": { "description": "No EPEX data found" }
+          }
+        }
+      }
+    },
+
+    "components": {
+        "schemas": {
+        "DeviceConfigResponse": {
+          "type": "object",
+          "properties": {
+            "pv": { "$ref": "#/components/schemas/Device" },
+            "wallbox": { "$ref": "#/components/schemas/Device" },
+            "boiler": { "$ref": "#/components/schemas/Device" },
+            "epex": { "$ref": "#/components/schemas/Device" }
+          }
+        },
+        "Device": {
+          "type": "object",
+          "properties": {
+            "baseUrl": { "type": "string", "format": "uri" },
+            "endpoints": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            }
+          }
+        },
+
+          "PVMeasurement": {
             "type": "object",
-            "additionalProperties": { "type": "string" }
-          }
-        }
-      },
-
-        "PVMeasurement": {
-          "type": "object",
-          "additionalProperties": true,
-          "properties": {
-            "_time": { "type": "string", "format": "date-time" },
-            "pv_power": { "type": "number" },
-            "grid_power": { "type": "number" },
-            "load_power": { "type": "number" },
-            "battery_power": { "type": "number" },
-            "soc": { "type": "number" },
-          "e_day": { "type": "number" },
-          "e_year": { "type": "number" },
-            "e_total": { "type": "number" },
-            "rel_autonomy": { "type": "number" },
-            "rel_selfconsumption": { "type": "number" }
-          }
-        },
-
-        "WallboxLatest": {
-          "type": "object",
-          "required": ["_time","amp","car","alw","wst","eto","pha_L1","pha_L2","pha_L3","pha_count","charging"],
-          "properties": {
-            "_time": { "type": "string", "format": "date-time" },
-            "amp": { "type": "integer", "description": "Current (A)" },
-            "car": { "type": "integer", "description": "Car connected (1/0)" },
-            "alw": { "type": "integer", "description": "Charging allowed (1/0)" },
-            "wst": { "type": "integer", "description": "Wallbox status code" },
-            "eto": { "type": "number", "description": "Total energy charged (Wh)" },
-            "pha_L1": { "type": "integer", "description": "Phase L1 active (1/0)" },
-            "pha_L2": { "type": "integer", "description": "Phase L2 active (1/0)" },
-            "pha_L3": { "type": "integer", "description": "Phase L3 active (1/0)" },
-            "pha_count": { "type": "integer", "description": "Number of active phases" },
-            "charging": { "type": "integer", "description": "Charging currently active (1/0)" }
-          }
-        },
-
-        "BoilerLatest": {
-          "type": "object",
-          "properties": {
-            "_time": { "type": "string", "format": "date-time" },
-            "boiler_temp": { "type": "number", "description": "Boiler temperature in °C" }
-          }
-        },
-
-        "BoilerControl": {
-          "type": "object",
-          "required": ["action"],
-          "properties": {
-            "action": {
-              "type": "string",
-              "enum": ["on", "off", "toggle"],
-            "description": "Control action for boiler relay"
+            "additionalProperties": true,
+            "properties": {
+              "_time": { "type": "string", "format": "date-time" },
+              "pv_power": { "type": "number" },
+              "grid_power": { "type": "number" },
+              "load_power": { "type": "number" },
+              "battery_power": { "type": "number" },
+              "soc": { "type": "number" },
+            "e_day": { "type": "number" },
+            "e_year": { "type": "number" },
+              "e_total": { "type": "number" },
+              "rel_autonomy": { "type": "number" },
+              "rel_selfconsumption": { "type": "number" }
             }
-          }
-        },
+          },
 
-        "EpexLatest": {
-          "type": "object",
-          "properties": {
-            "_time": { "type": "string", "format": "date-time" },
-            "epex_value": { "type": "number", "description": "EPEX market price in EUR/MWh" }
-        }
+          "SystemMode": {
+              "type": "string",
+              "description": "Global operating mode of the backend",
+              "enum": ["AUTOMATIC", "MANUAL", "TIME_CONTROLLED"]
+            },
+
+          "SystemModeResponse": {
+              "type": "object",
+              "properties": {
+                "mode": {
+                  "$ref": "#/components/schemas/SystemMode"
+                }
+              }
+            },
+
+          "ScheduleEntry": {
+              "type": "object",
+              "required": ["start", "end"],
+              "properties": {
+                "start": {
+                  "type": "string",
+                  "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                  "example": "08:00"
+                },
+                "end": {
+                  "type": "string",
+                  "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                  "example": "16:00"
+                }
+              }
+            },
+
+          "ScheduleDevice": {
+              "type": "object",
+              "properties": {
+                "winter": { "$ref": "#/components/schemas/ScheduleEntry" },
+                "summer": { "$ref": "#/components/schemas/ScheduleEntry" }
+              }
+            },
+
+          "ScheduleConfig": {
+              "type": "object",
+              "properties": {
+                "boiler": { "$ref": "#/components/schemas/ScheduleDevice" },
+                "wallbox": { "$ref": "#/components/schemas/ScheduleDevice" }
+              }
+            },
+
+          "WallboxLatest": {
+            "type": "object",
+            "required": ["_time","amp","car","alw","wst","eto","pha_L1","pha_L2","pha_L3","pha_count","charging"],
+            "properties": {
+              "_time": { "type": "string", "format": "date-time" },
+              "amp": { "type": "integer", "description": "Current (A)" },
+              "car": { "type": "integer", "description": "Car connected (1/0)" },
+              "alw": { "type": "integer", "description": "Charging allowed (1/0)" },
+              "wst": { "type": "integer", "description": "Wallbox status code" },
+              "eto": { "type": "number", "description": "Total energy charged (Wh)" },
+              "pha_L1": { "type": "integer", "description": "Phase L1 active (1/0)" },
+              "pha_L2": { "type": "integer", "description": "Phase L2 active (1/0)" },
+              "pha_L3": { "type": "integer", "description": "Phase L3 active (1/0)" },
+              "pha_count": { "type": "integer", "description": "Number of active phases" },
+              "charging": { "type": "integer", "description": "Charging currently active (1/0)" }
+            }
+          },
+
+          "BoilerLatest": {
+            "type": "object",
+            "properties": {
+              "_time": { "type": "string", "format": "date-time" },
+              "boiler_temp": { "type": "number", "description": "Boiler temperature in °C" }
+            }
+          },
+
+          "BoilerControl": {
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": ["on", "off", "toggle"],
+              "description": "Control action for boiler relay"
+              }
+            }
+          },
+
+          "EpexLatest": {
+            "type": "object",
+            "properties": {
+              "_time": { "type": "string", "format": "date-time" },
+              "epex_value": { "type": "number", "description": "EPEX market price in EUR/MWh" }
+          }
+          }
         }
       }
     }
-  }
