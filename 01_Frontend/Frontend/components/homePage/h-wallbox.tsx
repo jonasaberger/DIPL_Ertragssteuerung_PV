@@ -9,8 +9,8 @@ type Props = {
   carConnected: boolean
   ampere: number
   phases?: number
-  selectedSetting: 'SETTING_1' | 'SETTING_2'
-  onSelect: (setting: 'SETTING_1' | 'SETTING_2') => void
+  selectedSetting: 'MANUAL_OFF' | 'MANUAL_ON'
+  onSelect: (setting: 'MANUAL_OFF' | 'MANUAL_ON') => void
   available: boolean
 }
 
@@ -135,72 +135,84 @@ export default function HWallbox({
 
             <View style={styles.divider} />
 
-            {/* Settings */}
-            <View style={styles.settingsSection}>
-              <Text style={styles.settingsTitle}>Lademodus</Text>
+            {/* Settings oder Hinweis */}
+            {carConnected ? (
+              <View style={styles.settingsSection}>
+                <Text style={styles.settingsTitle}>Lademodus</Text>
 
-              <View style={styles.settingsButtons}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={[
-                    styles.settingButton,
-                    selectedSetting === 'SETTING_1' &&
-                      styles.settingButtonActive,
-                  ]}
-                  onPress={() => onSelect('SETTING_1')}
-                >
-                  <View style={styles.settingButtonContent}>
-                    <View
-                      style={[
-                        styles.radioButton,
-                        selectedSetting === 'SETTING_1' &&
-                          styles.radioButtonActive,
-                      ]}
-                    >
-                      {selectedSetting === 'SETTING_1' && <View style={styles.radioButtonInner} />}
+                <View style={styles.settingsButtons}>
+                  {/* MANUAL_ON kommt jetzt zuerst */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={[
+                      styles.settingButton,
+                      selectedSetting === 'MANUAL_ON' &&
+                        styles.settingButtonActive,
+                    ]}
+                    onPress={() => onSelect('MANUAL_ON')}
+                  >
+                    <View style={styles.settingButtonContent}>
+                      <View
+                        style={[
+                          styles.radioButton,
+                          selectedSetting === 'MANUAL_ON' &&
+                            styles.radioButtonActive,
+                        ]}
+                      >
+                        {selectedSetting === 'MANUAL_ON' && (
+                          <View style={styles.radioButtonInner} />
+                        )}
+                      </View>
+                      <View style={styles.settingTextContainer}>
+                        <Text style={styles.settingButtonText}>
+                          Manuell EIN
+                        </Text>
+                        <Text style={styles.settingButtonSubtext}>
+                          Laden erlauben
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingButtonText}>
-                        Laden erlauben
-                      </Text>
-                      <Text style={styles.settingButtonSubtext}>
-                        Automatisches Laden bei Verbindung
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={[
-                    styles.settingButton,
-                    selectedSetting === 'SETTING_2' &&
-                      styles.settingButtonActive,
-                  ]}
-                  onPress={() => onSelect('SETTING_2')}
-                >
-                  <View style={styles.settingButtonContent}>
-                    <View
-                      style={[
-                        styles.radioButton,
-                        selectedSetting === 'SETTING_2' &&
-                          styles.radioButtonActive,
-                      ]}
-                    >
-                      {selectedSetting === 'SETTING_2' && <View style={styles.radioButtonInner} />}
+                  {/* MANUAL_OFF kommt jetzt als zweites */}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={[
+                      styles.settingButton,
+                      selectedSetting === 'MANUAL_OFF' &&
+                        styles.settingButtonActive,
+                    ]}
+                    onPress={() => onSelect('MANUAL_OFF')}
+                  >
+                    <View style={styles.settingButtonContent}>
+                      <View
+                        style={[
+                          styles.radioButton,
+                          selectedSetting === 'MANUAL_OFF' &&
+                            styles.radioButtonActive,
+                        ]}
+                      >
+                        {selectedSetting === 'MANUAL_OFF' && (
+                          <View style={styles.radioButtonInner} />
+                        )}
+                      </View>
+                      <View style={styles.settingTextContainer}>
+                        <Text style={styles.settingButtonText}>
+                          Manuell AUS
+                        </Text>
+                        <Text style={styles.settingButtonSubtext}>
+                          Laden blockieren
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.settingTextContainer}>
-                      <Text style={styles.settingButtonText}>
-                        Laden sperren
-                      </Text>
-                      <Text style={styles.settingButtonSubtext}>
-                        Laden blockieren bei Verbindung.
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            ) : (
+              <Text style={styles.settingsHint}>
+                Fahrzeug nicht verbunden – Lademodi nicht verfügbar
+              </Text>
+            )}
           </>
         )}
       </View>
@@ -373,30 +385,31 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     marginBottom: 1,
   },
-  settingButtonTextActive: {
-    color: '#1EAFF3',
-  },
   settingButtonSubtext: {
     fontSize: 11,
     fontWeight: '400',
     color: '#8E8E93',
   },
-unavailableContainer: {
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingVertical: 32,
-  gap: 6,
-},
-
-unavailableTitle: {
-  fontSize: 16,
-  fontWeight: '600',
-  color: '#1C1C1E',
-},
-
-unavailableSubtitle: {
-  fontSize: 12,
-  color: '#8E8E93',
-  textAlign: 'center',
-},
+  settingsHint: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  unavailableContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 6,
+  },
+  unavailableTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1C1C1E',
+  },
+  unavailableSubtitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
+  },
 })

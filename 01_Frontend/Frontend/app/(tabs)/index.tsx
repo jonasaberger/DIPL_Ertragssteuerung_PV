@@ -10,6 +10,7 @@ import HBoiler from '@/components/homePage/h-boiler'
 
 import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
 import { toggleBoilerSetting } from '@/services/boiler_service'
+import {allowEGoPower} from '@/services/e_go_service'
 
 const INITIAL_PRIORITIES: PriorityItem[] = [
   { id: 'boiler', label: 'Boiler' },
@@ -17,9 +18,9 @@ const INITIAL_PRIORITIES: PriorityItem[] = [
   { id: 'speicher', label: 'Speicher' },
 ]
 
-type EGoWallboxSetting = 'SETTING_1' | 'SETTING_2'
+type EGoWallboxSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'
-let currentEGoWallboxSetting: EGoWallboxSetting = 'SETTING_1'
+let currentEGoWallboxSetting: EGoWallboxSetting = 'MANUAL_OFF'
 let currentBoilerSetting: BoilerSetting = 'MANUAL_OFF'
 
 // Variable, damit ich die Einstellung auch dann einfach fürs Backend habe
@@ -34,14 +35,8 @@ export function getCurrentBoilerSetting() {
 const toNum = (v: any) => (Number.isFinite(v) ? Number(v) : 0)
 const clamp0 = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0)
 
-const MOCK_ENERGY = 9
-const MOCK_IS_CHARGING = true
-
-const MOCK_BOILER_TEMP = 58
-const MOCK_IS_HEATING = true
-
 export default function HomeScreen() {
-  const { pvData, boilerData, epexData, wallboxData, systemState, refetchBoilerData } = useUpdateDataScheduler()
+  const { pvData, boilerData, epexData, wallboxData, systemState, refetchBoilerData, refetchEGoData } = useUpdateDataScheduler()
 
   // Availability Flags
   const available = {
@@ -53,7 +48,7 @@ export default function HomeScreen() {
 
   // UI States grouped
   const [uiState, setUiState] = useState({
-    selectedWallboxSetting: 'SETTING_1' as EGoWallboxSetting,
+    selectedWallboxSetting: 'MANUAL_OFF' as EGoWallboxSetting,
     selectedBoilerSetting: 'MANUAL_OFF' as BoilerSetting,
     priorities: INITIAL_PRIORITIES as PriorityItem[],
   })
@@ -71,6 +66,21 @@ export default function HomeScreen() {
       })
     }
   }, [boilerData?.heating])
+
+    React.useEffect(() => {
+        if (wallboxData?.isCharging !== undefined) {
+          const initialSetting: EGoWallboxSetting = wallboxData.isCharging ? 'MANUAL_ON' : 'MANUAL_OFF'
+          setUiState((prev) => {
+            // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
+            if (prev.selectedWallboxSetting !== initialSetting) {
+              currentEGoWallboxSetting = initialSetting
+              return { ...prev, selectedWallboxSetting: initialSetting }
+            }
+            return prev
+          })
+        }
+      }, [wallboxData?.isCharging])
+
 
   // --- Rohwerte
   const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
@@ -111,14 +121,32 @@ export default function HomeScreen() {
     gridToHouse,                // Netz -> Haus Partikel
   }
 
-
   // Handlers
-  const handleWallboxSelect = (setting: EGoWallboxSetting) => {
-    setUiState((prev) => ({ ...prev, selectedWallboxSetting: setting }))
-  }
+  const handleWallboxSelect = async (setting: EGoWallboxSetting) => {
+    // Save Old Setting for potential Rollback
+    const previousSetting = uiState.selectedWallboxSetting
 
+    // Optimistic Update
+    setUiState((prev) => ({...prev, selectedWallboxSetting: setting}))
+    currentEGoWallboxSetting = setting
+
+    const success = await allowEGoPower(setting)
+    if(success) {
+        await refetchEGoData() // Instant Update
+    }
+    else {
+      // Reset UI State
+      console.warn('Failed to update wallbox setting on backend - reverting UI')
+      setUiState((prev) => ({ ...prev, selectedBoilerSetting: previousSetting }))
+      currentBoilerSetting = previousSetting
+
+      // User-Feedback (Toast/Alert)
+      Alert.alert('Fehler', 'Boiler-Einstellung konnte nicht geändert werden')
+    }
+
+  }
   const handleBoilerSelect = async (setting: BoilerSetting) => {
-    // Save Old Settings for potential Rollback
+    // Save Old Setting for potential Rollback
     const previousSetting = uiState.selectedBoilerSetting
 
     // Optimistic Update
@@ -128,10 +156,10 @@ export default function HomeScreen() {
     const success = await toggleBoilerSetting(setting)
 
     if (success) {
-      await refetchBoilerData()
+      await refetchBoilerData() // Instant Update
     }
     else {
-      // Reset UI State 
+      // Reset UI State
       console.warn('Failed to update boiler setting on backend - reverting UI')
       setUiState((prev) => ({ ...prev, selectedBoilerSetting: previousSetting }))
       currentBoilerSetting = previousSetting

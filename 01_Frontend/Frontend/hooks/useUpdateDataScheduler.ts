@@ -153,10 +153,16 @@ export function useUpdateDataScheduler() {
   }, [])
 
 
-  // Rollback function to refetch boiler data
+  // Instant Update for the boilerData after toggle
   const refetchBoilerData = async () => {
     const data = await fetchBoilerData()
     setBoilerData(data)
+  }
+
+  // Instant Update for the wallboxData after toggle
+  const refetchEGoData = async () => {
+      const data = await fetchEGoData()
+      setWallboxData(data)
   }
 
   return {
@@ -165,6 +171,7 @@ export function useUpdateDataScheduler() {
     epexData,
     wallboxData,
     systemState,
-    refetchBoilerData
+    refetchBoilerData,
+    refetchEGoData
   }
 }
