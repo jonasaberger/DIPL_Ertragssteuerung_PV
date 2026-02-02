@@ -25,3 +25,4 @@ services:
 
     volumes:
       - ./config:/app/config
+      - ./data:/app/data
