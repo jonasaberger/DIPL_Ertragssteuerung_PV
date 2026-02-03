@@ -15,14 +15,21 @@ const CIRCLE_SIZE = 72
 type Point = { x: number; y: number }
 
 export type DiagramData = {
+  // PV Erzeugung
   total: number
-  house: number               // PV -> Haus (gedeckt)
-  houseActual?: number        // echter Hausverbrauch
-  battery: number             // PV -> Batterie (Laden)
-  grid: number                // PV -> Netz (Einspeisung)
 
-  gridImport?: number         // Netzbezug (positiv)
-  gridToHouse?: number        // Netz -> Haus Flow
+  // Flows (alle positiv, already computed!)
+  pvToHouse: number
+  pvToBattery: number
+  pvToGrid: number
+
+  gridToHouse: number
+  batteryToHouse: number
+
+  // Zusatzinfos für Anzeige/Icons
+  houseActual: number // echter Hausverbrauch (positiv)
+  batteryPower: number // SIGNED nach deiner Konvention: <0 Laden, >0 Entladen
+  gridPower: number // SIGNED: <0 Einspeisung, >0 Bezug
 }
 
 type Props = {
@@ -204,6 +211,19 @@ function ParticlesCurveGroup({
 const round1 = (v: number) => Math.round(v * 10) / 10
 const formatW = (v: number) => `${round1(v)} W`
 
+function makeQuadCurve(start: Point, end: Point, control: Point, steps = 16) {
+  const pts: Point[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const one = 1 - t
+    pts.push({
+      x: one * one * start.x + 2 * one * t * control.x + t * t * end.x,
+      y: one * one * start.y + 2 * one * t * control.y + t * t * end.y,
+    })
+  }
+  return pts
+}
+
 export default function HDiagram({ data }: Props) {
   const [diagramWidth, setDiagramWidth] = useState<number | null>(null)
 
@@ -228,42 +248,46 @@ export default function HDiagram({ data }: Props) {
     grid = { x: w * 0.77, y: SIDE_Y }
   }
 
-  const pvToHouse = Math.max(0, data.house)
-  const pvToBattery = Math.max(0, data.battery)
-  const pvToGrid = Math.max(0, data.grid)
+  const pvPower = Math.max(0, Number(data.total ?? 0))
 
-  const gridImport = Math.max(0, data.gridImport ?? 0)
-  const gridToHouse = Math.max(0, data.gridToHouse ?? 0)
+  // Anzeige-Logik (Vorzeichen nach deiner Definition)
+  const batteryAbs = Math.max(0, Math.abs(Number(data.batteryPower ?? 0)))
+  const batteryIsCharging = Number(data.batteryPower ?? 0) < 0
+  const batteryIsDischarging = Number(data.batteryPower ?? 0) > 0
 
-  const houseActualValue = Math.max(0, data.houseActual ?? 0)
+  const gridAbs = Math.max(0, Math.abs(Number(data.gridPower ?? 0)))
+  const gridIsImporting = Number(data.gridPower ?? 0) > 0
+  const gridIsExporting = Number(data.gridPower ?? 0) < 0
 
-  const showPvHouse = data.total > 0 && pvToHouse > 0
-  const showPvBattery = data.total > 0 && pvToBattery > 0
-  const showPvGrid = data.total > 0 && pvToGrid > 0
-  const showGridHouse = gridToHouse > 0
+  // Animationen (Flows)
+  const showPvHouse = pvPower > 0 && data.pvToHouse > 0
+  const showPvBattery = pvPower > 0 && data.pvToBattery > 0
+  const showPvGrid = pvPower > 0 && data.pvToGrid > 0
+
+  const showGridHouse = data.gridToHouse > 0
+  const showBatteryHouse = data.batteryToHouse > 0
 
   const gridToHousePath = useMemo(() => {
     if (!grid || !house) return null
-
     const start = grid
     const end = house
     const control: Point = {
       x: (start.x + end.x) / 2,
       y: Math.min(start.y, end.y) - 140,
     }
-
-    const steps = 16
-    const pts: Point[] = []
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps
-      const one = 1 - t
-      pts.push({
-        x: one * one * start.x + 2 * one * t * control.x + t * t * end.x,
-        y: one * one * start.y + 2 * one * t * control.y + t * t * end.y,
-      })
-    }
-    return pts
+    return makeQuadCurve(start, end, control, 16)
   }, [grid, house])
+
+  const batteryToHousePath = useMemo(() => {
+    if (!battery || !house) return null
+    const start = battery
+    const end = house
+    const control: Point = {
+      x: (start.x + end.x) / 2 - 40,
+      y: Math.min(start.y, end.y) - 120,
+    }
+    return makeQuadCurve(start, end, control, 16)
+  }, [battery, house])
 
   return (
     <Card height={520}>
@@ -309,6 +333,15 @@ export default function HDiagram({ data }: Props) {
                   duration={2400}
                 />
               )}
+
+              {showBatteryHouse && batteryToHousePath && (
+                <ParticlesCurveGroup
+                  path={batteryToHousePath}
+                  color="#16c172"
+                  count={7}
+                  duration={2400}
+                />
+              )}
             </View>
 
             {/* Sonne */}
@@ -339,7 +372,7 @@ export default function HDiagram({ data }: Props) {
                 },
               ]}
             >
-              {formatW(Math.max(0, data.total))}
+              {formatW(pvPower)}
             </Text>
 
             {/* Haus */}
@@ -367,7 +400,7 @@ export default function HDiagram({ data }: Props) {
                 },
               ]}
             >
-              {formatW(houseActualValue)}
+              {formatW(Math.max(0, Number(data.houseActual ?? 0)))}
             </Text>
 
             {/* Batterie */}
@@ -382,24 +415,34 @@ export default function HDiagram({ data }: Props) {
               ]}
             >
               <MaterialCommunityIcons
-                name="battery-charging"
+                name={
+                  batteryIsDischarging
+                    ? 'battery-minus'
+                    : batteryIsCharging
+                      ? 'battery-charging'
+                      : 'battery'
+                }
                 size={42}
                 color="#474646"
               />
             </View>
-            <Text
-              style={[
-                pvToBattery > 0 ? styles.valueText : styles.valueTextMuted,
-                {
-                  position: 'absolute',
-                  top: battery.y + CIRCLE_SIZE / 2 + 8,
-                  left: battery.x - 60,
-                  width: 120,
-                },
-              ]}
+
+            <View
+              style={{
+                position: 'absolute',
+                top: battery.y + CIRCLE_SIZE / 2 + 8,
+                left: battery.x - 70,
+                width: 140,
+                alignItems: 'center',
+              }}
             >
-              {formatW(pvToBattery)}
-            </Text>
+              <Text style={[batteryAbs > 0 ? styles.valueText : styles.valueTextMuted]}>
+                {formatW(batteryAbs)}
+              </Text>
+
+              {batteryIsDischarging && <Text style={styles.subValueText}>(Entladung)</Text>}
+              {batteryIsCharging && <Text style={styles.subValueText}>(Laden)</Text>}
+            </View>
 
             {/* Netz */}
             <View
@@ -424,23 +467,12 @@ export default function HDiagram({ data }: Props) {
                 alignItems: 'center',
               }}
             >
-              <Text
-                style={[
-                  pvToGrid > 0 || gridImport > 0
-                    ? styles.valueText
-                    : styles.valueTextMuted,
-                ]}
-              >
-                {pvToGrid > 0 ? formatW(pvToGrid) : formatW(gridImport)}
+              <Text style={[gridAbs > 0 ? styles.valueText : styles.valueTextMuted]}>
+                {formatW(gridAbs)}
               </Text>
 
-              {gridImport > 0 && pvToGrid <= 0 && (
-                <Text style={styles.subValueText}>(Bezug)</Text>
-              )}
-
-              {pvToGrid > 0 && (
-                <Text style={styles.subValueText}>(Einspeisung)</Text>
-              )}
+              {gridIsImporting && <Text style={styles.subValueText}>(Bezug)</Text>}
+              {gridIsExporting && <Text style={styles.subValueText}>(Einspeisung)</Text>}
             </View>
           </>
         )}
@@ -450,22 +482,6 @@ export default function HDiagram({ data }: Props) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 8,
-  },
-  temp: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#474646',
-  },
-  icon: {
-    fontSize: 22,
-  },
-
   diagram: {
     width: '100%',
     height: '100%',
