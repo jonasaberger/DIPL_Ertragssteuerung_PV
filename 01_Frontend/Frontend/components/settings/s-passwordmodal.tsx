@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { StyleSheet, Text, TextInput, View } from 'react-native'
+import { verifyAdminPW } from '@/services/settings_service'
 import AppModal from '@/components/modal'
 
 type Props = {
@@ -7,8 +8,6 @@ type Props = {
   onCancel: () => void
   onSuccess: () => void
 }
-
-const STATIC_PASSWORD = 'admin' 
 
 export default function SPasswordModal({ visible, onCancel, onSuccess }: Props) {
   const [pw, setPw] = useState('')
@@ -20,21 +19,20 @@ export default function SPasswordModal({ visible, onCancel, onSuccess }: Props) 
     setError('')
   }, [visible])
 
-  function confirm() {
-    if (pw === STATIC_PASSWORD) {
-      setError('')
-      onSuccess()
-      return
-    }
-    setError('Falsches Passwort')
-  }
 
   return (
     <AppModal
       visible={visible}
       title="Passwort erforderlich"
       onCancel={onCancel}
-      onConfirm={confirm}
+      onConfirm={async () => {
+        const isValid = await verifyAdminPW(pw)
+        if (isValid) {
+          onSuccess()
+        } else {
+          setError('Falsches Passwort')
+        }
+      }}
       confirmDisabled={pw.length === 0}
       cancelText="Abbrechen"
       confirmText="Bestätigen"
@@ -54,7 +52,14 @@ export default function SPasswordModal({ visible, onCancel, onSuccess }: Props) 
           style={styles.input}
           selectionColor="#474646"
           returnKeyType="done"
-          onSubmitEditing={confirm}
+          onSubmitEditing={async () => {
+            const isValid = await verifyAdminPW(pw)
+            if (isValid) {
+              onSuccess()
+            } else {
+              setError('Falsches Passwort')
+            }
+          }}
         />
 
         {!!error && <Text style={styles.error}>{error}</Text>}

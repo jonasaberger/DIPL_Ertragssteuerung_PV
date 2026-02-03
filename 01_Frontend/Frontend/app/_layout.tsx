@@ -6,7 +6,7 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-
+import { AuthProvider } from '@/contexts/AuthContext'
 
 export const unstable_settings = {
   anchor: '(tabs)',

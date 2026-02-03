@@ -12,25 +12,17 @@ import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
 import { toggleBoilerSetting } from '@/services/boiler_service'
 import {allowEGoPower} from '@/services/e_go_service'
 
-const INITIAL_PRIORITIES: PriorityItem[] = [
+/*const INITIAL_PRIORITIES: PriorityItem[] = [
   { id: 'boiler', label: 'Boiler' },
   { id: 'wallbox', label: 'e-Go Wallbox' },
   { id: 'speicher', label: 'Speicher' },
-]
+]*/
 
 type EGoWallboxSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 let currentEGoWallboxSetting: EGoWallboxSetting = 'MANUAL_OFF'
 let currentBoilerSetting: BoilerSetting = 'MANUAL_OFF'
 
-// Variable, damit ich die Einstellung auch dann einfach fürs Backend habe
-export function getCurrentEGoWallboxSetting() {
-  return currentEGoWallboxSetting
-}
-
-export function getCurrentBoilerSetting() {
-  return currentBoilerSetting
-}
 
 const toNum = (v: any) => {
   const n = Number(v)
@@ -51,7 +43,7 @@ export default function HomeScreen() {
   const [uiState, setUiState] = useState({
     selectedWallboxSetting: 'MANUAL_OFF' as EGoWallboxSetting,
     selectedBoilerSetting: 'MANUAL_OFF' as BoilerSetting,
-    priorities: INITIAL_PRIORITIES as PriorityItem[],
+    // priorities: INITIAL_PRIORITIES as PriorityItem[],
   })
 
   React.useEffect(() => {
@@ -68,49 +60,19 @@ export default function HomeScreen() {
     }
   }, [boilerData?.heating])
 
-    React.useEffect(() => {
-        if (wallboxData?.isCharging !== undefined) {
-          const initialSetting: EGoWallboxSetting = wallboxData.isCharging ? 'MANUAL_ON' : 'MANUAL_OFF'
-          setUiState((prev) => {
-            // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
-            if (prev.selectedWallboxSetting !== initialSetting) {
-              currentEGoWallboxSetting = initialSetting
-              return { ...prev, selectedWallboxSetting: initialSetting }
-            }
-            return prev
-          })
-        }
-      }, [wallboxData?.isCharging])
-
-
   React.useEffect(() => {
-    if (boilerData?.heating !== undefined) {
-      const initialSetting: BoilerSetting = boilerData.heating ? 'MANUAL_ON' : 'MANUAL_OFF'
-      setUiState((prev) => {
-        // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
-        if (prev.selectedBoilerSetting !== initialSetting) {
-          currentBoilerSetting = initialSetting
-          return { ...prev, selectedBoilerSetting: initialSetting }
-        }
-        return prev
-      })
-    }
-  }, [boilerData?.heating])
-
-    React.useEffect(() => {
-        if (wallboxData?.isCharging !== undefined) {
-          const initialSetting: EGoWallboxSetting = wallboxData.isCharging ? 'MANUAL_ON' : 'MANUAL_OFF'
-          setUiState((prev) => {
-            // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
-            if (prev.selectedWallboxSetting !== initialSetting) {
-              currentEGoWallboxSetting = initialSetting
-              return { ...prev, selectedWallboxSetting: initialSetting }
-            }
-            return prev
-          })
-        }
-      }, [wallboxData?.isCharging])
-
+      if (wallboxData?.isCharging !== undefined) {
+        const initialSetting: EGoWallboxSetting = wallboxData.isCharging ? 'MANUAL_ON' : 'MANUAL_OFF'
+        setUiState((prev) => {
+          // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
+          if (prev.selectedWallboxSetting !== initialSetting) {
+            currentEGoWallboxSetting = initialSetting
+            return { ...prev, selectedWallboxSetting: initialSetting }
+          }
+          return prev
+        })
+      }
+    }, [wallboxData?.isCharging])
 
   // --- Rohwerte
   const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
@@ -228,10 +190,10 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <HDiagram data={diagramData} />
 
-        <HPriority
+        {/* <HPriority
           priorities={uiState.priorities}
           onDragEnd={handlePriorityDragEnd}
-        />
+        /> */}
 
         <HPrices
           date={epexData?.date ?? ''}
