@@ -140,7 +140,8 @@ class ServiceManager:
 
         # Mode Management endpoints
         self.app.add_url_rule('/api/mode', 'mode', self.mode_endpoint, methods=['GET', 'POST'])
-        self.app.add_url_rule( '/api/schedule', 'schedule', self.schedule_endpoint, methods=['GET', 'PUT'])
+        self.app.add_url_rule('/api/schedule', 'schedule', self.schedule_endpoint, methods=['GET', 'PUT', 'POST'])
+        self.app.add_url_rule('/api/schedule/reset','schedule_reset',self.schedule_reset_endpoint,methods=['POST'])
 
     # ----- Route Handlers -----
     def _json(self, payload, status=200):
@@ -479,9 +480,8 @@ class ServiceManager:
                 500
             )
         
-    
+    # GET / POST system mode
     def mode_endpoint(self):
-
         # Get: current mode
         if request.method == 'GET':
             return self._json({
@@ -508,22 +508,54 @@ class ServiceManager:
         except ValueError:
             return self._json({"error": "Invalid mode. Use AUTOMATIC | MANUAL | TIME_CONTROLLED"},400)
         
+    # GET / PUT / POST schedule configuration
     def schedule_endpoint(self):
-        # GET: aktuelle Konfiguration
+        # GET: effektive Konfiguration
         if request.method == "GET":
-            return self._json(self.schedule_store.get_override())
+            return self._json(self.schedule_store.get_effective())
 
-        # PUT: neue Konfiguration speichern
-        payload = request.get_json(force=True)
-        if not payload:
-            return self._json({"error": "Missing JSON body"}, 400)
+        # PUT: Override setzen
+        if request.method == "PUT":
+            payload = request.get_json(force=True)
+            if not payload:
+                return self._json({"error": "Missing JSON body"}, 400)
 
-        self.schedule_store.update(payload)
+            self.schedule_store.update(payload)
+
+            self.logger.system_event(
+                level="info",
+                source="schedule",
+                message="Schedule configuration updated"
+            )
+
+            return self._json({"status": "ok"})
+
+        # POST: RESET auf Default
+        if request.method == "POST":
+            self.schedule_store.reset_to_default()
+
+            self.logger.system_event(
+                level="info",
+                source="schedule",
+                message="Schedule reset to default"
+            )
+
+            return self._json({
+                "status": "ok",
+                "message": "Schedule reset to default"
+            })
+    
+    # POST: Reset schedule to default
+    def schedule_reset_endpoint(self):
+        self.schedule_store.reset_to_default()
 
         self.logger.system_event(
             level="info",
             source="schedule",
-            message="Schedule configuration updated"
+            message="Schedule reset to default configuration"
         )
 
-        return self._json({"status": "ok"})
+        return self._json({
+            "status": "ok",
+            "message": "Schedule reset to default"
+        })

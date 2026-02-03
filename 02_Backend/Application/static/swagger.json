@@ -177,7 +177,7 @@
       "/api/schedule": {
         "get": {
           "summary": "Get schedule configuration",
-          "description": "Returns the persisted time-based schedule configuration used by the backend.",
+          "description": "Returns the effective schedule configuration (default + user overrides).",
           "tags": ["Schedule"],
           "responses": {
             "200": {
@@ -195,7 +195,7 @@
 
         "put": {
           "summary": "Update schedule configuration",
-          "description": "Updates and persists the schedule configuration. Changes take effect automatically.",
+          "description": "Updates and persists the user-defined schedule configuration. Changes take effect automatically.",
           "tags": ["Schedule"],
           "requestBody": {
             "required": true,
@@ -222,9 +222,28 @@
               "description": "Invalid schedule configuration"
             }
           }
+        },
+
+        "post": {
+          "summary": "Reset schedule to default",
+          "description": "Deletes all user-defined schedule overrides and restores the default schedule configuration.",
+          "tags": ["Schedule"],
+          "responses": {
+            "200": {
+              "description": "Schedule reset successfully",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "status": "ok",
+                    "message": "Schedule reset to default"
+                  }
+                }
+              }
+            }
+          }
         }
       },
-
+     
       "/api/devices/get_devices": {
         "get": {
           "summary": "Get all devices",
