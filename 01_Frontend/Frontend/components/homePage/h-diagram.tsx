@@ -15,16 +15,21 @@ const CIRCLE_SIZE = 72
 type Point = { x: number; y: number }
 
 export type DiagramData = {
+  // PV Erzeugung
   total: number
-  house: number               // PV -> Haus (gedeckt)
-  houseActual?: number        // echter Hausverbrauch
-  battery: number             // PV -> Batterie (Laden)
-  grid: number                // PV -> Netz (Einspeisung)
 
-  gridImport?: number         // Netzbezug (positiv)
-  gridToHouse?: number        // Netz -> Haus Flow
+  // Flows (alle positiv, already computed!)
+  pvToHouse: number
+  pvToBattery: number
+  pvToGrid: number
 
-  batteryPower?: number
+  gridToHouse: number
+  batteryToHouse: number
+
+  // Zusatzinfos für Anzeige/Icons
+  houseActual: number // echter Hausverbrauch (positiv)
+  batteryPower: number // SIGNED nach deiner Konvention: <0 Laden, >0 Entladen
+  gridPower: number // SIGNED: <0 Einspeisung, >0 Bezug
 }
 
 type Props = {
@@ -245,154 +250,44 @@ export default function HDiagram({ data }: Props) {
 
   const pvPower = Math.max(0, Number(data.total ?? 0))
 
-  const legacyPvToHouse = Math.max(0, data.house)
-  const legacyPvToBattery = Math.max(0, data.battery)
-  const legacyPvToGrid = Math.max(0, data.grid)
+  // Anzeige-Logik (Vorzeichen nach deiner Definition)
+  const batteryAbs = Math.max(0, Math.abs(Number(data.batteryPower ?? 0)))
+  const batteryIsCharging = Number(data.batteryPower ?? 0) < 0
+  const batteryIsDischarging = Number(data.batteryPower ?? 0) > 0
 
-  const legacyGridImport = Math.max(0, data.gridImport ?? 0)
-  const legacyGridToHouse = Math.max(0, data.gridToHouse ?? 0)
+  const gridAbs = Math.max(0, Math.abs(Number(data.gridPower ?? 0)))
+  const gridIsImporting = Number(data.gridPower ?? 0) > 0
+  const gridIsExporting = Number(data.gridPower ?? 0) < 0
 
-  const legacyHouseActual = Math.max(0, data.houseActual ?? 0)
+  // Animationen (Flows)
+  const showPvHouse = pvPower > 0 && data.pvToHouse > 0
+  const showPvBattery = pvPower > 0 && data.pvToBattery > 0
+  const showPvGrid = pvPower > 0 && data.pvToGrid > 0
 
-  const rawMode =
-    data.batteryPower !== undefined ||
-    (data.houseActual !== undefined && Number(data.houseActual) < 0) ||
-    (data.gridImport !== undefined && Number(data.gridImport) < 0)
-
-  const computed = useMemo(() => {
-    if (!rawMode) {
-      return {
-        pvToHouse: legacyPvToHouse,
-        pvToBattery: legacyPvToBattery,
-        pvToGrid: legacyPvToGrid,
-        gridImport: legacyGridImport,
-        gridExport: 0,
-        gridToHouse: legacyGridToHouse,
-        gridToBattery: 0,
-        batteryToHouse: 0,
-        houseActual: legacyHouseActual,
-        batteryShown: legacyPvToBattery,
-        batteryIsCharging: legacyPvToBattery > 0,
-        batteryIsDischarging: false,
-        gridShown: legacyPvToGrid > 0 ? legacyPvToGrid : legacyGridImport,
-        gridIsImporting: legacyGridImport > 0 && legacyPvToGrid <= 0,
-        gridIsExporting: legacyPvToGrid > 0,
-      }
-    }
-
-    const loadSigned = Number(data.houseActual ?? 0)
-    const gridSigned = Number(data.gridImport ?? 0)
-    const batterySigned = Number(data.batteryPower ?? 0)
-
-    const houseActual = Math.max(0, loadSigned < 0 ? -loadSigned : loadSigned)
-    const gridImport = Math.max(0, gridSigned)
-    const gridExport = Math.max(0, -gridSigned)
-
-    const batteryCharge = Math.max(0, batterySigned)
-    const batteryDischarge = Math.max(0, -batterySigned)
-
-    const pvToHouse = Math.min(pvPower, houseActual)
-    const pvLeftAfterHouse = Math.max(0, pvPower - pvToHouse)
-
-    const pvToBattery = Math.min(pvLeftAfterHouse, batteryCharge)
-    const gridToBattery = Math.max(0, batteryCharge - pvToBattery)
-
-    const pvLeftAfterBattery = Math.max(0, pvLeftAfterHouse - pvToBattery)
-
-    const remainingAfterPv = Math.max(0, houseActual - pvToHouse)
-    const batteryToHouse = Math.min(batteryDischarge, remainingAfterPv)
-
-    const remainingAfterPvBattery = Math.max(0, remainingAfterPv - batteryToHouse)
-    const gridToHouse = Math.min(gridImport, remainingAfterPvBattery)
-
-    const pvToGrid = Math.min(pvLeftAfterBattery, gridExport)
-
-    const batteryShown = batteryCharge > 0 ? batteryCharge : batteryDischarge
-    const batteryIsCharging = batteryCharge > 0
-    const batteryIsDischarging = batteryDischarge > 0 && !batteryIsCharging
-
-    const gridShown = gridExport > 0 ? gridExport : gridImport
-    const gridIsImporting = gridImport > 0 && gridExport <= 0
-    const gridIsExporting = gridExport > 0
-
-    return {
-      pvToHouse,
-      pvToBattery,
-      pvToGrid,
-      gridImport,
-      gridExport,
-      gridToHouse,
-      gridToBattery,
-      batteryToHouse,
-      houseActual,
-      batteryShown,
-      batteryIsCharging,
-      batteryIsDischarging,
-      gridShown,
-      gridIsImporting,
-      gridIsExporting,
-    }
-  }, [
-    rawMode,
-    pvPower,
-    data.houseActual,
-    data.gridImport,
-    data.batteryPower,
-    legacyPvToHouse,
-    legacyPvToBattery,
-    legacyPvToGrid,
-    legacyGridImport,
-    legacyGridToHouse,
-    legacyHouseActual,
-  ])
-
-  const showPvHouse = pvPower > 0 && computed.pvToHouse > 0
-  const showPvBattery = pvPower > 0 && computed.pvToBattery > 0
-  const showPvGrid = pvPower > 0 && computed.pvToGrid > 0
-
-  const showGridHouse = computed.gridToHouse > 0
-  const showGridBattery = computed.gridToBattery > 0
-
-  const showBatteryHouse = computed.batteryToHouse > 0
+  const showGridHouse = data.gridToHouse > 0
+  const showBatteryHouse = data.batteryToHouse > 0
 
   const gridToHousePath = useMemo(() => {
     if (!grid || !house) return null
-
     const start = grid
     const end = house
     const control: Point = {
       x: (start.x + end.x) / 2,
       y: Math.min(start.y, end.y) - 140,
     }
-
     return makeQuadCurve(start, end, control, 16)
   }, [grid, house])
 
   const batteryToHousePath = useMemo(() => {
     if (!battery || !house) return null
-
     const start = battery
     const end = house
     const control: Point = {
       x: (start.x + end.x) / 2 - 40,
       y: Math.min(start.y, end.y) - 120,
     }
-
     return makeQuadCurve(start, end, control, 16)
   }, [battery, house])
-
-  const gridToBatteryPath = useMemo(() => {
-    if (!grid || !battery) return null
-
-    const start = grid
-    const end = battery
-    const control: Point = {
-      x: (start.x + end.x) / 2 + 40,
-      y: Math.min(start.y, end.y) - 120,
-    }
-
-    return makeQuadCurve(start, end, control, 16)
-  }, [grid, battery])
 
   return (
     <Card height={520}>
@@ -447,15 +342,6 @@ export default function HDiagram({ data }: Props) {
                   duration={2400}
                 />
               )}
-
-              {showGridBattery && gridToBatteryPath && (
-                <ParticlesCurveGroup
-                  path={gridToBatteryPath}
-                  color="#ff7f3f"
-                  count={6}
-                  duration={2400}
-                />
-              )}
             </View>
 
             {/* Sonne */}
@@ -486,7 +372,7 @@ export default function HDiagram({ data }: Props) {
                 },
               ]}
             >
-              {formatW(Math.max(0, data.total))}
+              {formatW(pvPower)}
             </Text>
 
             {/* Haus */}
@@ -514,7 +400,7 @@ export default function HDiagram({ data }: Props) {
                 },
               ]}
             >
-              {formatW(computed.houseActual)}
+              {formatW(Math.max(0, Number(data.houseActual ?? 0)))}
             </Text>
 
             {/* Batterie */}
@@ -530,9 +416,9 @@ export default function HDiagram({ data }: Props) {
             >
               <MaterialCommunityIcons
                 name={
-                  computed.batteryIsDischarging
+                  batteryIsDischarging
                     ? 'battery-minus'
-                    : computed.batteryIsCharging
+                    : batteryIsCharging
                       ? 'battery-charging'
                       : 'battery'
                 }
@@ -550,21 +436,12 @@ export default function HDiagram({ data }: Props) {
                 alignItems: 'center',
               }}
             >
-              <Text
-                style={[
-                  computed.batteryShown > 0 ? styles.valueText : styles.valueTextMuted,
-                ]}
-              >
-                {formatW(computed.batteryShown)}
+              <Text style={[batteryAbs > 0 ? styles.valueText : styles.valueTextMuted]}>
+                {formatW(batteryAbs)}
               </Text>
 
-              {computed.batteryIsDischarging && (
-                <Text style={styles.subValueText}>(Entladung)</Text>
-              )}
-
-              {computed.batteryIsCharging && (
-                <Text style={styles.subValueText}>(Laden)</Text>
-              )}
+              {batteryIsDischarging && <Text style={styles.subValueText}>(Entladung)</Text>}
+              {batteryIsCharging && <Text style={styles.subValueText}>(Laden)</Text>}
             </View>
 
             {/* Netz */}
@@ -590,21 +467,12 @@ export default function HDiagram({ data }: Props) {
                 alignItems: 'center',
               }}
             >
-              <Text
-                style={[
-                  computed.gridShown > 0 ? styles.valueText : styles.valueTextMuted,
-                ]}
-              >
-                {formatW(computed.gridShown)}
+              <Text style={[gridAbs > 0 ? styles.valueText : styles.valueTextMuted]}>
+                {formatW(gridAbs)}
               </Text>
 
-              {computed.gridIsImporting && (
-                <Text style={styles.subValueText}>(Bezug)</Text>
-              )}
-
-              {computed.gridIsExporting && (
-                <Text style={styles.subValueText}>(Einspeisung)</Text>
-              )}
+              {gridIsImporting && <Text style={styles.subValueText}>(Bezug)</Text>}
+              {gridIsExporting && <Text style={styles.subValueText}>(Einspeisung)</Text>}
             </View>
           </>
         )}
@@ -614,22 +482,6 @@ export default function HDiagram({ data }: Props) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 8,
-  },
-  temp: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#474646',
-  },
-  icon: {
-    fontSize: 22,
-  },
-
   diagram: {
     width: '100%',
     height: '100%',

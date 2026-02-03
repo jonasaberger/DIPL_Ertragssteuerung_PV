@@ -6,7 +6,6 @@ import HBoiler from '@/components/homePage/h-boiler'
 import { ThemedView } from '@/components/themed-view'
 import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
 import React, { useState } from 'react'
-
 import { ScrollView, StyleSheet } from 'react-native'
 
 const INITIAL_PRIORITIES: PriorityItem[] = [
@@ -29,71 +28,93 @@ export function getCurrentBoilerSetting() {
   return currentBoilerSetting
 }
 
-const toNum = (v: any) => (Number.isFinite(v) ? Number(v) : 0)
+const toNum = (v: any) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
 const clamp0 = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0)
 
 export default function HomeScreen() {
-  const { pvData, boilerData, epexData, wallboxData, systemState } = useUpdateDataScheduler()
+  const { pvData, boilerData, epexData, wallboxData, systemState } =
+    useUpdateDataScheduler()
 
-  // Availability Flags
   const available = {
     wallbox: systemState?.wallbox === 'ok',
     boiler: systemState?.boiler === 'ok',
   }
 
-  // UI States grouped
   const [uiState, setUiState] = useState({
     selectedWallboxSetting: 'SETTING_1' as EGoWallboxSetting,
     selectedBoilerSetting: 'MANUAL_OFF' as BoilerSetting,
     priorities: INITIAL_PRIORITIES as PriorityItem[],
   })
 
-  // --- Rohwerte
-const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
+  // --- Rohwerte (SIGNED wie vom Backend)
+  const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
 
-// Hausverbrauch: negativ geliefert -> Betrag
-const rawLoad = toNum(pvData?.load_power ?? 0)
-const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
+  // Hausverbrauch: laut Fronius oft negativ geliefert -> Betrag
+  const rawLoad = toNum(pvData?.load_power ?? 0)
+  const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
 
-// Batterie: SIGNED weiterreichen (positiv = Laden, negativ = Entladen)
-const batteryPower = toNum(pvData?.battery_power ?? 0)
+  // Batterie: DEINE Konvention:
+  // battery_power < 0 => LADEN
+  // battery_power > 0 => ENTLADEN
+  const batteryPower = toNum(pvData?.battery_power ?? 0)
 
-// Netz: positiv = Bezug, negativ = Einspeisung
-const rawGrid = toNum(pvData?.grid_power ?? 0)
-const gridImport = rawGrid > 0 ? clamp0(rawGrid) : 0
-const gridFeedIn = rawGrid < 0 ? clamp0(-rawGrid) : 0
+  // Netz: DEINE Konvention:
+  // grid_power < 0 => Einspeisung
+  // grid_power > 0 => Bezug
+  const gridPower = toNum(pvData?.grid_power ?? 0)
 
-// --- PV-Verteilung (nur PV!)
-const pvToHouse = Math.min(houseDemand, pvTotal)
-const remaining1 = pvTotal - pvToHouse
+  const gridImport = gridPower > 0 ? clamp0(gridPower) : 0
+  const gridFeedIn = gridPower < 0 ? clamp0(-gridPower) : 0
 
-const pvToBattery = Math.min(Math.max(0, batteryPower), remaining1)
-const remaining2 = remaining1 - pvToBattery
+  const batteryCharge = batteryPower < 0 ? clamp0(-batteryPower) : 0
+  const batteryDischarge = batteryPower > 0 ? clamp0(batteryPower) : 0
 
-const pvToGrid = Math.min(gridFeedIn, remaining2)
+  // --- PV-Verteilung (nur PV!)
+  // 1) PV -> Haus
+  const pvToHouse = Math.min(houseDemand, pvTotal)
+  const pvLeftAfterHouse = clamp0(pvTotal - pvToHouse)
 
-// --- Netz -> Haus (nur wenn PV nicht reicht)
-const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)
-const gridToHouse = Math.min(gridImport, houseDeficitAfterPv)
+  // 2) PV -> Batterie (nur wenn Batterie lädt)
+  const pvToBattery = Math.min(batteryCharge, pvLeftAfterHouse)
+  const pvLeftAfterBattery = clamp0(pvLeftAfterHouse - pvToBattery)
 
-const diagramData: DiagramData = {
-  total: pvTotal,
-  house: pvToHouse,
-  houseActual: houseDemand,
-  battery: pvToBattery,
-  grid: pvToGrid,
-  gridImport,
-  gridToHouse,
-  batteryPower, // <<< DAS ist der entscheidende Fix
-}
+  // 3) PV -> Netz (wenn Einspeisung stattfindet)
+  const pvToGrid = Math.min(gridFeedIn, pvLeftAfterBattery)
 
+  // --- Batterie -> Haus (wenn entladen wird)
+  const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)
+  const batteryToHouse = Math.min(batteryDischarge, houseDeficitAfterPv)
+
+  // --- Netz -> Haus (wenn PV + Batterie nicht reichen)
+  const houseDeficitAfterPvAndBattery = clamp0(houseDeficitAfterPv - batteryToHouse)
+  const gridToHouse = Math.min(gridImport, houseDeficitAfterPvAndBattery)
+
+  const diagramData: DiagramData = {
+    total: pvTotal,
+
+    pvToHouse,
+    pvToBattery,
+    pvToGrid,
+
+    gridToHouse,
+    batteryToHouse,
+
+    houseActual: houseDemand,
+    batteryPower, // SIGNED
+    gridPower, // SIGNED
+  }
 
   // Handlers
   const handleWallboxSelect = (setting: EGoWallboxSetting) => {
+    currentEGoWallboxSetting = setting
     setUiState((prev) => ({ ...prev, selectedWallboxSetting: setting }))
   }
 
   const handleBoilerSelect = (setting: BoilerSetting) => {
+    currentBoilerSetting = setting
     setUiState((prev) => ({ ...prev, selectedBoilerSetting: setting }))
   }
 
@@ -106,30 +127,35 @@ const diagramData: DiagramData = {
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <HDiagram data={diagramData} />
-        <HPriority priorities={uiState.priorities} onDragEnd={handlePriorityDragEnd} />
+
+        <HPriority
+          priorities={uiState.priorities}
+          onDragEnd={handlePriorityDragEnd}
+        />
+
         <HPrices
           date={epexData?.date ?? ''}
           time={epexData?.time ?? 'Loading...'}
           location="Österreich"
           pricePerKWh={epexData?.pricePerKWh ?? 0}
         />
+
         <HBoiler
           temperatureC={boilerData?.temp ?? 0}
           isHeating={boilerData?.heating ?? false}
           selectedSetting={uiState.selectedBoilerSetting}
           onSelect={handleBoilerSelect}
           available={available.boiler}
-          
         />
 
         <HWallbox
-          energyKWh={wallboxData?.energy ?? 0}         // Fallback 0
+          energyKWh={wallboxData?.energy ?? 0}
           isCharging={wallboxData?.isCharging ?? false}
           selectedSetting={uiState.selectedWallboxSetting}
           onSelect={handleWallboxSelect}
           carConnected={wallboxData?.carConnected ?? false}
           ampere={wallboxData?.ampere ?? 0}
-          available={systemState?.wallbox === 'ok'}     // Availability dynamisch geregelt
+          available={available.wallbox}
         />
       </ScrollView>
     </ThemedView>
