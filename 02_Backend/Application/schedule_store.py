@@ -49,3 +49,8 @@ class ScheduleStore:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("w", encoding="utf-8") as f:
             json.dump(self._override, f, indent=2)
+
+    def reset_to_default(self):
+        """ Löscht alle Override-Werte und stellt Default-Zustand wieder her """
+        self._override = {}
+        self.save()
