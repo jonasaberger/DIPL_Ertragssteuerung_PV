@@ -32,13 +32,15 @@ export function getCurrentBoilerSetting() {
   return currentBoilerSetting
 }
 
-const toNum = (v: any) => (Number.isFinite(v) ? Number(v) : 0)
+const toNum = (v: any) => {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : 0
+}
 const clamp0 = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0)
 
 export default function HomeScreen() {
   const { pvData, boilerData, epexData, wallboxData, systemState, refetchBoilerData, refetchEGoData } = useUpdateDataScheduler()
 
-  // Availability Flags
   const available = {
     influx: systemState?.influx === 'ok',
     wallbox: systemState?.wallbox === 'ok',
@@ -46,7 +48,6 @@ export default function HomeScreen() {
     epex: systemState?.epex === 'ok',
   }
 
-  // UI States grouped
   const [uiState, setUiState] = useState({
     selectedWallboxSetting: 'MANUAL_OFF' as EGoWallboxSetting,
     selectedBoilerSetting: 'MANUAL_OFF' as BoilerSetting,
@@ -82,43 +83,91 @@ export default function HomeScreen() {
       }, [wallboxData?.isCharging])
 
 
+  React.useEffect(() => {
+    if (boilerData?.heating !== undefined) {
+      const initialSetting: BoilerSetting = boilerData.heating ? 'MANUAL_ON' : 'MANUAL_OFF'
+      setUiState((prev) => {
+        // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
+        if (prev.selectedBoilerSetting !== initialSetting) {
+          currentBoilerSetting = initialSetting
+          return { ...prev, selectedBoilerSetting: initialSetting }
+        }
+        return prev
+      })
+    }
+  }, [boilerData?.heating])
+
+    React.useEffect(() => {
+        if (wallboxData?.isCharging !== undefined) {
+          const initialSetting: EGoWallboxSetting = wallboxData.isCharging ? 'MANUAL_ON' : 'MANUAL_OFF'
+          setUiState((prev) => {
+            // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
+            if (prev.selectedWallboxSetting !== initialSetting) {
+              currentEGoWallboxSetting = initialSetting
+              return { ...prev, selectedWallboxSetting: initialSetting }
+            }
+            return prev
+          })
+        }
+      }, [wallboxData?.isCharging])
+
+
   // --- Rohwerte
   const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
 
-  // Hausverbrauch: oft negativ geliefert -> Betrag
+  // Hausverbrauch: laut Fronius oft negativ geliefert -> Betrag
   const rawLoad = toNum(pvData?.load_power ?? 0)
   const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
 
-  // Batterie: im PV-Verteilbild nur "Laden"
-  const rawBattery = toNum(pvData?.battery_power ?? 0)
-  const batteryChargeDemand = clamp0(rawBattery)
+  // Batterie: DEINE Konvention:
+  // battery_power < 0 => LADEN
+  // battery_power > 0 => ENTLADEN
+  const batteryPower = toNum(pvData?.battery_power ?? 0)
 
-  // Netz: positiv = Bezug, negativ = Einspeisung
-  const rawGrid = toNum(pvData?.grid_power ?? 0)
-  const gridImport = rawGrid > 0 ? clamp0(rawGrid) : 0
-  const gridFeedInDemand = rawGrid < 0 ? clamp0(-rawGrid) : 0
+  // Netz: DEINE Konvention:
+  // grid_power < 0 => Einspeisung
+  // grid_power > 0 => Bezug
+  const gridPower = toNum(pvData?.grid_power ?? 0)
 
-  // --- PV-Verteilung (House -> Battery -> Grid)
+  const gridImport = gridPower > 0 ? clamp0(gridPower) : 0
+  const gridFeedIn = gridPower < 0 ? clamp0(-gridPower) : 0
+
+  const batteryCharge = batteryPower < 0 ? clamp0(-batteryPower) : 0
+  const batteryDischarge = batteryPower > 0 ? clamp0(batteryPower) : 0
+
+  // --- PV-Verteilung (nur PV!)
+  // 1) PV -> Haus
   const pvToHouse = Math.min(houseDemand, pvTotal)
-  const remaining1 = pvTotal - pvToHouse
+  const pvLeftAfterHouse = clamp0(pvTotal - pvToHouse)
 
-  const pvToBattery = Math.min(batteryChargeDemand, remaining1)
-  const remaining2 = remaining1 - pvToBattery
+  // 2) PV -> Batterie (nur wenn Batterie lädt)
+  const pvToBattery = Math.min(batteryCharge, pvLeftAfterHouse)
+  const pvLeftAfterBattery = clamp0(pvLeftAfterHouse - pvToBattery)
 
-  const pvToGrid = Math.min(gridFeedInDemand, remaining2)
+  // 3) PV -> Netz (wenn Einspeisung stattfindet)
+  const pvToGrid = Math.min(gridFeedIn, pvLeftAfterBattery)
 
-  // --- Netz -> Haus (wenn Haus mehr will als PV liefert UND Netzbezug da ist)
+  // --- Batterie -> Haus (wenn entladen wird)
   const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)
-  const gridToHouse = Math.min(gridImport, houseDeficitAfterPv)
+  const batteryToHouse = Math.min(batteryDischarge, houseDeficitAfterPv)
+
+  // --- Netz -> Haus (wenn PV + Batterie nicht reichen)
+  const houseDeficitAfterPvAndBattery = clamp0(houseDeficitAfterPv - batteryToHouse)
+  const gridToHouse = Math.min(gridImport, houseDeficitAfterPvAndBattery)
 
   const diagramData: DiagramData = {
     total: pvTotal,
-    house: pvToHouse,           // PV -> Haus (gedeckt)
-    houseActual: houseDemand,   // echter Hausverbrauch
-    battery: pvToBattery,       // PV -> Batterie (Laden)
-    grid: pvToGrid,             // PV -> Netz (Einspeisung)
-    gridImport,                 // Netzbezug (Anzeige/Label)
-    gridToHouse,                // Netz -> Haus Partikel
+
+    pvToHouse,
+    pvToBattery,
+    pvToGrid,
+
+    gridToHouse,
+    batteryToHouse,
+
+    houseActual: houseDemand,
+    batteryPower, // SIGNED
+    gridPower, // SIGNED
   }
 
   // Handlers
@@ -178,7 +227,12 @@ export default function HomeScreen() {
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <HDiagram data={diagramData} />
-        <HPriority priorities={uiState.priorities} onDragEnd={handlePriorityDragEnd} />
+
+        <HPriority
+          priorities={uiState.priorities}
+          onDragEnd={handlePriorityDragEnd}
+        />
+
         <HPrices
           date={epexData?.date ?? ''}
           time={epexData?.time ?? 'Loading...'}
@@ -186,6 +240,7 @@ export default function HomeScreen() {
           pricePerKWh={epexData?.pricePerKWh ?? 0}
           available={available.epex}
         />
+
         <HBoiler
           temperatureC={boilerData?.temp ?? 0}
           isHeating={boilerData?.heating ?? false}
@@ -195,13 +250,13 @@ export default function HomeScreen() {
         />
 
         <HWallbox
-          energyKWh={wallboxData?.energy ?? 0}         // Fallback 0
+          energyKWh={wallboxData?.energy ?? 0}
           isCharging={wallboxData?.isCharging ?? false}
           selectedSetting={uiState.selectedWallboxSetting}
           onSelect={handleWallboxSelect}
           carConnected={wallboxData?.carConnected ?? false}
           ampere={wallboxData?.ampere ?? 0}
-          available={systemState?.wallbox === 'ok'}     // Availability dynamisch geregelt
+          available={available.wallbox}
         />
       </ScrollView>
     </ThemedView>
