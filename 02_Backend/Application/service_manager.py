@@ -234,8 +234,9 @@ class ServiceManager:
             print(err)
             return self._json({"error": err}, 502)
     
+    # Wallbox: POST JSON: { "allow": true | false }
     def set_wallbox_allow(self):
-
+        
         if self.mode_store.get() == SystemMode.TIME_CONTROLLED:
             return self._json(
                 {"error": "Manual wallbox control disabled in TIME_CONTROLLED mode"},
@@ -246,8 +247,14 @@ class ServiceManager:
         if not payload or "allow" not in payload:
             return self._json({"error": "Missing 'allow' field"}, 400)
 
+        # 🔹 OLD STATE
+        old_state = self.wallbox_bridge.get_allow_state()
+
         try:
             result = self.wallbox_bridge.set_allow_charging(bool(payload["allow"]))
+
+            # 🔹 NEW STATE
+            new_state = self.wallbox_bridge.get_allow_state()
 
             # ---- CONTROL DECISION LOG ----
             self.logger.control_decision(
@@ -257,18 +264,25 @@ class ServiceManager:
                 success=True,
                 extra=result
             )
+
+            # ---- DEVICE STATE CHANGE ----
+            if old_state != new_state:
+                self.logger.device_state_change(
+                    device="wallbox",
+                    old_state=old_state,
+                    new_state=new_state
+                )
+
             return self._json(result, 200)
-        
+
         except Exception as e:
-            # ---- API ERROR LOG ----
             self.logger.api_error(
                 device="wallbox",
                 endpoint="/api/wallbox/setCharging",
                 error=e
             )
-            err = f"Failed to set wallbox charging state: {e}"
-            print(err)
-            return self._json({"error": err}, 502)
+            return self._json({"error": str(e)}, 502)
+
 
     def get_boiler_latest(self):
         try:

@@ -93,3 +93,10 @@ class Wallbox_Bridge:
             "alw": alw_value,
             "charging_allowed": allow
         }
+    
+    def get_allow_state(self) -> bool | None:
+        try:
+            data = self.fetch_data()
+            return bool(data.get("alw"))
+        except Exception:
+            return None
