@@ -246,9 +246,11 @@ class ServiceManager:
     # Wallbox: POST JSON: { "allow": true | false }
     def set_wallbox_allow(self):
         
-        if self.mode_store.get() == SystemMode.TIME_CONTROLLED:
+        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
             return self._json(
-                {"error": "Manual wallbox control disabled in TIME_CONTROLLED mode"},
+                {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                },
                 403
             )
 
@@ -340,9 +342,11 @@ class ServiceManager:
     # POST JSON: { "action": "on" | "off" | "toggle" }
     def control_boiler(self):
 
-        if self.mode_store.get() == SystemMode.TIME_CONTROLLED:
+        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
             return self._json(
-                {"error": "Manual boiler control disabled in TIME_CONTROLLED mode"},
+                {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                },
                 403
             )
 
