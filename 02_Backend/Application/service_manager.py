@@ -12,6 +12,7 @@ from system_mode import SystemMode, SystemModeStore
 from schedule_store import ScheduleStore
 from schedule_manager import ScheduleManager
 from scheduler_service import SchedulerService
+from automatic_config_store import AutomaticConfigStore
 
 import platform
 from datetime import datetime
@@ -59,11 +60,16 @@ class ServiceManager:
         self.schedule_store = ScheduleStore()
         self.schedule_manager = ScheduleManager(self.schedule_store)
 
+        # AUTOMATIC mode configuration store
+        self.automatic_config_store = AutomaticConfigStore()
+
         self.scheduler = SchedulerService(
-            mode_store=self.mode_store,
+             mode_store=self.mode_store,
             schedule_manager=self.schedule_manager,
             boiler=self.boiler_bridge,
-            wallbox=self.wallbox_bridge
+            wallbox=self.wallbox_bridge,
+            db_bridge=self.db_bridge,
+            logger=self.logger
         )
         self.scheduler.start()
 
@@ -142,6 +148,9 @@ class ServiceManager:
         self.app.add_url_rule('/api/mode', 'mode', self.mode_endpoint, methods=['GET', 'POST'])
         self.app.add_url_rule('/api/schedule', 'schedule', self.schedule_endpoint, methods=['GET', 'PUT', 'POST'])
         self.app.add_url_rule('/api/schedule/reset','schedule_reset',self.schedule_reset_endpoint,methods=['POST'])
+
+        # AUTOMATIC mode configuration endpoint
+        self.app.add_url_rule("/api/automatic-config","automatic_config",self.automatic_config_endpoint,methods=["GET", "PUT", "POST"])
 
     # ----- Route Handlers -----
     def _json(self, payload, status=200):
@@ -573,3 +582,39 @@ class ServiceManager:
             "status": "ok",
             "message": "Schedule reset to default"
         })
+    
+    def automatic_config_endpoint(self):
+        # GET: aktuelle effektive Konfiguration
+        if request.method == "GET":
+            return self._json(self.automatic_config_store.get())
+
+        # PUT: Partial Update
+        if request.method == "PUT":
+            payload = request.get_json(force=True)
+            if not payload:
+                return self._json({"error": "Missing JSON body"}, 400)
+
+            self.automatic_config_store.update(payload)
+
+            self.logger.system_event(
+                level="info",
+                source="automatic_config",
+                message="AUTOMATIC configuration updated"
+            )
+
+            return self._json({"status": "ok"})
+
+        # POST: Reset auf Default
+        if request.method == "POST":
+            self.automatic_config_store.reset_to_default()
+
+            self.logger.system_event(
+                level="info",
+                source="automatic_config",
+                message="AUTOMATIC configuration reset to default"
+            )
+
+            return self._json({
+                "status": "ok",
+                "message": "AUTOMATIC configuration reset to default"
+            })

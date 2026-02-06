@@ -1,6 +1,5 @@
 import json
 from flask import request, jsonify
-import bcrypt
 import os
 
 class DeviceManager:

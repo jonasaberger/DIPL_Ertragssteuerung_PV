@@ -2,11 +2,11 @@ import json
 from pathlib import Path
 from enum import Enum
 
+# Defines system modes and handles persistent storage of the current mode
 class SystemMode(str, Enum):
     AUTOMATIC = "AUTOMATIC"
     MANUAL = "MANUAL"
     TIME_CONTROLLED = "TIME_CONTROLLED"
-
 
 class SystemModeStore:
     def __init__(self, path="data/system_mode.json"):
