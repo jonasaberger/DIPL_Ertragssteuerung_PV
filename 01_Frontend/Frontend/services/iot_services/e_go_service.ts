@@ -1,4 +1,4 @@
-import { fetchJson, postJson,  parseInfluxTime, round1 } from './helper'
+import { fetchJson, postJson,  parseInfluxTime, round1 } from '../helper'
 
 export interface EGoData {
   date: string

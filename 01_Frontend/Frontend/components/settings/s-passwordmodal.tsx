@@ -6,7 +6,7 @@ import AppModal from '@/components/modal'
 type Props = {
   visible: boolean
   onCancel: () => void
-  onSuccess: () => void
+  onSuccess: (password: string) => void
 }
 
 export default function SPasswordModal({ visible, onCancel, onSuccess }: Props) {
@@ -28,7 +28,7 @@ export default function SPasswordModal({ visible, onCancel, onSuccess }: Props) 
       onConfirm={async () => {
         const isValid = await verifyAdminPW(pw)
         if (isValid) {
-          onSuccess()
+          onSuccess(pw)
         } else {
           setError('Falsches Passwort')
         }
@@ -55,7 +55,7 @@ export default function SPasswordModal({ visible, onCancel, onSuccess }: Props) 
           onSubmitEditing={async () => {
             const isValid = await verifyAdminPW(pw)
             if (isValid) {
-              onSuccess()
+              onSuccess(pw)
             } else {
               setError('Falsches Passwort')
             }
