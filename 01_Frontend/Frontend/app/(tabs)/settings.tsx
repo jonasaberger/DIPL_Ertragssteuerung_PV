@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 
@@ -6,35 +6,34 @@ import SSystemSettings from '@/components/settings/s-systemsettings'
 import SProtocol from '@/components/settings/s-protocol'
 import SDeviceStates from '@/components/settings/s-devicestates'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
+import { useAuth } from '@/contexts/s-authcontext'
 
 export default function SettingsScreen() {
   const router = useRouter()
+  const { password, authorize, deauthorize } = useAuth()
 
   const [ipAddress, setIpAddress] = useState('192.168.14.67')
-  const [authorized, setAuthorized] = useState(false)
   const [askPw, setAskPw] = useState(false)
 
-  const unlockedThisFocus = useRef(false)
+  const authorized = password !== null
 
   useFocusEffect(
     useCallback(() => {
-      if (!unlockedThisFocus.current) {
-        setAuthorized(false)
+      if (!authorized) {
         setAskPw(true)
       }
 
       return () => {
-        unlockedThisFocus.current = false
-        setAuthorized(false)
         setAskPw(false)
+        deauthorize()
       }
-    }, [])
+    }, [authorized, deauthorize])
   )
 
   return (
     <>
       <ScrollView contentContainerStyle={styles.container}>
-        {authorized ? (
+        {authorized && (
           <>
             <SSystemSettings
               ipAddress={ipAddress}
@@ -45,7 +44,7 @@ export default function SettingsScreen() {
 
             <SDeviceStates />
           </>
-        ) : null}
+        )}
       </ScrollView>
 
       <SPasswordModal
@@ -54,9 +53,8 @@ export default function SettingsScreen() {
           setAskPw(false)
           router.replace('/')
         }}
-        onSuccess={() => {
-          unlockedThisFocus.current = true
-          setAuthorized(true)
+        onSuccess={(pw: string) => {
+          authorize(pw)
           setAskPw(false)
         }}
       />

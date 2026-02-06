@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { fetchLatestPVData, PV_Data } from '@/services/pv_services'
-import { fetchBoilerData, BoilerData } from '@/services/boiler_service'
-import { fetchEpexData, EpexData } from '@/services/epex_service'
+import { fetchLatestPVData, PV_Data } from '@/services/iot_services/pv_services'
+import { fetchBoilerData, BoilerData } from '@/services/iot_services/boiler_service'
+import { fetchEpexData, EpexData } from '@/services/ext_services/epex_service'
 import { fetchSystemState, SystemState } from '@/services/state_service'
-import { fetchEGoData, EGoData } from '@/services/e_go_service'
+import { fetchEGoData, EGoData } from '@/services/iot_services/e_go_service'
 
 function msUntilNextQuarterHour() {
   const now = new Date()

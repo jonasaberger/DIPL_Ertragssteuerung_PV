@@ -1,4 +1,4 @@
-import { fetchJson, parseInfluxTime, round1 } from './helper'
+import { fetchJson, parseInfluxTime, round1 } from '../helper'
 
 export interface EpexData {
   date: string
