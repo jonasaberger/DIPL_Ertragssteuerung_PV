@@ -1,5 +1,5 @@
 from datetime import datetime
-from wallbox_bridge import Wallbox_Bridge
+from wallbox_controller import WallboxController
 from decimal import Decimal
 
 # Simulierter HTTP-Response der Wallbox
@@ -17,13 +17,13 @@ def test_wallbox_fetch_data(mocker):
     mocker.patch("requests.get", return_value=fake_response)
 
     # ZoneInfo mocken, um fehlende tzdata auf Windows zu vermeiden
-    mocker.patch("wallbox_bridge.ZoneInfo", return_value=None)
+    mocker.patch("wallbox_controller.ZoneInfo", return_value=None)
 
     # datetime mocken, aber echte Funktionalität beibehalten
-    mocker.patch("wallbox_bridge.datetime", wraps=datetime)
+    mocker.patch("wallbox_controller.datetime", wraps=datetime)
 
-    # Wallbox_Bridge initialisieren
-    wb = Wallbox_Bridge()
+    # Wallbox_Controller initialisieren
+    wb = WallboxController()
 
     # Daten abrufen
     data = wb.fetch_data()
@@ -35,7 +35,7 @@ def test_wallbox_fetch_data(mocker):
 
 # Prüft, dass ungültige Eingaben nicht zu Exceptions führen
 def test_safe_decimal_handles_invalid_input():
-    wb = Wallbox_Bridge()
+    wb = WallboxController()
 
     result = wb.safe_decimal("not_a_number")
 

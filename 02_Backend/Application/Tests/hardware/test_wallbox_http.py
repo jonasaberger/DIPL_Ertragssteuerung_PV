@@ -1,11 +1,11 @@
 import pytest
 import requests
-from wallbox_bridge import Wallbox_Bridge
+from wallbox_controller import WallboxController
 
 # Testet einen echten HTTP-POST zur Wallbox, ohne einen Ladevorgang zu starten
 @pytest.mark.hardware
 def test_wallbox_post_allow_false_real():
-    wb = Wallbox_Bridge()
+    wb = WallboxController()
 
     try:
         result = wb.set_allow_charging(False)

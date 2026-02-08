@@ -21,12 +21,12 @@ class ScheduleStore:
         with path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
-    # ---------- API ----------
+    # API
     def get_override(self) -> dict:
         """Nur das, was der User gesetzt hat"""
         return self._override
 
-    # ---------- LOGIK ----------
+    # Logik
     def get_effective(self) -> dict:
         """Default + Override (für Scheduler)"""
         result = copy.deepcopy(self._default)
@@ -52,5 +52,5 @@ class ScheduleStore:
 
     def reset_to_default(self):
         """ Löscht alle Override-Werte und stellt Default-Zustand wieder her """
-        self._override = {}
+        self._override = copy.deepcopy(self._default)
         self.save()

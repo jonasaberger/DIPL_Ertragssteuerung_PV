@@ -243,6 +243,95 @@
           }
         }
       },
+
+      "/api/automatic-config": {
+      "get": {
+        "summary": "Get AUTOMATIC mode configuration",
+        "description": "Returns the current configuration for the AUTOMATIC system mode, including target times and energy goals.",
+        "tags": ["Automatic"],
+        "responses": {
+          "200": {
+            "description": "Current AUTOMATIC configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutomaticConfig"
+                },
+                "example": {
+                  "boiler": {
+                    "enabled": true,
+                    "target_time": "07:00",
+                    "energy_kwh": 3.0,
+                    "min_runtime_min": 90
+                  },
+                  "wallbox": {
+                    "enabled": true,
+                    "target_time": "06:00",
+                    "energy_kwh": 12.0,
+                    "allow_night_grid": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "put": {
+        "summary": "Update AUTOMATIC configuration",
+        "description": "Updates the AUTOMATIC mode configuration. Partial updates are supported. Changes take effect automatically.",
+        "tags": ["Automatic"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomaticConfig"
+              },
+              "example": {
+                "boiler": {
+                  "target_time": "06:30"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AUTOMATIC configuration updated successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid AUTOMATIC configuration"
+          }
+        }
+      },
+
+      "post": {
+        "summary": "Reset AUTOMATIC configuration to default",
+        "description": "Resets the AUTOMATIC configuration to the predefined default values.",
+        "tags": ["Automatic"],
+        "responses": {
+          "200": {
+            "description": "AUTOMATIC configuration reset successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "status": "ok",
+                  "message": "AUTOMATIC configuration reset to default"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
      
       "/api/devices/get_devices": {
         "get": {
@@ -735,7 +824,7 @@
               "enum": ["AUTOMATIC", "MANUAL", "TIME_CONTROLLED"]
             },
 
-          "SystemModeResponse": {
+         "SystemModeResponse": {
               "type": "object",
               "properties": {
                 "mode": {
@@ -744,7 +833,7 @@
               }
             },
 
-          "ScheduleEntry": {
+           "ScheduleEntry": {
               "type": "object",
               "required": ["start", "end"],
               "properties": {
@@ -769,13 +858,77 @@
               }
             },
 
-          "ScheduleConfig": {
+           "ScheduleConfig": {
               "type": "object",
               "properties": {
                 "boiler": { "$ref": "#/components/schemas/ScheduleDevice" },
                 "wallbox": { "$ref": "#/components/schemas/ScheduleDevice" }
               }
             },
+
+           "AutomaticConfig": {
+              "type": "object",
+              "properties": {
+                "boiler": {
+                  "$ref": "#/components/schemas/AutomaticBoilerConfig"
+                },
+                "wallbox": {
+                  "$ref": "#/components/schemas/AutomaticWallboxConfig"
+                }
+              }
+            },
+
+           "AutomaticBoilerConfig": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "description": "Enable or disable boiler control in AUTOMATIC mode"
+                },
+                "target_time": {
+                  "type": "string",
+                  "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                  "example": "07:00",
+                  "description": "Time by which the boiler must be heated"
+                },
+                "energy_kwh": {
+                  "type": "number",
+                  "example": 3.0,
+                  "description": "Target energy for boiler heating"
+                },
+                "min_runtime_min": {
+                  "type": "integer",
+                  "example": 90,
+                  "description": "Minimum required runtime to reach target temperature"
+                }
+              }
+            },
+
+           "AutomaticWallboxConfig": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "Enable or disable wallbox control in AUTOMATIC mode"
+              },
+              "target_time": {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                "example": "06:00",
+                "description": "Time by which the vehicle must be charged"
+              },
+              "energy_kwh": {
+                "type": "number",
+                "example": 12.0,
+                "description": "Target charging energy for the vehicle"
+              },
+              "allow_night_grid": {
+                "type": "boolean",
+                "example": true,
+                "description": "Allow grid charging at night if PV is insufficient"
+              }
+            }
+          },
 
           "WallboxLatest": {
             "type": "object",

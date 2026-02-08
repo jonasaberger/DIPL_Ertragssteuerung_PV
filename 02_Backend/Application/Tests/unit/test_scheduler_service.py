@@ -3,6 +3,19 @@ from system_mode import SystemMode, SystemModeStore
 from schedule_manager import ScheduleManager
 
 
+# ---------- FAKES ----------
+
+class FakeLogger:
+    def system_event(self, *a, **k): pass
+    def control_decision(self, *a, **k): pass
+    def device_state_change(self, *a, **k): pass
+
+
+class FakeDB:
+    def get_latest_pv_data(self):
+        return None
+
+
 class FakeBoiler:
     def __init__(self):
         self.state = False
@@ -30,6 +43,8 @@ class FakeScheduleStore:
         }
 
 
+# ---------- TEST ----------
+
 def test_scheduler_controls_devices():
     mode = SystemModeStore()
     mode.set(SystemMode.TIME_CONTROLLED)
@@ -40,7 +55,16 @@ def test_scheduler_controls_devices():
     sm = ScheduleManager(FakeScheduleStore())
     sm.determine_season = lambda: "winter"
 
-    scheduler = SchedulerService(mode, sm, boiler, wallbox)
+    scheduler = SchedulerService(
+        mode_store=mode,
+        schedule_manager=sm,
+        boiler=boiler,
+        wallbox=wallbox,
+        db_bridge=FakeDB(),     
+        logger=FakeLogger(),     
+        interval=1
+    )
+
     scheduler.tick()
 
     assert boiler.state is True

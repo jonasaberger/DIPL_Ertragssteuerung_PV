@@ -1,0 +1,14 @@
+{
+  "boiler": {
+    "enabled": true,
+    "target_time": "16:00",
+    "energy_kwh": 3.0,
+    "min_runtime_min": 90
+  },
+  "wallbox": {
+    "enabled": true,
+    "target_time": "18:00",
+    "energy_kwh": 12.0,
+    "allow_night_grid": true
+  }
+}

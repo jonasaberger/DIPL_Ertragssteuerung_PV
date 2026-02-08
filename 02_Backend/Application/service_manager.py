@@ -3,15 +3,17 @@ from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
 
 from device_manager import DeviceManager
+from schedule_manager import ScheduleManager
+
 from db_bridge import DB_Bridge
-from wallbox_bridge import Wallbox_Bridge
+from wallbox_controller import WallboxController
 from dotenv import load_dotenv, find_dotenv
 from boiler_controller import BoilerController
 
 from system_mode import SystemMode, SystemModeStore
 from schedule_store import ScheduleStore
-from schedule_manager import ScheduleManager
 from scheduler_service import SchedulerService
+from automatic_config_store import AutomaticConfigStore
 
 import platform
 from datetime import datetime
@@ -45,7 +47,7 @@ class ServiceManager:
         self.db_bridge = DB_Bridge()
 
         # Initialize wallbox bridge (live GETs)
-        self.wallbox_bridge = Wallbox_Bridge()
+        self.wallbox_controller = WallboxController()
 
         # Initialize boiler bridge (GPIO control)
         self.boiler_bridge = BoilerController()
@@ -59,11 +61,16 @@ class ServiceManager:
         self.schedule_store = ScheduleStore()
         self.schedule_manager = ScheduleManager(self.schedule_store)
 
+        # AUTOMATIC mode configuration store
+        self.automatic_config_store = AutomaticConfigStore()
+
         self.scheduler = SchedulerService(
-            mode_store=self.mode_store,
+             mode_store=self.mode_store,
             schedule_manager=self.schedule_manager,
             boiler=self.boiler_bridge,
-            wallbox=self.wallbox_bridge
+            wallbox=self.wallbox_controller,
+            db_bridge=self.db_bridge,
+            logger=self.logger
         )
         self.scheduler.start()
 
@@ -143,6 +150,9 @@ class ServiceManager:
         self.app.add_url_rule('/api/schedule', 'schedule', self.schedule_endpoint, methods=['GET', 'PUT', 'POST'])
         self.app.add_url_rule('/api/schedule/reset','schedule_reset',self.schedule_reset_endpoint,methods=['POST'])
 
+        # AUTOMATIC mode configuration endpoint
+        self.app.add_url_rule("/api/automatic-config","automatic_config",self.automatic_config_endpoint,methods=["GET", "PUT", "POST"])
+
     # ----- Route Handlers -----
     def _json(self, payload, status=200):
         """Helper for consistent JSON responses."""
@@ -219,7 +229,7 @@ class ServiceManager:
 
     def get_wallbox_latest(self):
         try:
-            data = self.wallbox_bridge.fetch_data()
+            data = self.wallbox_controller.fetch_data()
             if not data:
                 return self._json({"message": "No Wallbox data found"}, 404)
             return self._json(data, 200)
@@ -237,9 +247,11 @@ class ServiceManager:
     # Wallbox: POST JSON: { "allow": true | false }
     def set_wallbox_allow(self):
         
-        if self.mode_store.get() == SystemMode.TIME_CONTROLLED:
+        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
             return self._json(
-                {"error": "Manual wallbox control disabled in TIME_CONTROLLED mode"},
+                {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                },
                 403
             )
 
@@ -248,13 +260,13 @@ class ServiceManager:
             return self._json({"error": "Missing 'allow' field"}, 400)
 
         # 🔹 OLD STATE
-        old_state = self.wallbox_bridge.get_allow_state()
+        old_state = self.wallbox_controller.get_allow_state()
 
         try:
-            result = self.wallbox_bridge.set_allow_charging(bool(payload["allow"]))
+            result = self.wallbox_controller.set_allow_charging(bool(payload["allow"]))
 
             # 🔹 NEW STATE
-            new_state = self.wallbox_bridge.get_allow_state()
+            new_state = self.wallbox_controller.get_allow_state()
 
             # ---- CONTROL DECISION LOG ----
             self.logger.control_decision(
@@ -331,9 +343,11 @@ class ServiceManager:
     # POST JSON: { "action": "on" | "off" | "toggle" }
     def control_boiler(self):
 
-        if self.mode_store.get() == SystemMode.TIME_CONTROLLED:
+        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
             return self._json(
-                {"error": "Manual boiler control disabled in TIME_CONTROLLED mode"},
+                {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                },
                 403
             )
 
@@ -420,7 +434,7 @@ class ServiceManager:
 
         # Wallbox
         try:
-            data = self.wallbox_bridge.fetch_data()
+            data = self.wallbox_controller.fetch_data()
             status["wallbox"] = "ok" if data else "no_data"
         except Exception:
             status["wallbox"] = "timeout"
@@ -573,3 +587,39 @@ class ServiceManager:
             "status": "ok",
             "message": "Schedule reset to default"
         })
+    
+    def automatic_config_endpoint(self):
+        # GET: aktuelle effektive Konfiguration
+        if request.method == "GET":
+            return self._json(self.automatic_config_store.get())
+
+        # PUT: Partial Update
+        if request.method == "PUT":
+            payload = request.get_json(force=True)
+            if not payload:
+                return self._json({"error": "Missing JSON body"}, 400)
+
+            self.automatic_config_store.update(payload)
+
+            self.logger.system_event(
+                level="info",
+                source="automatic_config",
+                message="AUTOMATIC configuration updated"
+            )
+
+            return self._json({"status": "ok"})
+
+        # POST: Reset auf Default
+        if request.method == "POST":
+            self.automatic_config_store.reset_to_default()
+
+            self.logger.system_event(
+                level="info",
+                source="automatic_config",
+                message="AUTOMATIC configuration reset to default"
+            )
+
+            return self._json({
+                "status": "ok",
+                "message": "AUTOMATIC configuration reset to default"
+            })
