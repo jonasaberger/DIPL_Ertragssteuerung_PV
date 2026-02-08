@@ -52,5 +52,5 @@ class ScheduleStore:
 
     def reset_to_default(self):
         """ Löscht alle Override-Werte und stellt Default-Zustand wieder her """
-        self._override = {}
+        self._override = copy.deepcopy(self._default)
         self.save()
