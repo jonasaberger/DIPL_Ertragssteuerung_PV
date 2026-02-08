@@ -3,14 +3,15 @@ from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
 
 from device_manager import DeviceManager
+from schedule_manager import ScheduleManager
+
 from db_bridge import DB_Bridge
-from wallbox_bridge import Wallbox_Bridge
+from wallbox_controller import WallboxController
 from dotenv import load_dotenv, find_dotenv
 from boiler_controller import BoilerController
 
 from system_mode import SystemMode, SystemModeStore
 from schedule_store import ScheduleStore
-from schedule_manager import ScheduleManager
 from scheduler_service import SchedulerService
 from automatic_config_store import AutomaticConfigStore
 
@@ -46,7 +47,7 @@ class ServiceManager:
         self.db_bridge = DB_Bridge()
 
         # Initialize wallbox bridge (live GETs)
-        self.wallbox_bridge = Wallbox_Bridge()
+        self.wallbox_controller = WallboxController()
 
         # Initialize boiler bridge (GPIO control)
         self.boiler_bridge = BoilerController()
@@ -67,7 +68,7 @@ class ServiceManager:
              mode_store=self.mode_store,
             schedule_manager=self.schedule_manager,
             boiler=self.boiler_bridge,
-            wallbox=self.wallbox_bridge,
+            wallbox=self.wallbox_controller,
             db_bridge=self.db_bridge,
             logger=self.logger
         )
@@ -228,7 +229,7 @@ class ServiceManager:
 
     def get_wallbox_latest(self):
         try:
-            data = self.wallbox_bridge.fetch_data()
+            data = self.wallbox_controller.fetch_data()
             if not data:
                 return self._json({"message": "No Wallbox data found"}, 404)
             return self._json(data, 200)
@@ -259,13 +260,13 @@ class ServiceManager:
             return self._json({"error": "Missing 'allow' field"}, 400)
 
         # 🔹 OLD STATE
-        old_state = self.wallbox_bridge.get_allow_state()
+        old_state = self.wallbox_controller.get_allow_state()
 
         try:
-            result = self.wallbox_bridge.set_allow_charging(bool(payload["allow"]))
+            result = self.wallbox_controller.set_allow_charging(bool(payload["allow"]))
 
             # 🔹 NEW STATE
-            new_state = self.wallbox_bridge.get_allow_state()
+            new_state = self.wallbox_controller.get_allow_state()
 
             # ---- CONTROL DECISION LOG ----
             self.logger.control_decision(
@@ -433,7 +434,7 @@ class ServiceManager:
 
         # Wallbox
         try:
-            data = self.wallbox_bridge.fetch_data()
+            data = self.wallbox_controller.fetch_data()
             status["wallbox"] = "ok" if data else "no_data"
         except Exception:
             status["wallbox"] = "timeout"

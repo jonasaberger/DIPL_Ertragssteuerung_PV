@@ -40,7 +40,7 @@ def client(mocker):
 
     mocker.patch("service_manager.BoilerController", return_value=fake_boiler)
     mocker.patch("service_manager.DB_Bridge")
-    mocker.patch("service_manager.Wallbox_Bridge")
+    mocker.patch("service_manager.WallboxController")
     mocker.patch("service_manager.LoggingBridge")
 
     sm = ServiceManager()

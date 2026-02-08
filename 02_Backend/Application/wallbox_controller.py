@@ -6,7 +6,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 
-class Wallbox_Bridge:
+class WallboxController:
     def __init__(self, config_path: str = "config/devices.json"):
         # Load device configuration from JSON configuration file
         self.config_path = os.path.abspath(config_path)
