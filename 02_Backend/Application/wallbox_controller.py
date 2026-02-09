@@ -53,16 +53,16 @@ class WallboxController:
             pha = [1 if v else 0 for v in (pha + [0, 0, 0])[:3]]
 
             data = {
-                "_time": datetime.now(ZoneInfo("Europe/Vienna")).isoformat(),  # Current timestamp in ISO 8601 format
-                "amp": int(status_data.get("amp", 0)),  # Current (A)
-                "car": 1 if int(status_data.get("car", 0)) > 0 else 0,  # Car connected (1/0)
-                "alw": int(api_data.get("alw", 0)),  # Charging allowed (1/0)
-                "wst": int(status_data.get("wst", 0)),  # Wallbox status code
-                "eto": float(status_data.get("eto", 0)),  # Total energy charged (Wh)
-                "pha_L1": pha[0],  # Phase L1 active (1/0)
-                "pha_L2": pha[1],  # Phase L2 active (1/0)
-                "pha_L3": pha[2],  # Phase L3 active (1/0)
-                "pha_count": sum(pha)  # Number of active phases
+                "_time": datetime.now(ZoneInfo("Europe/Vienna")).isoformat(),   # Current timestamp in ISO 8601 format
+                "amp": int(status_data.get("amp", 0)),                          # Current (A)
+                "car": 1 if int(status_data.get("car", 0)) > 0 else 0,          # Car connected (1/0)
+                "alw": int(api_data.get("alw", 0)),                             # Charging allowed (1/0)
+                "wst": int(status_data.get("wst", 0)),                          # Wallbox status code
+                "eto": float(status_data.get("eto", 0)),                        # Total energy charged (Wh)
+                "pha_L1": pha[0],                                               # Phase L1 active (1/0)
+                "pha_L2": pha[1],                                               # Phase L2 active (1/0)
+                "pha_L3": pha[2],                                               # Phase L3 active (1/0)
+                "pha_count": sum(pha)                                           # Number of active phases
             }
 
             # Determine if charging is currently active
@@ -78,9 +78,7 @@ class WallboxController:
 
     # Enable / disable charging via MQTT (alw flag)
     def set_allow_charging(self, allow: bool):
-        # allow = True  -> alw=1 (Auto darf laden)
-        # allow = False -> alw=0 (Laden stoppen)
-
+      
         alw_value = 1 if allow else 0
 
         requests.get(
