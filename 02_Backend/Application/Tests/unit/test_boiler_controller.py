@@ -5,18 +5,17 @@ import pytest
 boiler_controller.LED = None
 
 def test_boiler_controller_can_be_created():
-    # Initialisierung des BoilerControllers testen
+    # Initialization of the BoilerController should succeed without errors
     controller = BoilerController()
     assert controller is not None
 
 def test_boiler_simulation_turn_on():
     bc = BoilerController()
-    # Boiler einschalten (logischer Zustand)
+
+    # Boiler on
     result = bc.turn_on()
 
-    # Erwartung:
-    # - Rückgabewert True (Heizen aktiv)
-    # - interner Simulationszustand ebenfalls True
+    # Heating true / simulation active
     assert result is True
     assert bc.get_state() is True
 
@@ -24,46 +23,39 @@ def test_boiler_simulation_turn_on():
 def test_boiler_simulation_turn_off():
     bc = BoilerController()
 
-    # Boiler zuerst einschalten
+    # Boiler on
     bc.turn_on()
 
-    # Danach ausschalten
+    # Then boiler off
     bc.turn_off()
 
-    # Erwartung:
-    # - Boiler ist logisch aus
+    # Boiler should be off
     assert bc.get_state() is False
-
 
 def test_boiler_toggle():
     bc = BoilerController()
 
-    # Startzustand: aus
+    # Start with boiler off
     bc.turn_on()
 
-    # Toggle kehrt den aktuellen Zustand um
+    # Toggle should turn it off
     new_state = bc.toggle()
 
-    # Erwartung:
-    # - Boiler wird ausgeschaltet
+    # Boiler should be off after toggle
     assert new_state is False
     assert bc.get_state() is False
 
-
-# Prüft, dass ungültige Steueraktionen korrekt mit einer Exception abgefangen werden
 def test_control_invalid_action_raises_value_error():
-
     bc = BoilerController()
 
-    # Ungültige Aktion → ValueError erwartet
+    # Invalid action should raise ValueError
     with pytest.raises(ValueError):
         bc.control("invalid")
 
-# Prüft, dass die control()-Methode immer, eine konsistente Rückgabestruktur liefert
 def test_control_returns_valid_result_structure():
-
     bc = BoilerController()
 
+    # Valid control action should return a dict with 'action' and 'result'
     result = bc.control("on")
 
     assert isinstance(result, dict)

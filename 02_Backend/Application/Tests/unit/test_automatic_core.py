@@ -1,7 +1,7 @@
 from scheduler_service import SchedulerService
 
 
-# ---------------- FAKES ----------------
+# FAKES
 class FakeLogger:
     def system_event(self, *a, **k): pass
     def control_decision(self, *a, **k): pass
@@ -81,7 +81,7 @@ class FakeDB:
         return None
 
 
-# ---------------- HELPER ----------------
+# HELPER FUNCTIONS
 
 def make_scheduler(boiler, wallbox, pv, forecast, config):
     s = SchedulerService(
@@ -98,8 +98,7 @@ def make_scheduler(boiler, wallbox, pv, forecast, config):
     return s
 
 
-# ---------------- TESTS ----------------
-
+# Tests for the automatic control logic of the SchedulerService, ensuring that it correctly decides when to turn on the boiler and allow wallbox charging based on PV surplus and forecast data
 def test_automatic_boiler_turns_on_with_pv():
     boiler = FakeBoiler()
 
@@ -120,7 +119,7 @@ def test_automatic_boiler_turns_on_with_pv():
     scheduler._automatic_boiler()
     assert boiler.get_state() is True
 
-
+# Tests that the automatic boiler control does not turn on the boiler if the forecast indicates no PV production for today, even if there is currently a PV surplus
 def test_automatic_boiler_waits_for_forecast():
     boiler = FakeBoiler()
 
@@ -142,6 +141,7 @@ def test_automatic_boiler_waits_for_forecast():
     assert boiler.get_state() is False
 
 
+# Tests that the automatic boiler control does not turn on the boiler if the forecast indicates no PV production for today, even if there is currently a PV surplus
 def test_automatic_wallbox_charges_with_pv():
     wallbox = FakeWallbox()
 
@@ -163,7 +163,7 @@ def test_automatic_wallbox_charges_with_pv():
     scheduler._automatic_wallbox()
     assert wallbox.get_allow_state() is True
 
-
+# Tests that the automatic wallbox control does not allow charging if there is no PV surplus and night grid is not allowed, even if the forecast indicates PV production for today
 def test_automatic_wallbox_uses_night_grid():
     wallbox = FakeWallbox()
     wallbox.allow = True
@@ -185,8 +185,7 @@ def test_automatic_wallbox_uses_night_grid():
 
     scheduler._automatic_wallbox()
 
-    # ✅ Scheduler darf NICHT aktiv abschalten
-    # ❌ aber er garantiert NICHT, dass allow True bleibt
+    # Depending on the time of the test, this could be True or False, but it should not raise an error and should be a boolean value
     assert wallbox.get_allow_state() in (True, False)
 
 

@@ -3,7 +3,7 @@ from system_mode import SystemMode, SystemModeStore
 from schedule_manager import ScheduleManager
 
 
-# ---------- FAKES ----------
+# FAKES
 
 class FakeLogger:
     def system_event(self, *a, **k): pass
@@ -43,8 +43,8 @@ class FakeScheduleStore:
         }
 
 
-# ---------- TEST ----------
 
+# Tests if the SchedulerService correctly controls the boiler and wallbox based on the schedule and current system mode
 def test_scheduler_controls_devices():
     mode = SystemModeStore()
     mode.set(SystemMode.TIME_CONTROLLED)

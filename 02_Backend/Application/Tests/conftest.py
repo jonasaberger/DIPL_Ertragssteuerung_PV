@@ -29,7 +29,8 @@ def disable_external_calls(monkeypatch, request):
         lambda *a, **k: Mock(status_code=200, json=lambda: {}, raise_for_status=lambda: None)
     )
 
-
+# This fixture will be used in all tests to mock external HTTP calls, ensuring that tests do not depend on external services and can run reliably in isolation
+# Tests that require actual hardware interaction can be marked with @pytest.mark.hardware to bypass this fixture
 @pytest.fixture
 def client(mocker):
     from service_manager import ServiceManager
