@@ -56,19 +56,73 @@ class SchedulerService(threading.Thread):
     # TIME CONTROLLED
     def run_time_controlled(self):
         try:
+            # BOILER 
             state = self.boiler.get_state()
             should_on = self.schedule_manager.is_active("boiler")
 
             if should_on and not state:
                 self.boiler.control("on")
+
+                self.logger.control_decision(
+                    device="boiler",
+                    action="on",
+                    reason="time_controlled_schedule",
+                    success=True
+                )
+
+                self.logger.device_state_change(
+                    device="boiler",
+                    old_state=False,
+                    new_state=True
+                )
+
             elif not should_on and state:
                 self.boiler.control("off")
 
-            allow = self.schedule_manager.is_active("wallbox")
-            self.wallbox.set_allow_charging(allow)
+                self.logger.control_decision(
+                    device="boiler",
+                    action="off",
+                    reason="time_controlled_schedule",
+                    success=True
+                )
 
-        except Exception:
-            return
+                self.logger.device_state_change(
+                    device="boiler",
+                    old_state=True,
+                    new_state=False
+                )
+
+            # WALLBOX 
+            allow = self.schedule_manager.is_active("wallbox")
+            current = self.wallbox.get_allow_state()
+
+            if current is None:
+                self.wallbox.set_allow_charging(allow)
+                return
+
+            if allow != current:
+                self.wallbox.set_allow_charging(allow)
+
+                self.logger.control_decision(
+                    device="wallbox",
+                    action="set_allow",
+                    reason="time_controlled_schedule",
+                    success=True,
+                    extra={"allow": allow}
+                )
+
+                self.logger.device_state_change(
+                    device="wallbox",
+                    old_state=current,
+                    new_state=allow
+                )
+
+        except Exception as e:
+            self.logger.system_event(
+                level="error",
+                source="scheduler",
+                message=f"TIME_CONTROLLED error: {e}"
+            )
 
     # AUTOMATIC
     def run_automatic(self):
@@ -126,7 +180,7 @@ class SchedulerService(threading.Thread):
             decision_on = True
             reason = "pv_surplus"
 
-        # 2) No PV now but forecast says there will be
+        # 2) No PV now, but forecast says there will be
         elif pv_today or pv_tomorrow:
             decision_on = False
             reason = "forecast_wait"
