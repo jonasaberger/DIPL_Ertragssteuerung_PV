@@ -9,6 +9,7 @@ type Props = {
   selectedSetting: 'MANUAL_OFF' | 'MANUAL_ON'
   onSelect: (setting: 'MANUAL_OFF' | 'MANUAL_ON') => void
   available: boolean
+  showControls?: boolean
 }
 
 export default function HBoiler({
@@ -17,7 +18,9 @@ export default function HBoiler({
   selectedSetting,
   onSelect,
   available,
+  showControls = true, // Default = true
 }: Props) {
+
   // Dynamische Farbwahl der Temperatur
   const getTempColor = (temp: number) => {
     if (temp < 40) return '#1EAFF3'       // Blau
@@ -81,64 +84,66 @@ export default function HBoiler({
               <Text style={styles.tempLabel}>Aktuelle Temperatur</Text>
             </View>
 
-            {/* Einstellungen */}
-            <View style={styles.settingsSection}>
-              <Text style={styles.settingsTitle}>Heizmodus</Text>
+            {/* Einstellungen - nur anzeigen wenn showControls true ist */}
+            {showControls && (
+              <View style={styles.settingsSection}>
+                <Text style={styles.settingsTitle}>Heizmodus</Text>
 
-              <View style={styles.settingsButtons}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={[
-                    styles.settingButton,
-                    selectedSetting === 'MANUAL_ON' && styles.settingButtonActive,
-                  ]}
-                  onPress={() => onSelect('MANUAL_ON')}
-                >
-                  <View style={styles.settingContent}>
-                    <View
-                      style={[
-                        styles.radio,
-                        selectedSetting === 'MANUAL_ON' && styles.radioActive,
-                      ]}
-                    >
-                      {selectedSetting === 'MANUAL_ON' && <View style={styles.radioInner} />}
+                <View style={styles.settingsButtons}>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={[
+                      styles.settingButton,
+                      selectedSetting === 'MANUAL_ON' && styles.settingButtonActive,
+                    ]}
+                    onPress={() => onSelect('MANUAL_ON')}
+                  >
+                    <View style={styles.settingContent}>
+                      <View
+                        style={[
+                          styles.radio,
+                          selectedSetting === 'MANUAL_ON' && styles.radioActive,
+                        ]}
+                      >
+                        {selectedSetting === 'MANUAL_ON' && <View style={styles.radioInner} />}
+                      </View>
+                      <View>
+                        <Text style={styles.settingText}>Manuell Heizen</Text>
+                        <Text style={styles.settingSubtext}>
+                          Boiler startet sofort
+                        </Text>
+                      </View>
                     </View>
-                    <View>
-                      <Text style={styles.settingText}>Manuell Heizen</Text>
-                      <Text style={styles.settingSubtext}>
-                        Boiler startet sofort
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
 
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={[
-                    styles.settingButton,
-                    selectedSetting === 'MANUAL_OFF' && styles.settingButtonActive,
-                  ]}
-                  onPress={() => onSelect('MANUAL_OFF')}
-                >
-                  <View style={styles.settingContent}>
-                    <View
-                      style={[
-                        styles.radio,
-                        selectedSetting === 'MANUAL_OFF' && styles.radioActive,
-                      ]}
-                    >
-                      {selectedSetting === 'MANUAL_OFF' && <View style={styles.radioInner} />}
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={[
+                      styles.settingButton,
+                      selectedSetting === 'MANUAL_OFF' && styles.settingButtonActive,
+                    ]}
+                    onPress={() => onSelect('MANUAL_OFF')}
+                  >
+                    <View style={styles.settingContent}>
+                      <View
+                        style={[
+                          styles.radio,
+                          selectedSetting === 'MANUAL_OFF' && styles.radioActive,
+                        ]}
+                      >
+                        {selectedSetting === 'MANUAL_OFF' && <View style={styles.radioInner} />}
+                      </View>
+                      <View>
+                        <Text style={styles.settingText}>Manuell Aus</Text>
+                        <Text style={styles.settingSubtext}>
+                          Boiler deaktiviert
+                        </Text>
+                      </View>
                     </View>
-                    <View>
-                      <Text style={styles.settingText}>Manuell Aus</Text>
-                      <Text style={styles.settingSubtext}>
-                        Boiler deaktiviert
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
+            )}
           </>
         )}
       </View>

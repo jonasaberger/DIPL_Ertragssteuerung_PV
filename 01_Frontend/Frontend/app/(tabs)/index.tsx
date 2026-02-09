@@ -1,28 +1,21 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ScrollView, StyleSheet, Alert } from 'react-native'
 import { ThemedView } from '@/components/themed-view'
 
 import HDiagram, { DiagramData } from '@/components/homePage/h-diagram'
 import HPrices from '@/components/homePage/h-prices'
 import HPriority, { PriorityItem } from '@/components/homePage/h-priority'
+import HControlPanel from '@/components/homePage/h-control-panel'
 import HWallbox from '@/components/homePage/h-wallbox'
 import HBoiler from '@/components/homePage/h-boiler'
 
 import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
 import { toggleBoilerSetting } from '@/services/iot_services/boiler_service'
-import {allowEGoPower} from '@/services/iot_services/e_go_service'
-
-/*const INITIAL_PRIORITIES: PriorityItem[] = [
-  { id: 'boiler', label: 'Boiler' },
-  { id: 'wallbox', label: 'e-Go Wallbox' },
-  { id: 'speicher', label: 'Speicher' },
-]*/
+import { allowEGoPower } from '@/services/iot_services/e_go_service'
+import { fetchModeData, setModeData, ModeData, Mode } from '@/services/mode_service'
 
 type EGoWallboxSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'
-let currentEGoWallboxSetting: EGoWallboxSetting = 'MANUAL_OFF'
-let currentBoilerSetting: BoilerSetting = 'MANUAL_OFF'
-
 
 const toNum = (v: any) => {
   const n = Number(v)
@@ -43,16 +36,33 @@ export default function HomeScreen() {
   const [uiState, setUiState] = useState({
     selectedWallboxSetting: 'MANUAL_OFF' as EGoWallboxSetting,
     selectedBoilerSetting: 'MANUAL_OFF' as BoilerSetting,
-    // priorities: INITIAL_PRIORITIES as PriorityItem[],
+    currentMode: 'MANUAL' as Mode,
   })
 
-  React.useEffect(() => {
+  // Fetch current mode on component mount
+  useEffect(() => {
+    const initializeMode = async () => {
+      const modeData = await fetchModeData()
+      if (modeData) {
+        setUiState((prev) => ({
+          ...prev,
+          currentMode: modeData.mode,
+        }))
+        console.log('Initialized mode:', modeData.mode)
+      } else {
+        console.warn('Failed to fetch initial mode, defaulting to MANUAL')
+      }
+    }
+
+    initializeMode()
+  }, [])
+
+  // Sync boiler setting from backend data
+  useEffect(() => {
     if (boilerData?.heating !== undefined) {
       const initialSetting: BoilerSetting = boilerData.heating ? 'MANUAL_ON' : 'MANUAL_OFF'
       setUiState((prev) => {
-        // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
         if (prev.selectedBoilerSetting !== initialSetting) {
-          currentBoilerSetting = initialSetting
           return { ...prev, selectedBoilerSetting: initialSetting }
         }
         return prev
@@ -60,123 +70,101 @@ export default function HomeScreen() {
     }
   }, [boilerData?.heating])
 
-  React.useEffect(() => {
-      if (wallboxData?.isCharging !== undefined) {
-        const initialSetting: EGoWallboxSetting = wallboxData.isCharging ? 'MANUAL_ON' : 'MANUAL_OFF'
-        setUiState((prev) => {
-          // Nur setzen wenn unterschiedlich, um Loop zu vermeiden
-          if (prev.selectedWallboxSetting !== initialSetting) {
-            currentEGoWallboxSetting = initialSetting
-            return { ...prev, selectedWallboxSetting: initialSetting }
-          }
-          return prev
-        })
-      }
-    }, [wallboxData?.isCharging])
+  // Sync wallbox setting from backend data
+  useEffect(() => {
+    if (wallboxData?.isCharging !== undefined) {
+      const initialSetting: EGoWallboxSetting = wallboxData.isCharging ? 'MANUAL_ON' : 'MANUAL_OFF'
+      setUiState((prev) => {
+        if (prev.selectedWallboxSetting !== initialSetting) {
+          return { ...prev, selectedWallboxSetting: initialSetting }
+        }
+        return prev
+      })
+    }
+  }, [wallboxData?.isCharging])
 
   // --- Rohwerte
   const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
-
-  // Hausverbrauch: laut Fronius oft negativ geliefert -> Betrag
   const rawLoad = toNum(pvData?.load_power ?? 0)
   const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
-
-  // Batterie: DEINE Konvention:
-  // battery_power < 0 => LADEN
-  // battery_power > 0 => ENTLADEN
   const batteryPower = toNum(pvData?.battery_power ?? 0)
-
-  // Netz: DEINE Konvention:
-  // grid_power < 0 => Einspeisung
-  // grid_power > 0 => Bezug
   const gridPower = toNum(pvData?.grid_power ?? 0)
 
   const gridImport = gridPower > 0 ? clamp0(gridPower) : 0
   const gridFeedIn = gridPower < 0 ? clamp0(-gridPower) : 0
-
   const batteryCharge = batteryPower < 0 ? clamp0(-batteryPower) : 0
   const batteryDischarge = batteryPower > 0 ? clamp0(batteryPower) : 0
 
-  // --- PV-Verteilung (nur PV!)
-  // 1) PV -> Haus
+  // --- PV-Verteilung
   const pvToHouse = Math.min(houseDemand, pvTotal)
   const pvLeftAfterHouse = clamp0(pvTotal - pvToHouse)
-
-  // 2) PV -> Batterie (nur wenn Batterie lädt)
   const pvToBattery = Math.min(batteryCharge, pvLeftAfterHouse)
   const pvLeftAfterBattery = clamp0(pvLeftAfterHouse - pvToBattery)
-
-  // 3) PV -> Netz (wenn Einspeisung stattfindet)
   const pvToGrid = Math.min(gridFeedIn, pvLeftAfterBattery)
 
-  // --- Batterie -> Haus (wenn entladen wird)
   const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)
   const batteryToHouse = Math.min(batteryDischarge, houseDeficitAfterPv)
-
-  // --- Netz -> Haus (wenn PV + Batterie nicht reichen)
   const houseDeficitAfterPvAndBattery = clamp0(houseDeficitAfterPv - batteryToHouse)
   const gridToHouse = Math.min(gridImport, houseDeficitAfterPvAndBattery)
 
   const diagramData: DiagramData = {
     total: pvTotal,
-
     pvToHouse,
     pvToBattery,
     pvToGrid,
-
     gridToHouse,
     batteryToHouse,
-
     houseActual: houseDemand,
-    batteryPower, // SIGNED
-    gridPower, // SIGNED
+    batteryPower,
+    gridPower,
   }
 
   // Handlers
   const handleWallboxSelect = async (setting: EGoWallboxSetting) => {
-    // Save Old Setting for potential Rollback
     const previousSetting = uiState.selectedWallboxSetting
 
-    // Optimistic Update
-    setUiState((prev) => ({...prev, selectedWallboxSetting: setting}))
-    currentEGoWallboxSetting = setting
+    setUiState((prev) => ({ ...prev, selectedWallboxSetting: setting }))
 
     const success = await allowEGoPower(setting)
-    if(success) {
-        await refetchEGoData() // Instant Update
-    }
-    else {
-      // Reset UI State
+    if (success) {
+      await refetchEGoData()
+    } else {
       console.warn('Failed to update wallbox setting on backend - reverting UI')
-      setUiState((prev) => ({ ...prev, selectedBoilerSetting: previousSetting }))
-      currentBoilerSetting = previousSetting
-
-      // User-Feedback (Toast/Alert)
-      Alert.alert('Fehler', 'Boiler-Einstellung konnte nicht geändert werden')
+      setUiState((prev) => ({ ...prev, selectedWallboxSetting: previousSetting }))
+      Alert.alert('Fehler', 'Wallbox-Einstellung konnte nicht geändert werden')
     }
-
   }
+
   const handleBoilerSelect = async (setting: BoilerSetting) => {
-    // Save Old Setting for potential Rollback
     const previousSetting = uiState.selectedBoilerSetting
 
-    // Optimistic Update
     setUiState((prev) => ({ ...prev, selectedBoilerSetting: setting }))
-    currentBoilerSetting = setting
 
     const success = await toggleBoilerSetting(setting)
 
     if (success) {
-      await refetchBoilerData() // Instant Update
-    }
-    else {
-      // Reset UI State
+      await refetchBoilerData()
+    } else {
       console.warn('Failed to update boiler setting on backend - reverting UI')
       setUiState((prev) => ({ ...prev, selectedBoilerSetting: previousSetting }))
-      currentBoilerSetting = previousSetting
-
-      // User-Feedback (Toast/Alert)
       Alert.alert('Fehler', 'Boiler-Einstellung konnte nicht geändert werden')
+    }
+  }
+
+  const handleModeChange = async (newMode: Mode) => {
+    const previousMode = uiState.currentMode
+
+    setUiState((prev) => ({ ...prev, currentMode: newMode }))
+
+    const success = await setModeData({ mode: newMode })
+
+    if (success) {
+      console.log('Mode successfully changed to:', newMode)
+      Alert.alert('Erfolg', `Modus geändert zu: ${newMode}`)
+    } else {
+      console.warn('Failed to update mode on backend - reverting UI')
+      setUiState((prev) => ({ ...prev, currentMode: previousMode }))
+      Alert.alert('Fehler', 'Modus konnte nicht geändert werden')
     }
   }
 
@@ -185,15 +173,18 @@ export default function HomeScreen() {
     console.log('Ladeprioritäten:', data.map((item) => item.id))
   }
 
+  // Check if manual controls should be shown
+  const showManualControls = uiState.currentMode === 'MANUAL'
+
   return (
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <HDiagram data={diagramData} />
 
-        {/* <HPriority
-          priorities={uiState.priorities}
-          onDragEnd={handlePriorityDragEnd}
-        /> */}
+        <HControlPanel
+          currentMode={uiState.currentMode}
+          onModeChange={handleModeChange}
+        />
 
         <HPrices
           date={epexData?.date ?? ''}
@@ -209,6 +200,7 @@ export default function HomeScreen() {
           selectedSetting={uiState.selectedBoilerSetting}
           onSelect={handleBoilerSelect}
           available={available.boiler}
+          showControls={showManualControls}
         />
 
         <HWallbox
@@ -219,6 +211,7 @@ export default function HomeScreen() {
           carConnected={wallboxData?.carConnected ?? false}
           ampere={wallboxData?.ampere ?? 0}
           available={available.wallbox}
+          showControls={showManualControls}
         />
       </ScrollView>
     </ThemedView>
