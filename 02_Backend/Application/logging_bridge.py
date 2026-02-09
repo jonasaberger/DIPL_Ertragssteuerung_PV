@@ -31,14 +31,6 @@ class LoggingBridge:
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
         self.query_api = self.client.query_api()
 
-    """
-    Log-Types:
-        - system_event        Start, shutdown, severe errors
-        - api_error           External APIs unreachable
-        - control_decision    Control actions taken by backend
-        - device_state_change Device state transitions
-    """
-
     # Internal write helper
     def _write(self, point: Point):
         self.write_api.write(
@@ -51,10 +43,10 @@ class LoggingBridge:
     def control_decision(self, device, action, reason, success=True, extra=None):
         point = (
             Point("control_decision")
-            .tag("device", device)             # wallbox / boiler
+            .tag("device", device)               # wallbox / boiler
             .field("action", action)             # on / off / toggle / set_allow
             .field("success", str(success))
-            .field("reason", reason)           # manual / pv_surplus / scheduler
+            .field("reason", reason)             # manual / pv_surplus / scheduler
             .field("extra", str(extra) if extra else "")
             .time(datetime.now(timezone.utc), WritePrecision.NS)
         )
@@ -85,10 +77,6 @@ class LoggingBridge:
 
     # External API errors (WITH DEVICE INFORMATION)
     def api_error(self, device, endpoint, error):
-        """
-        Logs external API communication failures.
-        device: wallbox / boiler / epex / influxdb
-        """
         description = f"{device} API error at {endpoint}: {error}"
 
         point = (
@@ -107,7 +95,7 @@ class LoggingBridge:
         if old_state is None or new_state is None:
             return
 
-        # Skip redundant transitions (ON → ON, OFF → OFF)
+        # Skip redundant transitions (ON -> ON, OFF -> OFF)
         if old_state == new_state:
             return
 
@@ -150,6 +138,7 @@ class LoggingBridge:
         tables = self.query_api.query(query, org=self.org)
         results = []
 
+        # Process query results into a list of dicts with time and message
         for table in tables:
             for r in table.records:
                 values = r.values
@@ -157,6 +146,7 @@ class LoggingBridge:
                     ZoneInfo("Europe/Vienna")
                 ).isoformat(timespec="seconds")
 
+                # Format message based on log type
                 if log_type == "control_decision":
                     msg = (
                         f"device={values.get('device')} | "

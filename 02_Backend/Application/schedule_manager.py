@@ -35,13 +35,13 @@ class ScheduleManager:
 
         now = datetime.now(ZoneInfo("Europe/Vienna")).time()
 
-        # deaktiviert
+        # Edge case: if start and end are the same, we consider the device to be inactive (no time window)
         if start == end:
             return False
 
-        # normales Zeitfenster
+        # Normal case: start < end -> active if now is between start and end
         if start < end:
             return start <= now <= end
 
-        # über Mitternacht
+        # Over midnight case
         return now >= start or now <= end

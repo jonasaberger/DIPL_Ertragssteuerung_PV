@@ -2,8 +2,7 @@ import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# Simple PV forecast using Open-Meteo
-# Determines whether PV generation is likely today or tomorrow
+# Simple PV forecast using Open-Meteo, determines whether PV generation is likely today or tomorrow
 class PVForecastService:
 
     # Bruck an der Großglocknerstraße
@@ -15,16 +14,6 @@ class PVForecastService:
         self.tz = ZoneInfo("Europe/Vienna")
 
     def get_forecast(self) -> dict:
-
-        """
-        Returns:
-        {
-            "pv_today": bool,
-            "pv_tomorrow": bool,
-            "source": "open-meteo"
-        }
-        """
-
         try:
             data = self._fetch()
             return self._evaluate(data)
@@ -36,7 +25,7 @@ class PVForecastService:
                 "source": "open-meteo"
             }
 
-    # internal
+    # Fetches weather data from Open-Meteo API
     def _fetch(self) -> dict:
         url = "https://api.open-meteo.com/v1/forecast"
         params = {
@@ -51,7 +40,7 @@ class PVForecastService:
         r.raise_for_status()
         return r.json()
 
-    #  Evaluates whether PV generation is likely based on cloud cover and sunrise/sunset times
+    # Evaluates whether PV generation is likely based on cloud cover and sunrise/sunset times
     def _evaluate(self, data: dict) -> dict:
         now = datetime.now(self.tz)
 
@@ -70,6 +59,7 @@ class PVForecastService:
             "source": "open-meteo"
         }
 
+    # Checks if there is a time between start and end where cloud cover is below the threshold
     def _pv_possible(self, start, end, times, clouds) -> bool:
         for t, cloud in zip(times, clouds):
             ts = datetime.fromisoformat(t).astimezone(self.tz)

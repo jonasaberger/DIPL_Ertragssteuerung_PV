@@ -25,16 +25,8 @@ class AutomaticConfigStore:
     def get(self) -> dict:
         return copy.deepcopy(self._config)
 
-
+    
     def update(self, partial_update: dict):
-        
-        """
-        Example:
-        {
-          "boiler": { "target_time": "06:30" }
-        }
-        """
-
         for key, values in partial_update.items():
             if key not in self._config:
                 self._config[key] = {}
