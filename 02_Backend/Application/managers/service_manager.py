@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
@@ -35,9 +37,11 @@ class ServiceManager:
         if env_path:
             load_dotenv(env_path)
 
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
         self.server_port = server_port
         self.host_ip = host_ip
-        self.app = Flask(__name__, static_folder='static')
+        self.app = Flask(  __name__,  static_folder=os.path.join(BASE_DIR, "static"), static_url_path="/static")
         CORS(self.app, resources={r"/*": {"origins": "*"}})
 
         # Register Swagger UI

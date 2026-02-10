@@ -19,6 +19,10 @@ class SchedulerService(threading.Thread):
         self.interval = interval
         self.logger = logger
 
+        self._last_time_controlled_error_ts = None
+        self._time_controlled_error_cooldown = 3600
+
+        self.automatic_config = AutomaticConfigStore()
         self.pv_service = PVSurplusService(db_bridge)
         self.pv_forecast = PVForecastService()
 
@@ -118,11 +122,7 @@ class SchedulerService(threading.Thread):
                 )
 
         except Exception as e:
-            self.logger.system_event(
-                level="error",
-                source="scheduler",
-                message=f"TIME_CONTROLLED error: {e}"
-            )
+            self._log_time_controlled_error_throttled(e)
 
     # AUTOMATIC
     def run_automatic(self):
@@ -383,3 +383,16 @@ class SchedulerService(threading.Thread):
         if allow:
             self.wallbox.set_allow_charging(False)
             self.logger.device_state_change("wallbox", True, False)
+
+    def _log_time_controlled_error_throttled(self, error: Exception):
+        now = time.time()
+
+        if (  self._last_time_controlled_error_ts is None  or now - self._last_time_controlled_error_ts > self._time_controlled_error_cooldown ):
+
+            # SYSTEM EVENT LOG
+            self.logger.system_event(
+                level="error",
+                source="TIME_CONTROLLED",
+                message=f"TIME_CONTROLLED error: {error}"
+            )
+            self._last_time_controlled_error_ts = now
