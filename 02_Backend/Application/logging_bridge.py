@@ -126,13 +126,14 @@ class LoggingBridge:
         from(bucket: "{self.bucket}")
         |> range(start: -{days}d)
         |> filter(fn: (r) => r["_measurement"] == "{log_type}")
+        |> group()
+        |> sort(columns: ["_time"], desc: true)
+        |> limit(n: {limit})
         |> pivot(
             rowKey: ["_time"],
             columnKey: ["_field"],
             valueColumn: "_value"
         )
-        |> sort(columns: ["_time"], desc: true)
-        |> limit(n: {limit})
         '''
 
         tables = self.query_api.query(query, org=self.org)
