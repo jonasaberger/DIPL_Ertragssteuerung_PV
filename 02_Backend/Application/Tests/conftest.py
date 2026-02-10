@@ -33,7 +33,7 @@ def disable_external_calls(monkeypatch, request):
 # Tests that require actual hardware interaction can be marked with @pytest.mark.hardware to bypass this fixture
 @pytest.fixture
 def client(mocker):
-    from service_manager import ServiceManager
+    from managers.service_manager import ServiceManager
 
     fake_boiler = mocker.Mock()
     fake_boiler.get_state.return_value = False

@@ -1,7 +1,7 @@
 # Tests for the logging bridge. 
 # This test will simply check if the LoggingBridge can be instantiated without errors.
 
-from logging_bridge import LoggingBridge
+from bridges.logging_bridge import LoggingBridge
 
 def test_logging_bridge_can_be_created():
     logger = LoggingBridge()

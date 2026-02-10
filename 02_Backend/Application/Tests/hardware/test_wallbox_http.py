@@ -1,6 +1,6 @@
 import pytest
 import requests
-from wallbox_controller import WallboxController
+from controllers.wallbox_controller import WallboxController
 
 # Tests real HTTP interaction with the wallbox. 
 # This test will attempt to send a request to the wallbox and expects it to either succeed or be actively refused 

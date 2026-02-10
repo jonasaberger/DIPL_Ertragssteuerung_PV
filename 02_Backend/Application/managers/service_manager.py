@@ -2,22 +2,22 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
 
-from device_manager import DeviceManager
-from schedule_manager import ScheduleManager
+from managers.device_manager import DeviceManager
+from managers.schedule_manager import ScheduleManager
 
-from db_bridge import DB_Bridge
-from wallbox_controller import WallboxController
+from bridges.db_bridge import DB_Bridge
+from controllers.wallbox_controller import WallboxController
 from dotenv import load_dotenv, find_dotenv
-from boiler_controller import BoilerController
+from controllers.boiler_controller import BoilerController
 
-from system_mode import SystemMode, SystemModeStore
-from schedule_store import ScheduleStore
-from scheduler_service import SchedulerService
-from automatic_config_store import AutomaticConfigStore
+from stores.system_mode_store import SystemMode, SystemModeStore
+from stores.schedule_store import ScheduleStore
+from services.scheduler_service import SchedulerService
+from stores.automatic_config_store import AutomaticConfigStore
 
 import platform
 from datetime import datetime
-from logging_bridge import LoggingBridge
+from bridges.logging_bridge import LoggingBridge
 from zoneinfo import ZoneInfo
 from datetime import timedelta
 

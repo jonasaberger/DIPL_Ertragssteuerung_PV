@@ -2,7 +2,6 @@ import json
 import copy
 from pathlib import Path
 
-
 class ScheduleStore:
     def __init__(
         self,

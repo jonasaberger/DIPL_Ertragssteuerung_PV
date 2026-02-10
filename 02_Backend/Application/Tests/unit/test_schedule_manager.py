@@ -1,4 +1,4 @@
-from schedule_manager import ScheduleManager
+from managers.schedule_manager import ScheduleManager
 
 # Fake Store 
 class FakeScheduleStore:

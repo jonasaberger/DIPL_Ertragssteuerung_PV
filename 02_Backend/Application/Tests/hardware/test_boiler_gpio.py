@@ -1,6 +1,6 @@
 import platform
 import pytest
-from boiler_controller import BoilerController
+from controllers.boiler_controller import BoilerController
 
 # Hardware-Test only works on Linux,skip otherwise
 if platform.system() != "Linux":

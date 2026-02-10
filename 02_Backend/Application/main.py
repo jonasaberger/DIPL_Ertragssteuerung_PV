@@ -1,5 +1,5 @@
-import service_manager as sm
-import db_bridge as ddb
+import managers.service_manager as sm
+import bridges.db_bridge as ddb
 
 # This is the main entry point for the DIPL_Ertragssteuerung_PV Backend application - DURING DEVELOPMENT.
 

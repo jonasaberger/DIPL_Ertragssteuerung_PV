@@ -1,5 +1,5 @@
 from datetime import datetime
-from wallbox_controller import WallboxController
+from controllers.wallbox_controller import WallboxController
 from decimal import Decimal
 
 # Simulates fetching data from the wallbox and processing it correctly
@@ -17,10 +17,10 @@ def test_wallbox_fetch_data(mocker):
     mocker.patch("requests.get", return_value=fake_response)
 
     # ZoneInfo mock -> to ensure that the wallbox controller does not fail when trying to get timezone information
-    mocker.patch("wallbox_controller.ZoneInfo", return_value=None)
+    mocker.patch("controllers.wallbox_controller.ZoneInfo", return_value=None)
 
     # datetime mock -> but saves the actual datetime functionality for the logic that depends on it
-    mocker.patch("wallbox_controller.datetime", wraps=datetime)
+    mocker.patch("controllers.wallbox_controller.datetime", wraps=datetime)
 
     wb = WallboxController()
 

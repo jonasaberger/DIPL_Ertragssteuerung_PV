@@ -1,5 +1,5 @@
 from datetime import datetime
-from db_bridge import DB_Bridge
+from bridges.db_bridge import DB_Bridge
 
 def test_get_latest_pv_data_mocked(mocker):
     # Simulates a successful InfluxDB response with a known pv_power value at a specific time (2026-01-01 12:00)
@@ -27,7 +27,7 @@ def test_get_latest_pv_data_mocked(mocker):
     fake_client.query_api.return_value = fake_query_api
 
     # Patch InfluxDBClient to return our fake client when instantiated
-    mocker.patch("db_bridge.InfluxDBClient", return_value=fake_client)
+    mocker.patch("bridges.db_bridge.InfluxDBClient", return_value=fake_client)
 
     # DB_Bridge initializes its InfluxDBClient, which will now use the mocked version
     db = DB_Bridge()
@@ -48,7 +48,7 @@ def test_get_latest_pv_data_handles_influx_error(mocker):
     fake_client = mocker.Mock()
     fake_client.query_api.return_value = fake_query_api
 
-    mocker.patch("db_bridge.InfluxDBClient", return_value=fake_client)
+    mocker.patch("bridges.db_bridge.InfluxDBClient", return_value=fake_client)
 
     db = DB_Bridge()
     data = db.get_latest_pv_data()

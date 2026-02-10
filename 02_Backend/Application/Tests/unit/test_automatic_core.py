@@ -1,5 +1,4 @@
-from scheduler_service import SchedulerService
-
+from services.scheduler_service import SchedulerService
 
 # FAKES
 class FakeLogger:

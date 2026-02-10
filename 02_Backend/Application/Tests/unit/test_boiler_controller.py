@@ -1,8 +1,5 @@
-import boiler_controller
-from boiler_controller import BoilerController
+from controllers.boiler_controller import BoilerController
 import pytest
-
-boiler_controller.LED = None
 
 def test_boiler_controller_can_be_created():
     # Initialization of the BoilerController should succeed without errors

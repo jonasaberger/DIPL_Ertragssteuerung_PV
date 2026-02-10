@@ -3,10 +3,10 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from system_mode import SystemMode
-from pv_surplus_service import PVSurplusService
-from automatic_config_store import AutomaticConfigStore
-from pv_forecast_service import PVForecastService
+from stores.system_mode_store import SystemMode
+from services.pv_surplus_service import PVSurplusService
+from stores.automatic_config_store import AutomaticConfigStore
+from services.pv_forecast_service import PVForecastService
 
 class SchedulerService(threading.Thread):
     def __init__(self, mode_store, schedule_manager, boiler, wallbox, db_bridge, logger, interval=20):
