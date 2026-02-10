@@ -8,7 +8,7 @@ dotenv==0.9.9
 Flask==3.1.2
 flask-cors==6.0.1
 flask-swagger-ui==5.21.0
-gpiozero==2.0.1
+gunicorn==25.0.3
 idna==3.11
 influxdb_client==1.49.0
 iniconfig==2.3.0
