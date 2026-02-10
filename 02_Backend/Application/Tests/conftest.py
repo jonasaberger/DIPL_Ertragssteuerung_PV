@@ -39,10 +39,10 @@ def client(mocker):
     fake_boiler.get_state.return_value = False
     fake_boiler.control.return_value = None
 
-    mocker.patch("service_manager.BoilerController", return_value=fake_boiler)
-    mocker.patch("service_manager.DB_Bridge")
-    mocker.patch("service_manager.WallboxController")
-    mocker.patch("service_manager.LoggingBridge")
+    mocker.patch("managers.service_manager.BoilerController", return_value=fake_boiler)
+    mocker.patch("managers.service_manager.DB_Bridge")
+    mocker.patch("managers.service_manager.WallboxController")
+    mocker.patch("managers.service_manager.LoggingBridge")
 
     sm = ServiceManager()
     app = sm.get_app()
