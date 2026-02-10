@@ -3,22 +3,13 @@ import time
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from system_mode import SystemMode
-from pv_surplus_service import PVSurplusService
-from automatic_config_store import AutomaticConfigStore
-from pv_forecast_service import PVForecastService
+from stores.system_mode_store import SystemMode
+from services.pv_surplus_service import PVSurplusService
+from stores.automatic_config_store import AutomaticConfigStore
+from services.pv_forecast_service import PVForecastService
 
 class SchedulerService(threading.Thread):
-    def __init__(
-        self,
-        mode_store,
-        schedule_manager,
-        boiler,
-        wallbox,
-        db_bridge,
-        logger,
-        interval=20
-    ):
+    def __init__(self, mode_store, schedule_manager, boiler, wallbox, db_bridge, logger, interval=20):
         super().__init__(daemon=True)
 
         self.mode_store = mode_store
@@ -28,10 +19,14 @@ class SchedulerService(threading.Thread):
         self.interval = interval
         self.logger = logger
 
+        self._last_time_controlled_error_ts = None
+        self._time_controlled_error_cooldown = 3600
+
+        self.automatic_config = AutomaticConfigStore()
         self.pv_service = PVSurplusService(db_bridge)
         self.pv_forecast = PVForecastService()
 
-        # --- Wallbox runtime state ---
+        # Wallbox runtime state
         self.wallbox_eto_start = None
         self.wallbox_finished = False
 
@@ -65,19 +60,69 @@ class SchedulerService(threading.Thread):
     # TIME CONTROLLED
     def run_time_controlled(self):
         try:
+            # BOILER 
             state = self.boiler.get_state()
             should_on = self.schedule_manager.is_active("boiler")
 
             if should_on and not state:
                 self.boiler.control("on")
+
+                self.logger.control_decision(
+                    device="boiler",
+                    action="on",
+                    reason="time_controlled_schedule",
+                    success=True
+                )
+
+                self.logger.device_state_change(
+                    device="boiler",
+                    old_state=False,
+                    new_state=True
+                )
+
             elif not should_on and state:
                 self.boiler.control("off")
 
-            allow = self.schedule_manager.is_active("wallbox")
-            self.wallbox.set_allow_charging(allow)
+                self.logger.control_decision(
+                    device="boiler",
+                    action="off",
+                    reason="time_controlled_schedule",
+                    success=True
+                )
 
-        except Exception:
-            return
+                self.logger.device_state_change(
+                    device="boiler",
+                    old_state=True,
+                    new_state=False
+                )
+
+            # WALLBOX 
+            allow = self.schedule_manager.is_active("wallbox")
+            current = self.wallbox.get_allow_state()
+
+            if current is None:
+                self.wallbox.set_allow_charging(allow)
+                return
+
+            if allow != current:
+                self.wallbox.set_allow_charging(allow)
+
+                self.logger.control_decision(
+                    device="wallbox",
+                    action="set_allow",
+                    reason="time_controlled_schedule",
+                    success=True,
+                    extra={"allow": allow}
+                )
+
+                self.logger.device_state_change(
+                    device="wallbox",
+                    old_state=current,
+                    new_state=allow
+                )
+
+        except Exception as e:
+            self._log_time_controlled_error_throttled(e)
 
     # AUTOMATIC
     def run_automatic(self):
@@ -114,7 +159,7 @@ class SchedulerService(threading.Thread):
         remaining_min = (deadline - now).total_seconds() / 60
         min_runtime = int(boiler_cfg.get("min_runtime_min", 90))
 
-        # ---- PV Ist-Zustand ----
+        # PV Ist-State
         try:
             pv_surplus = self.pv_service.get_surplus_kw()
             pv_valid = True
@@ -122,7 +167,7 @@ class SchedulerService(threading.Thread):
             pv_surplus = 0.0
             pv_valid = False
 
-        # ---- Forecast ----
+        # Forecast 
         forecast = self.pv_forecast.get_forecast()
         pv_today = forecast.get("pv_today", False)
         pv_tomorrow = forecast.get("pv_tomorrow", False)
@@ -130,12 +175,12 @@ class SchedulerService(threading.Thread):
         decision_on = False
         reason = "idle"
 
-        # 1) PV jetzt verfügbar
+        # 1) PV is available 
         if pv_valid and pv_surplus > 0.5:
             decision_on = True
             reason = "pv_surplus"
 
-        # 2) Keine PV jetzt, aber erwartet -> warten
+        # 2) No PV now, but forecast says there will be
         elif pv_today or pv_tomorrow:
             decision_on = False
             reason = "forecast_wait"
@@ -145,10 +190,11 @@ class SchedulerService(threading.Thread):
             decision_on = True
             reason = "deadline_failsafe"
 
-        # ---- APPLY + LOG ----
+        #  APPLY + LOG 
         if decision_on and not boiler_on:
             self.boiler.control("on")
 
+            # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="boiler",
                 action="on",
@@ -162,11 +208,13 @@ class SchedulerService(threading.Thread):
                 }
             )
 
+            # DEVICE STATE CHANGE LOG
             self.logger.device_state_change("boiler", False, True)
 
         elif not decision_on and boiler_on:
             self.boiler.control("off")
 
+            # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="boiler",
                 action="off",
@@ -179,10 +227,11 @@ class SchedulerService(threading.Thread):
                     "pv_tomorrow": pv_tomorrow
                 }
             )
-
+            
+            # DEVICE STATE CHANGE LOG
             self.logger.device_state_change("boiler", True, False)
 
-        # Optionales WAIT-Logging (nur wenn wirklich gewartet wird)
+        # Optimal Wait-Logging when decided to wait due to forecast but boiler is already off
         elif not decision_on and not boiler_on and reason == "forecast_wait":
             self.logger.control_decision(
                 device="boiler",
@@ -195,7 +244,6 @@ class SchedulerService(threading.Thread):
                     "pv_tomorrow": pv_tomorrow
                 }
             )
-
 
     # AUTOMATIC – Wallbox 
     def _automatic_wallbox(self):
@@ -213,26 +261,27 @@ class SchedulerService(threading.Thread):
         car_connected = data.get("car") == 1
         eto_now = data.get("eto")  # Wh
 
-        # --- Reset bei Abstecken ---
+        # RESET on car disconnect
         if not car_connected:
             self.wallbox_eto_start = None
             self.wallbox_finished = False
             return
 
-        # --- Initialwert merken ---
+        # Initial value save 
         if self.wallbox_eto_start is None:
             self.wallbox_eto_start = eto_now
             self.wallbox_finished = False
 
-        # --- Zielenergie ---
+        # Goal energy in kWh
         target_kwh = float(wb_cfg.get("energy_kwh", 0))
         charged_kwh = max((eto_now - self.wallbox_eto_start) / 1000, 0)
 
-        # --- Ziel erreicht ---
+        # Goal reached
         if charged_kwh >= target_kwh:
             if not self.wallbox_finished:
                 self.wallbox.set_allow_charging(False)
 
+                # CONTROL DECISION LOG
                 self.logger.control_decision(
                     device="wallbox",
                     action="set_allow",
@@ -245,10 +294,10 @@ class SchedulerService(threading.Thread):
                 self.wallbox_finished = True
             return
 
-        # --- Aktueller Zustand ---
+        # Current allow state
         allow = self.wallbox.get_allow_state()
 
-        # --- PV Ist-Zustand ---
+        # PV Ist-State
         try:
             pv_surplus = self.pv_service.get_surplus_kw()
         except Exception:
@@ -256,12 +305,12 @@ class SchedulerService(threading.Thread):
 
         PV_MIN_KW = 1.4
 
-        # --- Forecast ---
+        # Forecast
         forecast = self.pv_forecast.get_forecast()
         pv_today = forecast.get("pv_today", False)
         pv_tomorrow = forecast.get("pv_tomorrow", False)
 
-        # --- Deadline ---
+        # Deadline 
         target_time = wb_cfg.get("target_time")
         allow_night = wb_cfg.get("allow_night_grid", False)
 
@@ -276,12 +325,13 @@ class SchedulerService(threading.Thread):
 
         remaining_hours = (deadline - now).total_seconds() / 3600
 
-        # ---------- ENTSCHEIDUNGEN ----------
+        # Desicion logic:
 
-        # 1) PV-Überschuss → laden
+        # 1) PV-surplus -> allow charging
         if pv_surplus >= PV_MIN_KW and not allow:
             self.wallbox.set_allow_charging(True)
 
+            # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="wallbox",
                 action="set_allow",
@@ -292,11 +342,12 @@ class SchedulerService(threading.Thread):
             self.logger.device_state_change("wallbox", False, True)
             return
 
-        # 2) Keine PV, aber Forecast → warten
+        # 2) No PV, but forecast says there will be -> wait (don't allow charging)
         if pv_surplus < PV_MIN_KW and (pv_today or pv_tomorrow):
             if allow:
                 self.wallbox.set_allow_charging(False)
 
+                # CONTROL DECISION LOG
                 self.logger.control_decision(
                     device="wallbox",
                     action="set_allow",
@@ -310,10 +361,11 @@ class SchedulerService(threading.Thread):
                 self.logger.device_state_change("wallbox", True, False)
             return
 
-        # 3) Deadline-Failsafe mit Netzladung
+        # 3) Deadline-Failsafe: No PV, no good forecast and deadline is close -> allow charging if not already allowed (optionally only if allow_night_grid is set)
         if allow_night and remaining_hours <= 2.0 and not allow:
             self.wallbox.set_allow_charging(True)
-
+            
+            # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="wallbox",
                 action="set_allow",
@@ -327,7 +379,20 @@ class SchedulerService(threading.Thread):
             self.logger.device_state_change("wallbox", False, True)
             return
 
-        # 4) Sonst: Laden aus
+        # 4) Else: loading off 
         if allow:
             self.wallbox.set_allow_charging(False)
             self.logger.device_state_change("wallbox", True, False)
+
+    def _log_time_controlled_error_throttled(self, error: Exception):
+        now = time.time()
+
+        if (  self._last_time_controlled_error_ts is None  or now - self._last_time_controlled_error_ts > self._time_controlled_error_cooldown ):
+
+            # SYSTEM EVENT LOG
+            self.logger.system_event(
+                level="error",
+                source="TIME_CONTROLLED",
+                message=f"TIME_CONTROLLED error: {error}"
+            )
+            self._last_time_controlled_error_ts = now

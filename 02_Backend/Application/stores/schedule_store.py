@@ -2,7 +2,6 @@ import json
 import copy
 from pathlib import Path
 
-
 class ScheduleStore:
     def __init__(
         self,
@@ -21,14 +20,10 @@ class ScheduleStore:
         with path.open("r", encoding="utf-8") as f:
             return json.load(f)
 
-    # API
     def get_override(self) -> dict:
-        """Nur das, was der User gesetzt hat"""
         return self._override
 
-    # Logik
     def get_effective(self) -> dict:
-        """Default + Override (für Scheduler)"""
         result = copy.deepcopy(self._default)
 
         for device, seasons in self._override.items():
@@ -51,6 +46,5 @@ class ScheduleStore:
             json.dump(self._override, f, indent=2)
 
     def reset_to_default(self):
-        """ Löscht alle Override-Werte und stellt Default-Zustand wieder her """
         self._override = copy.deepcopy(self._default)
         self.save()

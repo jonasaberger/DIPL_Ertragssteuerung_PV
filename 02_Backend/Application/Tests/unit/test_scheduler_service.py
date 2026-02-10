@@ -1,9 +1,9 @@
-from scheduler_service import SchedulerService
-from system_mode import SystemMode, SystemModeStore
-from schedule_manager import ScheduleManager
+from services.scheduler_service import SchedulerService
+from stores.system_mode_store import SystemMode, SystemModeStore
+from managers.schedule_manager import ScheduleManager
 
 
-# ---------- FAKES ----------
+# FAKES
 
 class FakeLogger:
     def system_event(self, *a, **k): pass
@@ -34,17 +34,20 @@ class FakeWallbox:
     def set_allow_charging(self, allow):
         self.allow = allow
 
+    def get_allow_state(self):
+        return self.allow
+
 
 class FakeScheduleStore:
     def get_effective(self):
         return {
             "boiler": {"winter": {"start": "00:00", "end": "23:59"}},
-            "wallbox": {"winter": {"start": "00:00", "end": "00:00"}},
+            "wallbox": {"winter": {"start": "00:00", "end": "23:59"}},
         }
 
 
-# ---------- TEST ----------
 
+# Tests if the SchedulerService correctly controls the boiler and wallbox based on the schedule and current system mode
 def test_scheduler_controls_devices():
     mode = SystemModeStore()
     mode.set(SystemMode.TIME_CONTROLLED)
@@ -68,4 +71,4 @@ def test_scheduler_controls_devices():
     scheduler.tick()
 
     assert boiler.state is True
-    assert wallbox.allow is False
+    assert wallbox.allow is True

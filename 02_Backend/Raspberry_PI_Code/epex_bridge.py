@@ -68,8 +68,5 @@ def main():
     else:
         print("No EPEX data to write")
 
-    # latest_data = bridge.db.fetch_data("epex_prices", limit=10  )
-    # print(latest_data)
-
 if __name__ == "__main__":
     main()

@@ -30,12 +30,8 @@ class BoilerController:
         # logical boiler state (single source of truth)
         self._state = False
 
-    ########### Relay Logic ############
+    # Relay Logic 
     def _apply_logic(self, logical_on: bool):
-        """
-        Handles relay logic with optional inverted behavior.
-        logical_on = True  -> boiler should heat
-        """
         self._state = logical_on
 
         # Hardware relay available (Pi)
@@ -53,30 +49,24 @@ class BoilerController:
         self._sim_state = logical_on
         return logical_on
 
+    # Turn boiler heating ON (logical on)
     def turn_on(self):
-        """ Turn boiler heating ON (logical on) """
         return self._apply_logic(True)
 
+    # Turn boiler heating OFF (logical off)
     def turn_off(self):
-        """ Turn boiler heating OFF (logical off) """
         return self._apply_logic(False)
 
+    # Toggle boiler heating state
     def toggle(self):
-        """ Toggle boiler heating state """
         return self._apply_logic(not self._state)
 
+    #   Returns logical boiler state (True/False)
     def get_state(self):
-        """
-        Returns logical boiler state (True/False)
-        """
         return self._state
 
-    ########### API-style control helper ############
+    # API-style control helper
     def control(self, action: str):
-        """
-        Executes boiler control action: on/off/toggle
-        Returns: {"action": action, "result": True|False}
-        """
         action = (action or "").lower()
 
         if action not in ("on", "off", "toggle"):

@@ -1,23 +1,25 @@
+import os
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
 
-from device_manager import DeviceManager
-from schedule_manager import ScheduleManager
+from managers.device_manager import DeviceManager
+from managers.schedule_manager import ScheduleManager
 
-from db_bridge import DB_Bridge
-from wallbox_controller import WallboxController
+from bridges.db_bridge import DB_Bridge
+from controllers.wallbox_controller import WallboxController
 from dotenv import load_dotenv, find_dotenv
-from boiler_controller import BoilerController
+from controllers.boiler_controller import BoilerController
 
-from system_mode import SystemMode, SystemModeStore
-from schedule_store import ScheduleStore
-from scheduler_service import SchedulerService
-from automatic_config_store import AutomaticConfigStore
+from stores.system_mode_store import SystemMode, SystemModeStore
+from stores.schedule_store import ScheduleStore
+from services.scheduler_service import SchedulerService
+from stores.automatic_config_store import AutomaticConfigStore
 
 import platform
 from datetime import datetime
-from logging_bridge import LoggingBridge
+from bridges.logging_bridge import LoggingBridge
 from zoneinfo import ZoneInfo
 from datetime import timedelta
 
@@ -35,9 +37,11 @@ class ServiceManager:
         if env_path:
             load_dotenv(env_path)
 
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
         self.server_port = server_port
         self.host_ip = host_ip
-        self.app = Flask(__name__, static_folder='static')
+        self.app = Flask(  __name__,  static_folder=os.path.join(BASE_DIR, "static"), static_url_path="/static")
         CORS(self.app, resources={r"/*": {"origins": "*"}})
 
         # Register Swagger UI
@@ -153,7 +157,7 @@ class ServiceManager:
         # AUTOMATIC mode configuration endpoint
         self.app.add_url_rule("/api/automatic-config","automatic_config",self.automatic_config_endpoint,methods=["GET", "PUT", "POST"])
 
-    # ----- Route Handlers -----
+    # Route Handlers
     def _json(self, payload, status=200):
         """Helper for consistent JSON responses."""
         return jsonify(payload), status
@@ -163,7 +167,7 @@ class ServiceManager:
             self.db_bridge.check_connection()
             return jsonify({"status": "ok", "influx": "reachable"})
         except Exception as e:
-            # ---- SYSTEM ERROR LOG ----
+            # SYSTEM ERROR LOG
             self.logger.system_event(
                 level="error",
                 source="backend",
@@ -234,7 +238,7 @@ class ServiceManager:
                 return self._json({"message": "No Wallbox data found"}, 404)
             return self._json(data, 200)
         except Exception as e:
-            # ---- API ERROR LOG ----
+            # API ERROR LOG 
             self.logger.api_error(
                 device="wallbox",
                 endpoint="/api/wallbox/latest",
@@ -259,16 +263,16 @@ class ServiceManager:
         if not payload or "allow" not in payload:
             return self._json({"error": "Missing 'allow' field"}, 400)
 
-        # 🔹 OLD STATE
+        # Logging purpose: Capture the old state before attempting to change it, to log the state change if it occurs
         old_state = self.wallbox_controller.get_allow_state()
 
         try:
             result = self.wallbox_controller.set_allow_charging(bool(payload["allow"]))
 
-            # 🔹 NEW STATE
+            # Logging purpose: Capture the new state after the change, to log the state change if it differs from the old state
             new_state = self.wallbox_controller.get_allow_state()
 
-            # ---- CONTROL DECISION LOG ----
+            # CONTROL DECISION LOG 
             self.logger.control_decision(
                 device="wallbox",
                 action="set_allow",
@@ -277,7 +281,7 @@ class ServiceManager:
                 extra=result
             )
 
-            # ---- DEVICE STATE CHANGE ----
+            # DEVICE STATE CHANGE 
             if old_state != new_state:
                 self.logger.device_state_change(
                     device="wallbox",
@@ -300,7 +304,8 @@ class ServiceManager:
         try:
             db_data = self.db_bridge.get_latest_boiler_data()
         except Exception as e:
-            # ---- API ERROR LOG ----
+
+            # API ERROR LOG 
             self.logger.api_error(
                 device="influxdb",
                 endpoint="get_latest_boiler_data",
@@ -361,17 +366,16 @@ class ServiceManager:
 
         old_state = self.boiler_bridge.get_state()
 
-        # Redundante Aktionen verhindern
         if action == "on" and old_state is True:
             return self._json({"heating": True, "message": "already on"}, 200)
 
         if action == "off" and old_state is False:
             return self._json({"heating": False, "message": "already off"}, 200)
 
-        # Aktion ausführen
         self.boiler_bridge.control(action)
         new_state = self.boiler_bridge.get_state()
 
+        # CONTROL DECISION LOG
         self.logger.control_decision(
             device="boiler",
             action=action,
@@ -380,6 +384,7 @@ class ServiceManager:
         )
 
         if old_state != new_state:
+            # DEVICE STATE CHANGE LOG
             self.logger.device_state_change(
                 device="boiler",
                 old_state=old_state,
@@ -401,7 +406,7 @@ class ServiceManager:
             data = self.db_bridge.get_latest_epex_data()
             return (jsonify(data), 200) if data else (jsonify({"message": "No EPEX data found"}), 404)
         except Exception as e:
-            # ---- API ERROR LOG ----
+            # API ERROR LOG 
             self.logger.api_error(
                 device="epex",
                 endpoint="/api/epex/latest",
@@ -409,7 +414,6 @@ class ServiceManager:
             )
             return jsonify({"error": "EPEX data unavailable"}), 502
     
-    # Monitoring / Status endpoint: Returns a compact system health overview. This endpoint does NOT control anything – read-only monitoring.
     def get_state(self):
         status = {
             "backend": "ok",
@@ -476,7 +480,6 @@ class ServiceManager:
     
     # Logging endpoint: Returns filtered log entries from InfluxDB logging bucket
     def get_logging(self):
-
         log_type = request.args.get("type")
         limit = int(request.args.get("limit", 50))
 
@@ -538,11 +541,11 @@ class ServiceManager:
         
     # GET / PUT / POST schedule configuration
     def schedule_endpoint(self):
-        # GET: effektive Konfiguration
+        # GET: actual effective schedule configuration (after applying overrides)
         if request.method == "GET":
             return self._json(self.schedule_store.get_effective())
 
-        # PUT: Override setzen
+        # PUT: Set override 
         if request.method == "PUT":
             payload = request.get_json(force=True)
             if not payload:
@@ -550,6 +553,7 @@ class ServiceManager:
 
             self.schedule_store.update(payload)
 
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="info",
                 source="schedule",
@@ -558,10 +562,11 @@ class ServiceManager:
 
             return self._json({"status": "ok"})
 
-        # POST: RESET auf Default
+        # POST: RESET to default
         if request.method == "POST":
             self.schedule_store.reset_to_default()
 
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="info",
                 source="schedule",
@@ -589,7 +594,7 @@ class ServiceManager:
         })
     
     def automatic_config_endpoint(self):
-        # GET: aktuelle effektive Konfiguration
+        # GET: actual effective AUTOMATIC mode configuration
         if request.method == "GET":
             return self._json(self.automatic_config_store.get())
 
@@ -601,6 +606,7 @@ class ServiceManager:
 
             self.automatic_config_store.update(payload)
 
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="info",
                 source="automatic_config",
@@ -609,10 +615,11 @@ class ServiceManager:
 
             return self._json({"status": "ok"})
 
-        # POST: Reset auf Default
+        # POST: Reset to default
         if request.method == "POST":
             self.automatic_config_store.reset_to_default()
 
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="info",
                 source="automatic_config",

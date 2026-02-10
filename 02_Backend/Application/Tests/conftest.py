@@ -29,19 +29,20 @@ def disable_external_calls(monkeypatch, request):
         lambda *a, **k: Mock(status_code=200, json=lambda: {}, raise_for_status=lambda: None)
     )
 
-
+# This fixture will be used in all tests to mock external HTTP calls, ensuring that tests do not depend on external services and can run reliably in isolation
+# Tests that require actual hardware interaction can be marked with @pytest.mark.hardware to bypass this fixture
 @pytest.fixture
 def client(mocker):
-    from service_manager import ServiceManager
+    from managers.service_manager import ServiceManager
 
     fake_boiler = mocker.Mock()
     fake_boiler.get_state.return_value = False
     fake_boiler.control.return_value = None
 
-    mocker.patch("service_manager.BoilerController", return_value=fake_boiler)
-    mocker.patch("service_manager.DB_Bridge")
-    mocker.patch("service_manager.WallboxController")
-    mocker.patch("service_manager.LoggingBridge")
+    mocker.patch("managers.service_manager.BoilerController", return_value=fake_boiler)
+    mocker.patch("managers.service_manager.DB_Bridge")
+    mocker.patch("managers.service_manager.WallboxController")
+    mocker.patch("managers.service_manager.LoggingBridge")
 
     sm = ServiceManager()
     app = sm.get_app()
