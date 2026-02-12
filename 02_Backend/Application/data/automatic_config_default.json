@@ -1,14 +1,30 @@
 {
   "boiler": {
-    "enabled": true,
-    "target_time": "16:00",
-    "energy_kwh": 3.0,
-    "min_runtime_min": 90
+    "winter": {
+      "enabled": true,
+      "target_time": "16:00",
+      "energy_kwh": 3.0,
+      "min_runtime_min": 90
+    },
+    "summer": {
+      "enabled": true,
+      "target_time": "14:00",
+      "energy_kwh": 2.0,
+      "min_runtime_min": 60
+    }
   },
   "wallbox": {
-    "enabled": true,
-    "target_time": "18:00",
-    "energy_kwh": 12.0,
-    "allow_night_grid": true
+    "winter": {
+      "enabled": true,
+      "target_time": "18:00",
+      "energy_kwh": 12.0,
+      "allow_night_grid": true
+    },
+    "summer": {
+      "enabled": true,
+      "target_time": "17:00",
+      "energy_kwh": 10.0,
+      "allow_night_grid": false
+    }
   }
 }

@@ -259,16 +259,32 @@
                 },
                 "example": {
                   "boiler": {
-                    "enabled": true,
-                    "target_time": "07:00",
-                    "energy_kwh": 3.0,
-                    "min_runtime_min": 90
+                    "winter": {
+                      "enabled": true,
+                      "target_time": "16:00",
+                      "energy_kwh": 3.0,
+                      "min_runtime_min": 90
+                    },
+                    "summer": {
+                      "enabled": true,
+                      "target_time": "14:00",
+                      "energy_kwh": 2.5,
+                      "min_runtime_min": 70
+                    }
                   },
                   "wallbox": {
-                    "enabled": true,
-                    "target_time": "06:00",
-                    "energy_kwh": 12.0,
-                    "allow_night_grid": true
+                    "winter": {
+                      "enabled": true,
+                      "target_time": "18:00",
+                      "energy_kwh": 12.0,
+                      "allow_night_grid": true
+                    },
+                    "summer": {
+                      "enabled": true,
+                      "target_time": "20:00",
+                      "energy_kwh": 10.0,
+                      "allow_night_grid": false
+                    }
                   }
                 }
               }
@@ -290,7 +306,9 @@
               },
               "example": {
                 "boiler": {
-                  "target_time": "06:30"
+                  "winter": {
+                    "target_time": "15:30"
+                  }
                 }
               }
             }
@@ -867,16 +885,24 @@
             },
 
            "AutomaticConfig": {
-              "type": "object",
-              "properties": {
-                "boiler": {
-                  "$ref": "#/components/schemas/AutomaticBoilerConfig"
-                },
-                "wallbox": {
-                  "$ref": "#/components/schemas/AutomaticWallboxConfig"
+            "type": "object",
+            "properties": {
+              "boiler": {
+                "type": "object",
+                "properties": {
+                  "winter": { "$ref": "#/components/schemas/AutomaticBoilerConfig" },
+                  "summer": { "$ref": "#/components/schemas/AutomaticBoilerConfig" }
+                }
+              },
+              "wallbox": {
+                "type": "object",
+                "properties": {
+                  "winter": { "$ref": "#/components/schemas/AutomaticWallboxConfig" },
+                  "summer": { "$ref": "#/components/schemas/AutomaticWallboxConfig" }
                 }
               }
-            },
+            }
+          },
 
            "AutomaticBoilerConfig": {
               "type": "object",

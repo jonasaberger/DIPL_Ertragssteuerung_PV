@@ -6,11 +6,13 @@ class FakeLogger:
     def control_decision(self, *a, **k): pass
     def device_state_change(self, *a, **k): pass
 
+class FakeScheduleManager:
+    def determine_season(self):
+        return "winter"
 
 class FakeDB:
     def get_latest_pv_data(self):
         return None
-
 
 class FakeBoiler:
     def __init__(self):
@@ -48,7 +50,6 @@ class FakePVSurplus:
     def get_surplus_kw(self):
         return self.value
 
-
 class FakeForecast:
     def __init__(self, today=False, tomorrow=False):
         self.today = today
@@ -59,7 +60,6 @@ class FakeForecast:
             "pv_today": self.today,
             "pv_tomorrow": self.tomorrow
         }
-
 
 class FakeConfig:
     def __init__(self, cfg):
@@ -81,11 +81,10 @@ class FakeDB:
 
 
 # HELPER FUNCTIONS
-
 def make_scheduler(boiler, wallbox, pv, forecast, config):
     s = SchedulerService(
         mode_store=None,
-        schedule_manager=None,
+        schedule_manager=FakeScheduleManager(),
         boiler=boiler,
         wallbox=wallbox,
         db_bridge=FakeDB(),
@@ -108,14 +107,16 @@ def test_automatic_boiler_turns_on_with_pv():
         forecast=FakeForecast(),
         config=FakeConfig({
             "boiler": {
-                "enabled": True,
-                "target_time": "23:59",
-                "min_runtime_min": 60
+                "winter": {
+                    "enabled": True,
+                    "target_time": "23:59",
+                    "min_runtime_min": 60
+                }
             }
         })
     )
 
-    scheduler._automatic_boiler()
+    scheduler.automatic_boiler()
     assert boiler.get_state() is True
 
 # Tests that the automatic boiler control does not turn on the boiler if the forecast indicates no PV production for today, even if there is currently a PV surplus
@@ -129,14 +130,16 @@ def test_automatic_boiler_waits_for_forecast():
         forecast=FakeForecast(today=True),
         config=FakeConfig({
             "boiler": {
-                "enabled": True,
-                "target_time": "23:59",
-                "min_runtime_min": 60
+                "winter": {
+                    "enabled": True,
+                    "target_time": "23:59",
+                    "min_runtime_min": 60
+                }
             }
         })
     )
 
-    scheduler._automatic_boiler()
+    scheduler.automatic_boiler()
     assert boiler.get_state() is False
 
 
@@ -151,15 +154,17 @@ def test_automatic_wallbox_charges_with_pv():
         forecast=FakeForecast(),
         config=FakeConfig({
             "wallbox": {
-                "enabled": True,
-                "energy_kwh": 5,
-                "target_time": "23:59",
-                "allow_night_grid": False
+                "winter": {
+                    "enabled": True,
+                    "energy_kwh": 5,
+                    "target_time": "23:59",
+                    "allow_night_grid": False
+                }
             }
         })
     )
 
-    scheduler._automatic_wallbox()
+    scheduler.automatic_wallbox()
     assert wallbox.get_allow_state() is True
 
 # Tests that the automatic wallbox control does not allow charging if there is no PV surplus and night grid is not allowed, even if the forecast indicates PV production for today
@@ -174,15 +179,17 @@ def test_automatic_wallbox_uses_night_grid():
         forecast=FakeForecast(today=False, tomorrow=False),
         config=FakeConfig({
             "wallbox": {
-                "enabled": True,
-                "energy_kwh": 5,
-                "target_time": "23:59",
-                "allow_night_grid": True
+                "winter": {
+                    "enabled": True,
+                    "energy_kwh": 5,
+                    "target_time": "23:59",
+                    "allow_night_grid": False
+                }
             }
         })
     )
 
-    scheduler._automatic_wallbox()
+    scheduler.automatic_wallbox()
 
     # Depending on the time of the test, this could be True or False, but it should not raise an error and should be a boolean value
     assert wallbox.get_allow_state() in (True, False)

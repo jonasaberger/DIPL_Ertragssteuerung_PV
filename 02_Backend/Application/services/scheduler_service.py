@@ -126,13 +126,14 @@ class SchedulerService(threading.Thread):
 
     # AUTOMATIC
     def run_automatic(self):
-        self._automatic_boiler()
-        self._automatic_wallbox()
+        self.automatic_boiler()
+        self.automatic_wallbox()
 
     # AUTOMATIC – Boiler
-    def _automatic_boiler(self):
+    def automatic_boiler(self):
         config = self.automatic_config.get()
-        boiler_cfg = config.get("boiler", {})
+        season = self.schedule_manager.determine_season()
+        boiler_cfg = config.get("boiler", {}).get(season, {})
 
         if not boiler_cfg.get("enabled", False):
             return
@@ -246,9 +247,10 @@ class SchedulerService(threading.Thread):
             )
 
     # AUTOMATIC – Wallbox 
-    def _automatic_wallbox(self):
+    def automatic_wallbox(self):
         config = self.automatic_config.get()
-        wb_cfg = config.get("wallbox", {})
+        season = self.schedule_manager.determine_season()
+        wb_cfg = config.get("wallbox", {}).get(season, {})
 
         if not wb_cfg.get("enabled", False):
             return
@@ -387,7 +389,7 @@ class SchedulerService(threading.Thread):
     def _log_time_controlled_error_throttled(self, error: Exception):
         now = time.time()
 
-        if (  self._last_time_controlled_error_ts is None  or now - self._last_time_controlled_error_ts > self._time_controlled_error_cooldown ):
+        if (self._last_time_controlled_error_ts is None  or now - self._last_time_controlled_error_ts > self._time_controlled_error_cooldown):
 
             # SYSTEM EVENT LOG
             self.logger.system_event(

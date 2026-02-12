@@ -5,14 +5,9 @@ import copy
 #  Handles AUTOMATIC mode configuration
 #  Supports default fallback and runtime updates via API
 class AutomaticConfigStore:
-    def __init__(
-        self,
-        path="data/automatic_config.json",
-        default_path="data/automatic_config_default.json"
-    ):
+    def __init__(self, path="data/automatic_config.json", default_path="data/automatic_config_default.json"):
         self.path = Path(path)
         self.default_path = Path(default_path)
-
         self._config = self._load()
 
     def _load(self) -> dict:
@@ -25,18 +20,23 @@ class AutomaticConfigStore:
     def get(self) -> dict:
         return copy.deepcopy(self._config)
 
-    
     def update(self, partial_update: dict):
-        for key, values in partial_update.items():
-            if key not in self._config:
-                self._config[key] = {}
+        if not isinstance(partial_update, dict):
+            raise ValueError("Invalid config format")
 
-            if isinstance(values, dict):
-                self._config[key].update(values)
-            else:
-                self._config[key] = values
-
+        self._deep_merge(self._config, partial_update)
         self._save()
+
+    def _deep_merge(self, base: dict, updates: dict):
+        for key, value in updates.items():
+            if key not in base:
+                base[key] = value
+                continue
+
+            if isinstance(base[key], dict) and isinstance(value, dict):
+                self._deep_merge(base[key], value)
+            else:
+                base[key] = value
 
     def reset_to_default(self) -> dict:
         if not self.default_path.exists():

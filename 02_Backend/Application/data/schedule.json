@@ -1,8 +1,8 @@
 {
   "boiler": {
     "winter": {
-      "start": "12:00",
-      "end": "15:00"
+      "end": "16:00",
+      "start": "08:00"
     },
     "summer": {
       "start": "12:00",
