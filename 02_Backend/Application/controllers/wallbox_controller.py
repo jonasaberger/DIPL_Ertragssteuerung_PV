@@ -106,3 +106,24 @@ class WallboxController:
             return True
         except Exception:
             return False
+        
+     # Set charging current (Ampere)
+    def set_charging_ampere(self, amp: int):
+        allowed_values = [6, 10, 12, 14, 16]
+
+        if amp not in allowed_values:
+            raise ValueError(
+                f"Invalid amp value. Allowed values: {allowed_values}"
+            )
+
+        response = requests.get(
+            self.mqtt_url,
+            params={"payload": f"amx={amp}"},
+            timeout=5
+        )
+        response.raise_for_status()
+
+        return {
+            "amp": amp,
+            "message": "Charging ampere updated"
+        }

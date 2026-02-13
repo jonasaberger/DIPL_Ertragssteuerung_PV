@@ -771,6 +771,63 @@
         }
       },
 
+      "/api/wallbox/setCurrent": {
+        "post": {
+          "summary": "Set wallbox charging ampere",
+          "description": "Sets the charging current (ampere) of the wallbox. Allowed values are 6, 10, 12, 14 or 16.",
+          "tags": ["Wallbox"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WallboxSetAmpere"
+                },
+                "example": {
+                  "amp": 16
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Charging ampere updated successfully",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "amp": 16,
+                    "message": "Charging ampere updated"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid amp value or missing payload",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "error": "Invalid amp value. Allowed values: [6, 10, 12, 14, 16]"
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Manual control disabled in current mode",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                  }
+                }
+              }
+            },
+            "502": {
+              "description": "Wallbox communication failed"
+            }
+          }
+        }
+      },
+
       "/api/boiler/latest": {
         "get": {
           "summary": "Get latest Boiler temperature",
@@ -1029,6 +1086,18 @@
               "pha_L3": { "type": "integer", "description": "Phase L3 active (1/0)" },
               "pha_count": { "type": "integer", "description": "Number of active phases" },
               "charging": { "type": "integer", "description": "Charging currently active (1/0)" }
+            }
+          },
+
+          "WallboxSetAmpere": {
+            "type": "object",
+            "required": ["amp"],
+            "properties": {
+              "amp": {
+                "type": "integer",
+                "enum": [6, 10, 12, 14, 16],
+                "description": "Charging current in ampere"
+              }
             }
           },
 

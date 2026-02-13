@@ -121,6 +121,7 @@ class ServiceManager:
         # Wallbox endpoints
         self.app.add_url_rule('/api/wallbox/latest', 'wallbox_latest', self.get_wallbox_latest, methods=['GET'])
         self.app.add_url_rule('/api/wallbox/setCharging','wallbox_set_charging',self.set_wallbox_allow,methods=['POST'])
+        self.app.add_url_rule('/api/wallbox/setCurrent','wallbox_set_current',self.set_wallbox_current,methods=['POST'])
 
         # Boiler endpoints
         self.app.add_url_rule('/api/boiler/latest','boiler_latest',self.get_boiler_latest,methods=['GET'])
@@ -644,3 +645,63 @@ class ServiceManager:
                 {"error": "Forecast service unavailable"},
                 502
             )
+    
+    # POST JSON: { "amp": 6 | 10 | 12 | 14 | 16 }
+    def set_wallbox_current(self):
+        # Manual control disabled in automatic modes
+        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
+            return self._json(
+                {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                },
+                403
+            )
+
+        payload = request.get_json(silent=True)
+
+        if not payload or "amp" not in payload:
+            return self._json({"error": "Missing 'amp' field"}, 400)
+
+        try:
+            amp = int(payload["amp"])
+
+            # Old value for state-change logging
+            old_data = self.wallbox_controller.fetch_data()
+            old_amp = old_data.get("amp")
+
+            result = self.wallbox_controller.set_charging_ampere(amp)
+
+            # New value for state-change logging
+            new_data = self.wallbox_controller.fetch_data()
+            new_amp = new_data.get("amp")
+
+            # CONTROL DECISION LOG
+            self.logger.control_decision(
+                device="wallbox",
+                action="set_ampere",
+                reason="manual_api_call",
+                success=True,
+                extra=result
+            )
+
+            # DEVICE STATE CHANGE LOG
+            if old_amp != new_amp:
+                self.logger.device_state_change(
+                    device="wallbox_ampere",
+                    old_state=old_amp,
+                    new_state=new_amp
+                )
+
+            return self._json(result, 200)
+
+        except ValueError as e:
+            return self._json({"error": str(e)}, 400)
+
+        except Exception as e:
+            # API ERROR LOG
+            self.logger.api_error(
+                device="wallbox",
+                endpoint="/api/wallbox/setCurrent",
+                error=e
+            )
+            return self._json({"error": str(e)}, 502)
