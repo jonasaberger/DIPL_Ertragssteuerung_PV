@@ -2,12 +2,11 @@ import React from 'react'
 import { View, StyleSheet } from 'react-native'
 import Card from '@/components/card'
 import HModeSelector from './h-mode-selector'
-
-type Mode = 'MANUAL' | 'TIME_CONTROLLED' | 'AUTOMATIC'
+import { Mode } from '@/services/mode_service'
 
 type Props = {
   currentMode: Mode
-  onModeChange: (mode: Mode) => void
+  onModeChange: (mode: Mode) => Promise<void>
 }
 
 export default function HControlPanel({ currentMode, onModeChange }: Props) {
@@ -21,7 +20,7 @@ export default function HControlPanel({ currentMode, onModeChange }: Props) {
         />
 
         {/* Time Schedule Settings - nur anzeigen wenn TIME_CONTROLLED aktiv ist */}
-        {currentMode === 'TIME_CONTROLLED' && (
+        {currentMode === Mode.TIME_CONTROLLED && (
           <View style={styles.timeScheduleContainer}>
             {/* TODO: HTimeSchedule Component hier einfügen */}
             {/* <HTimeSchedule /> */}
@@ -29,7 +28,7 @@ export default function HControlPanel({ currentMode, onModeChange }: Props) {
         )}
 
         {/* Optional: Automatic Settings - nur anzeigen wenn AUTOMATIC aktiv ist */}
-        {currentMode === 'AUTOMATIC' && (
+        {currentMode === Mode.AUTOMATIC && (
           <View style={styles.automaticSettingsContainer}>
             {/* TODO: Automatic Settings Component hier einfügen falls benötigt */}
             {/* <HAutomaticSettings /> */}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { ScrollView, StyleSheet, Alert } from 'react-native'
+import Toast from 'react-native-toast-message'
 import { ThemedView } from '@/components/themed-view'
 
 import HDiagram, { DiagramData } from '@/components/homePage/h-diagram'
@@ -160,9 +161,11 @@ export default function HomeScreen() {
 
     if (success) {
       console.log('Mode successfully changed to:', newMode)
-      Alert.alert('Erfolg', `Modus geändert zu: ${newMode}`)
+      showToastMessage(`Modus geändert zu ${newMode}`, true)
+
     } else {
       console.warn('Failed to update mode on backend - reverting UI')
+      showToastMessage('Modus konnte nicht geändert werden', false)
       setUiState((prev) => ({ ...prev, currentMode: previousMode }))
       Alert.alert('Fehler', 'Modus konnte nicht geändert werden')
     }
@@ -216,6 +219,26 @@ export default function HomeScreen() {
       </ScrollView>
     </ThemedView>
   )
+}
+
+const showToastMessage = (message: string, success: boolean) => {
+  if (success) {
+    Toast.show({
+            type: 'success',
+            text1: 'Erfolg',
+            text2: `${message}`,
+            position: 'bottom',
+            visibilityTime: 2000,
+    })
+  } else {
+    Toast.show({
+            type: 'error',
+            text1: 'Error',
+            text2: `${message}`,
+            position: 'bottom',
+            visibilityTime: 2000,
+    })
+  }
 }
 
 const styles = StyleSheet.create({

@@ -1,38 +1,37 @@
 import React from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-
-type Mode = 'MANUAL' | 'TIME_CONTROLLED' | 'AUTOMATIC'
+import { Mode } from '@/services/mode_service'
 
 type Props = {
   currentMode: Mode
-  onModeChange: (mode: Mode) => void
+  onModeChange: (mode: Mode) => Promise<void>
 }
 
 export default function HModeSelector({ currentMode, onModeChange }: Props) {
   const getModeIcon = (mode: Mode) => {
     switch (mode) {
-      case 'MANUAL':
+      case Mode.MANUAL:
         return 'hand-back-right'
-      case 'TIME_CONTROLLED':
+      case Mode.TIME_CONTROLLED:
         return 'clock-outline'
-      case 'AUTOMATIC':
+      case Mode.AUTOMATIC:
         return 'auto-fix'
     }
   }
 
   const getModeLabel = (mode: Mode) => {
     switch (mode) {
-      case 'MANUAL':
+      case Mode.MANUAL:
         return 'Manuell'
-      case 'TIME_CONTROLLED':
+      case Mode.TIME_CONTROLLED:
         return 'Zeit'
-      case 'AUTOMATIC':
+      case Mode.AUTOMATIC:
         return 'Auto'
     }
   }
 
-  const modes: Mode[] = ['MANUAL', 'TIME_CONTROLLED', 'AUTOMATIC']
+  const modes: Mode[] = [Mode.MANUAL, Mode.TIME_CONTROLLED, Mode.AUTOMATIC]
 
   return (
     <View style={styles.container}>
