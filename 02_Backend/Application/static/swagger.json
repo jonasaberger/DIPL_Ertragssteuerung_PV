@@ -35,7 +35,7 @@
       }
     },
 
-      "/api/state": {
+     "/api/state": {
         "get": {
           "summary": "System status overview",
           "description": "Returns a compact health status of backend service, InfluxDB connection and connected devices. This endpoint is read-only and intended purely for monitoring.",
@@ -58,6 +58,7 @@
           }
         }
       },
+
       "/api/logging": {
         "get": {
           "summary": "Query system logs",
@@ -116,7 +117,37 @@
           }
         }
       },
-     
+
+      "/api/forecast": {
+        "get": {
+          "summary": "Get PV weather forecast",
+          "description": "Returns PV generation forecast based on cloud cover and sunrise/sunset data from Open-Meteo.",
+          "tags": ["Forecast"],
+          "responses": {
+            "200": {
+              "description": "PV forecast data",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PVForecast"
+                  },
+                  "example": {
+                    "pv_today": true,
+                    "pv_tomorrow": false,
+                    "pv_hours_today": 6,
+                    "best_hour_today": "13:00",
+                    "source": "open-meteo"
+                  }
+                }
+              }
+            },
+            "502": {
+              "description": "Forecast service unavailable"
+            }
+          }
+        }
+      },
+
       "/api/mode": {
         "get": {
           "summary": "Get current system mode",
@@ -817,6 +848,33 @@
             }
           }
         },
+
+          "PVForecast": {
+              "type": "object",
+              "properties": {
+                "pv_today": {
+                  "type": "boolean",
+                  "description": "Indicates if PV generation is expected today"
+                },
+                "pv_tomorrow": {
+                  "type": "boolean",
+                  "description": "Indicates if PV generation is expected tomorrow"
+                },
+                "pv_hours_today": {
+                  "type": "integer",
+                  "description": "Number of forecasted hours today with sufficient PV conditions"
+                },
+                "best_hour_today": {
+                  "type": "string",
+                  "example": "13:00",
+                  "description": "Hour with lowest cloud cover today"
+                },
+                "source": {
+                  "type": "string",
+                  "example": "open-meteo"
+                }
+              }
+            },
 
           "PVMeasurement": {
             "type": "object",

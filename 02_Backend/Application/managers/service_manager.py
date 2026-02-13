@@ -16,6 +16,7 @@ from stores.system_mode_store import SystemMode, SystemModeStore
 from stores.schedule_store import ScheduleStore
 from services.scheduler_service import SchedulerService
 from stores.automatic_config_store import AutomaticConfigStore
+from services.pv_forecast_service import PVForecastService
 
 import platform
 from datetime import datetime
@@ -67,6 +68,9 @@ class ServiceManager:
 
         # AUTOMATIC mode configuration store
         self.automatic_config_store = AutomaticConfigStore()
+
+        # Initialize forecast service
+        self.pv_forecast_service = PVForecastService()
 
         self.scheduler = SchedulerService(
              mode_store=self.mode_store,
@@ -135,19 +139,9 @@ class ServiceManager:
         # Device IP-Manager
         self.app.add_url_rule('/api/devices/get_devices', 'get_devices', self.device_manager.get_devices, methods=['GET'])
         self.app.add_url_rule('/api/devices/get_device', 'get_device', self.device_manager.get_device, methods=['GET'])
-        self.app.add_url_rule(
-            '/api/devices/admin/verify_admin_pw',
-            'verify_admin_pw',
-            self.device_manager.verify_admin_pw,
-            methods=['POST']
-        )
+        self.app.add_url_rule('/api/devices/admin/verify_admin_pw', 'verify_admin_pw', self.device_manager.verify_admin_pw, methods=['POST'])
         self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.device_manager.edit_device_endpoint, methods=['POST'])
-        self.app.add_url_rule(
-            '/api/devices/reset_devices',
-            'reset_devices',
-            self.device_manager.reset_devices_endpoint,
-            methods=["POST"]
-        )
+        self.app.add_url_rule( '/api/devices/reset_devices', 'reset_devices', self.device_manager.reset_devices_endpoint, methods=["POST"])
 
         # Mode Management endpoints
         self.app.add_url_rule('/api/mode', 'mode', self.mode_endpoint, methods=['GET', 'POST'])
@@ -156,6 +150,9 @@ class ServiceManager:
 
         # AUTOMATIC mode configuration endpoint
         self.app.add_url_rule("/api/automatic-config","automatic_config",self.automatic_config_endpoint,methods=["GET", "PUT", "POST"])
+
+        # Forecast service endpoint
+        self.app.add_url_rule( "/api/forecast", "forecast", self.get_forecast, methods=["GET"])
 
     # Route Handlers
     def _json(self, payload, status=200):
@@ -630,3 +627,20 @@ class ServiceManager:
                 "status": "ok",
                 "message": "AUTOMATIC configuration reset to default"
             })
+        
+    # GET /api/forecast - Get PV forecast for today and tomorrow
+    def get_forecast(self):
+        try:
+            data = self.pv_forecast_service.get_forecast()
+            return self._json(data, 200)
+        except Exception as e:
+            # API ERROR LOG
+            self.logger.api_error(
+                device="forecast",
+                endpoint="/api/forecast",
+                error=e
+            )
+            return self._json(
+                {"error": "Forecast service unavailable"},
+                502
+            )

@@ -48,14 +48,29 @@ class PVForecastService:
         hourly_clouds = data["hourly"]["cloudcover"]
 
         sunrise_today = datetime.fromisoformat(data["daily"]["sunrise"][0]).astimezone(self.tz)
+
         sunset_today = datetime.fromisoformat(data["daily"]["sunset"][0]).astimezone(self.tz)
 
         sunrise_tomorrow = datetime.fromisoformat(data["daily"]["sunrise"][1]).astimezone(self.tz)
+
         sunset_tomorrow = datetime.fromisoformat(data["daily"]["sunset"][1]).astimezone(self.tz)
 
+        start_today = max(now, sunrise_today)
+
+        if start_today > sunset_today:
+            pv_today = False
+            hours_today = 0
+            best_hour_today = None
+        else:
+            pv_today, hours_today, best_hour_today = self._pv_details(start_today,sunset_today,hourly_times,hourly_clouds)
+
+        pv_tomorrow, _, _ = self._pv_details(sunrise_tomorrow, sunset_tomorrow, hourly_times, hourly_clouds)
+
         return {
-            "pv_today": self._pv_possible(now, sunset_today, hourly_times, hourly_clouds),
-            "pv_tomorrow": self._pv_possible(sunrise_tomorrow, sunset_tomorrow, hourly_times, hourly_clouds),
+            "pv_today": pv_today,
+            "pv_tomorrow": pv_tomorrow,
+            "pv_hours_today": hours_today,
+            "best_hour_today": best_hour_today,
             "source": "open-meteo"
         }
 
@@ -66,3 +81,28 @@ class PVForecastService:
             if start <= ts <= end and cloud <= self.cloud_threshold:
                 return True
         return False
+    
+    # More detailed analysis that counts the number of good PV hours and finds the best hour with lowest cloud cover
+    def _pv_details(self, start, end, times, clouds):
+        pv_hours = 0
+        best_hour = None
+        # Highest possible cloud cover in the forecast is 100
+        lowest_cloud = 101  
+
+        for t, cloud in zip(times, clouds):
+            ts = datetime.fromisoformat(t).astimezone(self.tz)
+
+            if start <= ts <= end:
+
+                # Count hours with acceptable cloud cover
+                if cloud <= self.cloud_threshold:
+                    pv_hours += 1
+
+                # Find the hour with the lowest cloud cover
+                if cloud < lowest_cloud:
+                    lowest_cloud = cloud
+                    best_hour = ts.strftime("%H:%M")
+
+        pv_possible = pv_hours > 0
+
+        return pv_possible, pv_hours, best_hour

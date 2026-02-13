@@ -105,26 +105,10 @@ class SchedulerService(threading.Thread):
             should_allow = self.schedule_manager.is_active("wallbox")
             online = self.wallbox.is_online()
 
-            if online != self.wallbox_online_last_state:
-
-                if not online:
-                    # SYSTEM EVENT
-                    self.logger.system_event(
-                        level="error",
-                        source="scheduler",
-                        message="Wallbox went OFFLINE in TIME_CONTROLLED mode"
-                    )
-                else:
-                    # SYSTEM EVENT
-                    self.logger.system_event(
-                        level="info",
-                        source="scheduler",
-                        message="Wallbox back ONLINE in TIME_CONTROLLED mode"
-                    )
-
-                self.wallbox_online_last_state = online
-
             if not online:
+                return
+
+            if current is None:
                 return
 
             if should_allow and not current:
@@ -460,11 +444,12 @@ class SchedulerService(threading.Thread):
         today = datetime.now(ZoneInfo("Europe/Vienna")).date()
 
         if self.last_time_controlled_error_date != today:
-
+            
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="error",
                 source="TIME_CONTROLLED",
-                message=f"TIME_CONTROLLED error: {error}"
+                message=f"TIME_CONTROLLED error: {error} - This error will not be logged again today to prevent log spam."
             )
 
             self.last_time_controlled_error_date = today
