@@ -44,10 +44,10 @@ export default function HAutomaticSettings() {
   }
 
   const handleSave = async () => {
-    if (!config) return
+    if (!config || !originalConfig) return
 
     setSaving(true)
-    const success = await updateAutomaticConfig(config)
+    const success = await updateAutomaticConfig(config, originalConfig)
     setSaving(false)
 
     if (success) {
@@ -205,6 +205,16 @@ export default function HAutomaticSettings() {
     })
   }
 
+  // Check if specific field has changed
+  const isFieldChanged = (
+    device: 'boiler' | 'wallbox',
+    field: keyof AutomaticConfig['boiler'] | keyof AutomaticConfig['wallbox']
+  ): boolean => {
+    if (!config || !originalConfig) return false
+    return config[device][field as keyof typeof config[typeof device]] !== 
+           originalConfig[device][field as keyof typeof originalConfig[typeof device]]
+  }
+
   // Check if any value has changed
   const hasAnyChanges = (): boolean => {
     if (!config || !originalConfig) return false
@@ -268,7 +278,14 @@ export default function HAutomaticSettings() {
                   <Text style={styles.settingLabelText}>Zielzeit</Text>
                 </View>
                 <View style={styles.settingValue}>
-                  <Text style={styles.settingValueText}>{config.boiler.target_time}</Text>
+                  <Text 
+                    style={[
+                      styles.settingValueText,
+                      isFieldChanged('boiler', 'target_time') && styles.settingValueTextChanged
+                    ]}
+                  >
+                    {config.boiler.target_time}
+                  </Text>
                   <MaterialCommunityIcons name="chevron-right" size={20} color="#C7C7CC" />
                 </View>
               </TouchableOpacity>
@@ -286,7 +303,14 @@ export default function HAutomaticSettings() {
                   >
                     <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
                   </TouchableOpacity>
-                  <Text style={styles.counterValue}>{config.boiler.energy_kwh} kWh</Text>
+                  <Text 
+                    style={[
+                      styles.counterValue,
+                      isFieldChanged('boiler', 'energy_kwh') && styles.counterValueChanged
+                    ]}
+                  >
+                    {config.boiler.energy_kwh} kWh
+                  </Text>
                   <TouchableOpacity
                     style={styles.counterButton}
                     onPress={() => updateEnergy('boiler', 0.5)}
@@ -309,7 +333,14 @@ export default function HAutomaticSettings() {
                   >
                     <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
                   </TouchableOpacity>
-                  <Text style={styles.counterValue}>{config.boiler.min_runtime_min} min</Text>
+                  <Text 
+                    style={[
+                      styles.counterValue,
+                      isFieldChanged('boiler', 'min_runtime_min') && styles.counterValueChanged
+                    ]}
+                  >
+                    {config.boiler.min_runtime_min} min
+                  </Text>
                   <TouchableOpacity
                     style={styles.counterButton}
                     onPress={() => updateRuntime(15)}
@@ -349,7 +380,14 @@ export default function HAutomaticSettings() {
                   <Text style={styles.settingLabelText}>Zielzeit</Text>
                 </View>
                 <View style={styles.settingValue}>
-                  <Text style={styles.settingValueText}>{config.wallbox.target_time}</Text>
+                  <Text 
+                    style={[
+                      styles.settingValueText,
+                      isFieldChanged('wallbox', 'target_time') && styles.settingValueTextChanged
+                    ]}
+                  >
+                    {config.wallbox.target_time}
+                  </Text>
                   <MaterialCommunityIcons name="chevron-right" size={20} color="#C7C7CC" />
                 </View>
               </TouchableOpacity>
@@ -367,7 +405,14 @@ export default function HAutomaticSettings() {
                   >
                     <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
                   </TouchableOpacity>
-                  <Text style={styles.counterValue}>{config.wallbox.energy_kwh} kWh</Text>
+                  <Text 
+                    style={[
+                      styles.counterValue,
+                      isFieldChanged('wallbox', 'energy_kwh') && styles.counterValueChanged
+                    ]}
+                  >
+                    {config.wallbox.energy_kwh} kWh
+                  </Text>
                   <TouchableOpacity
                     style={styles.counterButton}
                     onPress={() => updateEnergy('wallbox', 1)}
@@ -521,6 +566,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1EAFF3',
   },
+  settingValueTextChanged: {
+    color: '#FF3B30',
+  },
   counterControl: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -540,6 +588,9 @@ const styles = StyleSheet.create({
     color: '#000',
     minWidth: 80,
     textAlign: 'center',
+  },
+  counterValueChanged: {
+    color: '#FF3B30',
   },
   buttonContainer: {
     gap: 12,
