@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import Card from '@/components/card'
 import HModeSelector from './h-mode-selector'
-import { Mode } from '@/services/mode_service'
+import { Mode } from '@/services/mode_services/mode_service'
 import HTimeSchedule from './h-time-schedule'
 import HAutomaticSettings from './h-automatic'
 

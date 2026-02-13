@@ -4,12 +4,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Activit
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import Toast from 'react-native-toast-message'
+import {timeStringToDate, dateToTimeString} from '@/services/helper'
 import {
   fetchAutomaticConfig,
   updateAutomaticConfig,
   resetAutomaticConfig,
   AutomaticConfig,
-} from '@/services/automatic_mode_service'
+} from '@/services/mode_services/automatic_mode_service'
 
 export default function HAutomaticSettings() {
   const [loading, setLoading] = useState(true)
@@ -102,21 +103,6 @@ export default function HAutomaticSettings() {
         position: 'bottom',
       })
     }
-  }
-
-  // Helper: Convert time string to Date object
-  const timeStringToDate = (timeStr: string): Date => {
-    const [hours, minutes] = timeStr.split(':').map(Number)
-    const date = new Date()
-    date.setHours(hours, minutes, 0, 0)
-    return date
-  }
-
-  // Helper: Convert Date to time string
-  const dateToTimeString = (date: Date): string => {
-    const hours = date.getHours().toString().padStart(2, '0')
-    const minutes = date.getMinutes().toString().padStart(2, '0')
-    return `${hours}:${minutes}`
   }
 
   // Toggle device enabled/disabled
@@ -479,6 +465,7 @@ export default function HAutomaticSettings() {
   )
 }
 
+// Styles created with ChatGPT
 const styles = StyleSheet.create({
   container: {
     flex: 1,

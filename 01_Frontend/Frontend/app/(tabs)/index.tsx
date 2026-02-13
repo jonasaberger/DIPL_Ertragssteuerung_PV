@@ -13,7 +13,7 @@ import HBoiler from '@/components/homePage/h-boiler'
 import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
 import { toggleBoilerSetting } from '@/services/iot_services/boiler_service'
 import { allowEGoPower } from '@/services/iot_services/e_go_service'
-import { fetchModeData, setModeData, ModeData, Mode } from '@/services/mode_service'
+import { fetchModeData, setModeData, ModeData, Mode } from '@/services/mode_services/mode_service'
 
 type EGoWallboxSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'

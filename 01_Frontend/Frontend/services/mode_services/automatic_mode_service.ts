@@ -1,4 +1,4 @@
-import { fetchJson, postJson, putJson } from './helper'
+import { fetchJson, postJson, putJson } from '../helper'
 
 export interface BoilerAutomaticConfig {
   enabled: boolean

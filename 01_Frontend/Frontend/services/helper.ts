@@ -77,3 +77,18 @@ export function parseInfluxTime(rawTime: string): {
 export function round1(value: number): number {
   return Number(value.toFixed(1))
 }
+
+// Convert time string to Date object
+export function timeStringToDate (timeStr: string): Date {
+  const [hours, minutes] = timeStr.split(':').map(Number)
+  const date = new Date()
+  date.setHours(hours, minutes, 0, 0)
+  return date
+}
+
+// Convert Date to time string
+export function dateToTimeString (date: Date): string {
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
+}
