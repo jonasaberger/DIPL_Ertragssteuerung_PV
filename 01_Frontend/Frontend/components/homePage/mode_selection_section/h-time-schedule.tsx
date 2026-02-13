@@ -174,7 +174,10 @@ export default function HTimeSchedule() {
         {/* Season Selector */}
         <View style={styles.seasonSelector}>
           <TouchableOpacity
-            style={[styles.seasonButton, activeSeason === 'winter' && styles.seasonButtonActive]}
+            style={[
+              styles.seasonButton,
+              activeSeason === 'winter' && styles.seasonButtonActiveWinter,
+            ]}
             onPress={() => setActiveSeason('winter')}
           >
             <MaterialCommunityIcons
@@ -182,12 +185,20 @@ export default function HTimeSchedule() {
               size={20}
               color={activeSeason === 'winter' ? '#FFFFFF' : '#8E8E93'}
             />
-            <Text style={[styles.seasonText, activeSeason === 'winter' && styles.seasonTextActive]}>
+            <Text
+              style={[
+                styles.seasonText,
+                activeSeason === 'winter' && styles.seasonTextActive,
+              ]}
+            >
               Winter
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.seasonButton, activeSeason === 'summer' && styles.seasonButtonActive]}
+            style={[
+              styles.seasonButton,
+              activeSeason === 'summer' && styles.seasonButtonActiveSummer,
+            ]}
             onPress={() => setActiveSeason('summer')}
           >
             <MaterialCommunityIcons
@@ -195,7 +206,12 @@ export default function HTimeSchedule() {
               size={20}
               color={activeSeason === 'summer' ? '#FFFFFF' : '#8E8E93'}
             />
-            <Text style={[styles.seasonText, activeSeason === 'summer' && styles.seasonTextActive]}>
+            <Text
+              style={[
+                styles.seasonText,
+                activeSeason === 'summer' && styles.seasonTextActive,
+              ]}
+            >
               Sommer
             </Text>
           </TouchableOpacity>
@@ -428,8 +444,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
   },
-  seasonButtonActive: {
-    backgroundColor: '#1EAFF3',
+  seasonButtonActiveWinter: {
+    backgroundColor: '#5BA3D0', // Eisblau für Winter
+  },
+  seasonButtonActiveSummer: {
+    backgroundColor: '#FF9500', // Orange für Sommer
   },
   seasonText: {
     fontSize: 14,
