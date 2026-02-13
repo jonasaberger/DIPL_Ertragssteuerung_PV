@@ -4,6 +4,7 @@ import Card from '@/components/card'
 import HModeSelector from './h-mode-selector'
 import { Mode } from '@/services/mode_service'
 import HTimeSchedule from './h-time-schedule'
+import HAutomaticSettings from './h-automatic'
 
 type Props = {
   currentMode: Mode
@@ -30,8 +31,7 @@ export default function HControlPanel({ currentMode, onModeChange }: Props) {
         {/* Optional: Automatic Settings - nur anzeigen wenn AUTOMATIC aktiv ist */}
         {currentMode === Mode.AUTOMATIC && (
           <View style={styles.automaticSettingsContainer}>
-            {/* TODO: Automatic Settings Component hier einfügen falls benötigt */}
-            {/* <HAutomaticSettings /> */}
+            <HAutomaticSettings />
           </View>
         )}
       </View>

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Activit
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import Toast from 'react-native-toast-message'
-import {fetchScheduleConfig, updateScheduleConfig, resetScheduleConfig, ScheduleConfig, Season,} from '@/services/time_schedule_service'
+import {fetchScheduleConfig, updateScheduleConfig, resetScheduleConfig, ScheduleConfig, Season,} from '@/services/time_schedule_mode_service'
 
 export default function HTimeSchedule() {
   const [activeSeason, setActiveSeason] = useState<Season>('winter')
