@@ -10,7 +10,6 @@ export async function fetchJson<T>(path: string): Promise<T> {
       `API ${path} failed: ${response.status} ${response.statusText} ${text}`
     )
   }
-
   return response.json() as Promise<T>
 }
 
@@ -34,8 +33,29 @@ export async function postJson<T = any>(
     )
   }
   console.log(`API POST ${path} succeeded.`)
+  return response.json() as Promise<T>
+}
 
-  // Immer JSON erwarten - wenn nicht, Error werfen
+// PUT - Helper
+export async function putJson<T = any>(
+  path: string,
+  body: Record<string, any>
+): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(
+      `API PUT ${path} failed: ${response.status} ${response.statusText} ${text}`
+    )
+  }
+  console.log(`API PUT ${path} succeeded.`)
   return response.json() as Promise<T>
 }
 

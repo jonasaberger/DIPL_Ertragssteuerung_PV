@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native'
 import Card from '@/components/card'
 import HModeSelector from './h-mode-selector'
 import { Mode } from '@/services/mode_service'
+import HTimeSchedule from './h-time-schedule'
 
 type Props = {
   currentMode: Mode
@@ -22,8 +23,7 @@ export default function HControlPanel({ currentMode, onModeChange }: Props) {
         {/* Time Schedule Settings - nur anzeigen wenn TIME_CONTROLLED aktiv ist */}
         {currentMode === Mode.TIME_CONTROLLED && (
           <View style={styles.timeScheduleContainer}>
-            {/* TODO: HTimeSchedule Component hier einfügen */}
-            {/* <HTimeSchedule /> */}
+            <HTimeSchedule />
           </View>
         )}
 
