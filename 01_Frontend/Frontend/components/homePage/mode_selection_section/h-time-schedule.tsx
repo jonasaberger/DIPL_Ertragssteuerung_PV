@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Activit
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import Toast from 'react-native-toast-message'
-import {fetchScheduleConfig, updateScheduleConfig, resetScheduleConfig, ScheduleConfig, Season,} from '@/services/time_schedule_service'
+import {timeStringToDate, dateToTimeString} from '@/services/helper'
+import {fetchScheduleConfig, updateScheduleConfig, resetScheduleConfig, ScheduleConfig, Season,} from '@/services/mode_services/time_schedule_mode_service'
 
 export default function HTimeSchedule() {
   const [activeSeason, setActiveSeason] = useState<Season>('winter')
@@ -99,21 +100,6 @@ export default function HTimeSchedule() {
         position: 'bottom',
       })
     }
-  }
-
-  // Helper: Convert time string to Date object
-  const timeStringToDate = (timeStr: string): Date => {
-    const [hours, minutes] = timeStr.split(':').map(Number)
-    const date = new Date()
-    date.setHours(hours, minutes, 0, 0)
-    return date
-  }
-
-  // Helper: Convert Date to time string
-  const dateToTimeString = (date: Date): string => {
-    const hours = date.getHours().toString().padStart(2, '0')
-    const minutes = date.getMinutes().toString().padStart(2, '0')
-    return `${hours}:${minutes}`
   }
 
   // Update time
