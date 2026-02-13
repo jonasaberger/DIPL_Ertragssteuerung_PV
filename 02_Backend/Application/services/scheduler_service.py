@@ -19,8 +19,8 @@ class SchedulerService(threading.Thread):
         self.interval = interval
         self.logger = logger
 
-        self._last_time_controlled_error_ts = None
-        self._time_controlled_error_cooldown = 3600
+        self.last_time_controlled_error_date = None
+        self.wallbox_online_last_state = None
 
         self.automatic_config = AutomaticConfigStore()
         self.pv_service = PVSurplusService(db_bridge)
@@ -64,9 +64,10 @@ class SchedulerService(threading.Thread):
             state = self.boiler.get_state()
             should_on = self.schedule_manager.is_active("boiler")
 
-            if should_on and not state:
+            if should_on and not state: 
                 self.boiler.control("on")
 
+                # CONTROL DECISION LOG
                 self.logger.control_decision(
                     device="boiler",
                     action="on",
@@ -74,6 +75,7 @@ class SchedulerService(threading.Thread):
                     success=True
                 )
 
+                # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change(
                     device="boiler",
                     old_state=False,
@@ -83,6 +85,7 @@ class SchedulerService(threading.Thread):
             elif not should_on and state:
                 self.boiler.control("off")
 
+                # CONTROL DECISION LOG
                 self.logger.control_decision(
                     device="boiler",
                     action="off",
@@ -90,6 +93,7 @@ class SchedulerService(threading.Thread):
                     success=True
                 )
 
+                # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change(
                     device="boiler",
                     old_state=True,
@@ -97,32 +101,71 @@ class SchedulerService(threading.Thread):
                 )
 
             # WALLBOX 
-            allow = self.schedule_manager.is_active("wallbox")
             current = self.wallbox.get_allow_state()
+            should_allow = self.schedule_manager.is_active("wallbox")
+            online = self.wallbox.is_online()
 
-            if current is None:
-                self.wallbox.set_allow_charging(allow)
+            if online != self.wallbox_online_last_state:
+
+                if not online:
+                    # SYSTEM EVENT
+                    self.logger.system_event(
+                        level="error",
+                        source="scheduler",
+                        message="Wallbox went OFFLINE in TIME_CONTROLLED mode"
+                    )
+                else:
+                    # SYSTEM EVENT
+                    self.logger.system_event(
+                        level="info",
+                        source="scheduler",
+                        message="Wallbox back ONLINE in TIME_CONTROLLED mode"
+                    )
+
+                self.wallbox_online_last_state = online
+
+            if not online:
                 return
 
-            if allow != current:
-                self.wallbox.set_allow_charging(allow)
+            if should_allow and not current:
+                self.wallbox.set_allow_charging(True)
 
+                # CONTROL DECISION LOG
                 self.logger.control_decision(
                     device="wallbox",
                     action="set_allow",
                     reason="time_controlled_schedule",
                     success=True,
-                    extra={"allow": allow}
+                    extra={"allow": True}
                 )
 
+                # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change(
                     device="wallbox",
-                    old_state=current,
-                    new_state=allow
+                    old_state=False,
+                    new_state=True
                 )
 
+            elif not should_allow and current:
+                self.wallbox.set_allow_charging(False)
+
+                # CONTROL DECISION LOG
+                self.logger.control_decision(
+                    device="wallbox",
+                    action="set_allow",
+                    reason="time_controlled_schedule",
+                    success=True,
+                    extra={"allow": False}
+                )
+
+                # DEVICE STATE CHANGE LOG
+                self.logger.device_state_change(
+                    device="wallbox",
+                    old_state=True,
+                    new_state=False
+                )
         except Exception as e:
-            self._log_time_controlled_error_throttled(e)
+            self.log_time_controlled_error(e)
 
     # AUTOMATIC
     def run_automatic(self):
@@ -360,7 +403,13 @@ class SchedulerService(threading.Thread):
                         "pv_tomorrow": pv_tomorrow
                     }
                 )
-                self.logger.device_state_change("wallbox", True, False)
+                
+                # DEVICE STATE CHANGE LOG
+                self.logger.device_state_change(
+                    device="wallbox",
+                    old_state=allow,
+                    new_state=False
+                )
             return
 
         # 3) Deadline-Failsafe: No PV, no good forecast and deadline is close -> allow charging if not already allowed (optionally only if allow_night_grid is set)
@@ -378,23 +427,44 @@ class SchedulerService(threading.Thread):
                     "charged_kwh": round(charged_kwh, 2)
                 }
             )
+
+            # DEVICE STATE CHANGE LOG
             self.logger.device_state_change("wallbox", False, True)
             return
 
         # 4) Else: loading off 
         if allow:
             self.wallbox.set_allow_charging(False)
-            self.logger.device_state_change("wallbox", True, False)
+            
+            self.logger.control_decision(
+                device="wallbox",
+                action="set_allow",
+                reason="automatic_no_pv_no_forecast",
+                success=True,
+                extra={
+                    "pv_surplus_kw": pv_surplus,
+                    "pv_today": pv_today,
+                    "pv_tomorrow": pv_tomorrow
+                }
+            )
 
-    def _log_time_controlled_error_throttled(self, error: Exception):
-        now = time.time()
+            # DEVICE STATE CHANGE LOG
+            self.logger.device_state_change(
+                device="wallbox",
+                old_state=True,
+                new_state=False
+            )
 
-        if (self._last_time_controlled_error_ts is None  or now - self._last_time_controlled_error_ts > self._time_controlled_error_cooldown):
+    # TIME-CONTROLLED ERROR LOGGING with throttling to prevent log spam in case of persistent errors
+    def log_time_controlled_error(self, error: Exception):
+        today = datetime.now(ZoneInfo("Europe/Vienna")).date()
 
-            # SYSTEM EVENT LOG
+        if self.last_time_controlled_error_date != today:
+
             self.logger.system_event(
                 level="error",
                 source="TIME_CONTROLLED",
                 message=f"TIME_CONTROLLED error: {error}"
             )
-            self._last_time_controlled_error_ts = now
+
+            self.last_time_controlled_error_date = today

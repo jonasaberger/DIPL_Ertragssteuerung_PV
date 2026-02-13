@@ -15,7 +15,6 @@ class FakeDB:
     def get_latest_pv_data(self):
         return None
 
-
 class FakeBoiler:
     def __init__(self):
         self.state = False
@@ -26,10 +25,12 @@ class FakeBoiler:
     def control(self, action):
         self.state = (action == "on")
 
-
 class FakeWallbox:
     def __init__(self):
-        self.allow = None
+        self.allow = False
+
+    def is_online(self):
+        return True
 
     def set_allow_charging(self, allow):
         self.allow = allow

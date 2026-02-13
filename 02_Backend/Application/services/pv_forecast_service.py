@@ -4,10 +4,10 @@ from zoneinfo import ZoneInfo
 
 # Simple PV forecast using Open-Meteo, determines whether PV generation is likely today or tomorrow
 class PVForecastService:
-
     # Bruck an der Großglocknerstraße
     LAT = 47.2849
     LON = 12.8231
+    
 
     def __init__(self, cloud_threshold=40):
         self.cloud_threshold = cloud_threshold

@@ -95,6 +95,14 @@ class WallboxController:
     def get_allow_state(self) -> bool | None:
         try:
             data = self.fetch_data()
+            print(f"ALW: {data.get('alw')}")
             return bool(data.get("alw"))
         except Exception:
             return None
+        
+    def is_online(self) -> bool:
+        try:
+            self.fetch_data()
+            return True
+        except Exception:
+            return False
