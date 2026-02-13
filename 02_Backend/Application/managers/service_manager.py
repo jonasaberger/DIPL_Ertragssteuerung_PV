@@ -419,6 +419,7 @@ class ServiceManager:
             "wallbox": "unknown",
             "boiler": "unknown",
             "epex": "unknown",
+            "forecast": "unknown",
             "timestamp": datetime.now(ZoneInfo("Europe/Vienna")).isoformat()
         }
 
@@ -473,6 +474,23 @@ class ServiceManager:
                 source="monitoring",
                 message=f"EPEX data check failed: {e}"
         )
+            
+        # PV Forecast
+        try:
+            forecast_data = self.pv_forecast_service.get_forecast()
+
+            if not forecast_data:
+                status["forecast"] = "no_data"
+            else:
+                status["forecast"] = "ok"
+
+        except Exception as e:
+            status["forecast"] = "error"
+            self.logger.system_event(
+                level="error",
+                source="monitoring",
+                message=f"Forecast service failed: {e}"
+            )
 
         return jsonify(status), 200
     
