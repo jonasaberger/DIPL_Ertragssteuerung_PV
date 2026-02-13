@@ -159,7 +159,7 @@ export default function SDeviceStates() {
 const styles = StyleSheet.create({
   listBox: {
     marginTop: 10,
-    backgroundColor: '#d8d8d8',
+    backgroundColor: '#eeeeee',
     borderRadius: 14,
     overflow: 'hidden',
   },
