@@ -48,39 +48,44 @@ class PVForecastService:
         hourly_clouds = data["hourly"]["cloudcover"]
 
         sunrise_today = datetime.fromisoformat(data["daily"]["sunrise"][0]).astimezone(self.tz)
-
         sunset_today = datetime.fromisoformat(data["daily"]["sunset"][0]).astimezone(self.tz)
 
         sunrise_tomorrow = datetime.fromisoformat(data["daily"]["sunrise"][1]).astimezone(self.tz)
-
         sunset_tomorrow = datetime.fromisoformat(data["daily"]["sunset"][1]).astimezone(self.tz)
 
-        start_today = max(now, sunrise_today)
+        start_remaining_today = max(now, sunrise_today)
 
-        if start_today > sunset_today:
+        if start_remaining_today > sunset_today:
             pv_today = False
-            hours_today = 0
-            best_hour_today = None
         else:
-            pv_today, hours_today, best_hour_today = self._pv_details(start_today,sunset_today,hourly_times,hourly_clouds)
+            pv_today, _, _ = self._pv_details(
+                start_remaining_today,
+                sunset_today,
+                hourly_times,
+                hourly_clouds
+            )
+        
+        _, hours_today_total, best_hour_today = self._pv_details(
+            sunrise_today,
+            sunset_today,
+            hourly_times,
+            hourly_clouds
+        )
 
-        pv_tomorrow, _, _ = self._pv_details(sunrise_tomorrow, sunset_tomorrow, hourly_times, hourly_clouds)
+        pv_tomorrow, _, _ = self._pv_details(
+            sunrise_tomorrow,
+            sunset_tomorrow,
+            hourly_times,
+            hourly_clouds
+        )
 
         return {
             "pv_today": pv_today,
             "pv_tomorrow": pv_tomorrow,
-            "pv_hours_today": hours_today,
+            "pv_hours_today": hours_today_total,
             "best_hour_today": best_hour_today,
             "source": "open-meteo"
         }
-
-    # Checks if there is a time between start and end where cloud cover is below the threshold
-    def _pv_possible(self, start, end, times, clouds) -> bool:
-        for t, cloud in zip(times, clouds):
-            ts = datetime.fromisoformat(t).astimezone(self.tz)
-            if start <= ts <= end and cloud <= self.cloud_threshold:
-                return True
-        return False
     
     # More detailed analysis that counts the number of good PV hours and finds the best hour with lowest cloud cover
     def _pv_details(self, start, end, times, clouds):
