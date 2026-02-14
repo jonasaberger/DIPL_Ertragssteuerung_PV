@@ -9,7 +9,7 @@ from stores.automatic_config_store import AutomaticConfigStore
 from services.pv_forecast_service import PVForecastService
 
 class SchedulerService(threading.Thread):
-    def __init__(self, mode_store, schedule_manager, boiler, wallbox, db_bridge, logger, interval=20):
+    def __init__(self, mode_store, schedule_manager, boiler, wallbox, db_bridge, logger, interval=60):
         super().__init__(daemon=True)
 
         self.mode_store = mode_store
