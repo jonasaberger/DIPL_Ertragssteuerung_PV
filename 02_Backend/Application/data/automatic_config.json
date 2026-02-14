@@ -3,13 +3,13 @@
     "winter": {
       "enabled": true,
       "target_time": "16:00",
-      "energy_kwh": 3.0,
+      "target_temp_c": 68,
       "min_runtime_min": 90
     },
     "summer": {
       "enabled": true,
       "target_time": "14:00",
-      "energy_kwh": 2.0,
+      "target_temp_c": 68,
       "min_runtime_min": 60
     }
   },

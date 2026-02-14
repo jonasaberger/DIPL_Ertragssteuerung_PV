@@ -278,7 +278,7 @@
       "/api/automatic-config": {
       "get": {
         "summary": "Get AUTOMATIC mode configuration",
-        "description": "Returns the current configuration for the AUTOMATIC system mode, including target times and energy goals.",
+        "description": "Returns the current configuration for the AUTOMATIC system mode, including target times and temperature goals for the boiler and energy targets for the wallbox.",
         "tags": ["Automatic"],
         "responses": {
           "200": {
@@ -293,13 +293,13 @@
                     "winter": {
                       "enabled": true,
                       "target_time": "16:00",
-                      "energy_kwh": 3.0,
+                      "target_temp_c": 67,
                       "min_runtime_min": 90
                     },
                     "summer": {
                       "enabled": true,
                       "target_time": "14:00",
-                      "energy_kwh": 2.5,
+                      "target_temp_c": 65,
                       "min_runtime_min": 70
                     }
                   },
@@ -736,7 +736,16 @@
           "summary": "Get latest Wallbox data",
           "tags": ["Wallbox"],
           "responses": {
-            "200": { "description": "Latest Wallbox measurement" },
+            "200": {
+              "description": "Latest Wallbox measurement",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/WallboxLatest"
+                  }
+                }
+              }
+            },
             "404": { "description": "No wallbox data found" },
             "502": { "description": "Wallbox not reachable" }
           }
@@ -833,7 +842,16 @@
           "summary": "Get latest Boiler temperature",
           "tags": ["Boiler"],
           "responses": {
-            "200": { "description": "Latest boiler temperature" },
+            "200": {
+              "description": "Latest boiler temperature",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/BoilerLatest"
+                  }
+                }
+              }
+            },
             "404": { "description": "No boiler data found" }
           }
         }
@@ -877,7 +895,16 @@
           "summary": "Get latest EPEX data",
           "tags": ["EPEX"],
           "responses": {
-            "200": { "description": "Latest EPEX market price" },
+            "200": {
+              "description": "Latest EPEX market price",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/EpexLatest"
+                  }
+                }
+              }
+            },
             "404": { "description": "No EPEX data found" }
           }
         }
@@ -943,8 +970,8 @@
               "load_power": { "type": "number" },
               "battery_power": { "type": "number" },
               "soc": { "type": "number" },
-            "e_day": { "type": "number" },
-            "e_year": { "type": "number" },
+              "e_day": { "type": "number" },
+              "e_year": { "type": "number" },
               "e_total": { "type": "number" },
               "rel_autonomy": { "type": "number" },
               "rel_selfconsumption": { "type": "number" }
@@ -1019,31 +1046,31 @@
             }
           },
 
-           "AutomaticBoilerConfig": {
-              "type": "object",
-              "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable or disable boiler control in AUTOMATIC mode"
-                },
-                "target_time": {
-                  "type": "string",
-                  "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
-                  "example": "07:00",
-                  "description": "Time by which the boiler must be heated"
-                },
-                "energy_kwh": {
-                  "type": "number",
-                  "example": 3.0,
-                  "description": "Target energy for boiler heating"
-                },
-                "min_runtime_min": {
-                  "type": "integer",
-                  "example": 90,
-                  "description": "Minimum required runtime to reach target temperature"
-                }
+          "AutomaticBoilerConfig": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "Enable or disable boiler control in AUTOMATIC mode"
+              },
+              "target_time": {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                "example": "16:00",
+                "description": "Time by which the boiler must reach target temperature"
+              },
+              "target_temp_c": {
+                "type": "number",
+                "example": 55,
+                "description": "Target boiler temperature in °C"
+              },
+              "min_runtime_min": {
+                "type": "integer",
+                "example": 90,
+                "description": "Minimum runtime safeguard before deadline failsafe activates"
               }
-            },
+            }
+          },
 
            "AutomaticWallboxConfig": {
             "type": "object",

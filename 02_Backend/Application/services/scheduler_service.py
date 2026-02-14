@@ -18,6 +18,7 @@ class SchedulerService(threading.Thread):
         self.wallbox = wallbox
         self.interval = interval
         self.logger = logger
+        self.db_bridge = db_bridge
 
         self.last_time_controlled_error_date = None
         self.wallbox_online_last_state = None
@@ -37,6 +38,9 @@ class SchedulerService(threading.Thread):
 
     def tick(self):
         try:
+            if not self.mode_store:
+                return
+    
             mode = self.mode_store.get()
 
             if mode == SystemMode.MANUAL:
@@ -51,6 +55,7 @@ class SchedulerService(threading.Thread):
                 return
 
         except Exception as e:
+            # SYSTEM EVENT LOG 
             self.logger.system_event(
                 level="error",
                 source="scheduler",
@@ -153,11 +158,12 @@ class SchedulerService(threading.Thread):
 
     # AUTOMATIC
     def run_automatic(self):
-        self.automatic_boiler()
-        self.automatic_wallbox()
+        forecast = self.pv_forecast.get_forecast()
+        self.automatic_boiler(forecast)
+        self.automatic_wallbox(forecast)
 
     # AUTOMATIC – Boiler
-    def automatic_boiler(self):
+    def automatic_boiler(self, forecast):
         config = self.automatic_config.get()
         season = self.schedule_manager.determine_season()
         boiler_cfg = config.get("boiler", {}).get(season, {})
@@ -166,13 +172,26 @@ class SchedulerService(threading.Thread):
             return
 
         target_time = boiler_cfg.get("target_time")
-        if not target_time:
+        target_temp = boiler_cfg.get("target_temp_c")
+        min_runtime = int(boiler_cfg.get("min_runtime_min", 90))
+
+        if not target_time or target_temp is None:
             return
 
         try:
             boiler_on = self.boiler.get_state()
         except Exception:
             return
+
+        # Get current boiler temperature (if available)
+        try:
+            boiler_data = self.db_bridge.get_latest_boiler_data()
+            current_temp = boiler_data.get("boiler_temp") if boiler_data else None
+        except Exception:
+            current_temp = None
+        
+        if current_temp is None:
+          return
 
         now = datetime.now(ZoneInfo("Europe/Vienna"))
 
@@ -185,40 +204,58 @@ class SchedulerService(threading.Thread):
             deadline += timedelta(days=1)
 
         remaining_min = (deadline - now).total_seconds() / 60
-        min_runtime = int(boiler_cfg.get("min_runtime_min", 90))
 
-        # PV Ist-State
-        try:
-            pv_surplus = self.pv_service.get_surplus_kw()
-            pv_valid = True
-        except Exception:
-            pv_surplus = 0.0
-            pv_valid = False
-
-        # Forecast 
-        forecast = self.pv_forecast.get_forecast()
-        pv_today = forecast.get("pv_today", False)
-        pv_tomorrow = forecast.get("pv_tomorrow", False)
+        # Hysterese in °C to prevent rapid on/off switching around the target temperature
+        HYST = 2  # 2°C
 
         decision_on = False
         reason = "idle"
 
-        # 1) PV is available 
-        if pv_valid and pv_surplus > 0.5:
-            decision_on = True
-            reason = "pv_surplus"
-
-        # 2) No PV now, but forecast says there will be
-        elif pv_today or pv_tomorrow:
+        # 1) Goal temperature already reached or exceeded -> turn off if not already off
+        if current_temp >= target_temp:
             decision_on = False
-            reason = "forecast_wait"
+            reason = "target_temp_reached"
 
-        # 3) Deadline-Failsafe
-        elif remaining_min <= min_runtime:
-            decision_on = True
-            reason = "deadline_failsafe"
+        # 2) Temperature is below target minus hysteresis -> consider turning on 
+        elif current_temp <= target_temp - HYST:
 
-        #  APPLY + LOG 
+            # PV Ist-State
+            try:
+                pv_surplus = self.pv_service.get_surplus_kw()
+                pv_valid = True
+            except Exception:
+                pv_surplus = 0.0
+                pv_valid = False
+
+            # Forecast 
+            pv_today = forecast.get("pv_today", False)
+            pv_tomorrow = forecast.get("pv_tomorrow", False)
+
+            # 2.1) PV is available 
+            if pv_valid and pv_surplus > 0.5:
+                decision_on = True
+                reason = "pv_surplus"
+
+            # 2.2) No PV now, but forecast says there will be
+            elif pv_today or pv_tomorrow:
+                decision_on = False
+                reason = "forecast_wait"
+
+            # 2.3) Deadline-Failsafe
+            elif remaining_min <= min_runtime:
+                decision_on = True
+                reason = "deadline_failsafe"
+
+            else:
+                decision_on = False
+                reason = "wait"
+
+        else:
+            # In the hysteresis window, keep current state to prevent rapid switching
+            decision_on = boiler_on
+            reason = "hysteresis_hold"
+
+        # APPLY + LOG
         if decision_on and not boiler_on:
             self.boiler.control("on")
 
@@ -229,10 +266,9 @@ class SchedulerService(threading.Thread):
                 reason=f"automatic_{reason}",
                 success=True,
                 extra={
-                    "pv_surplus_kw": pv_surplus,
-                    "remaining_min": round(remaining_min, 1),
-                    "pv_today": pv_today,
-                    "pv_tomorrow": pv_tomorrow
+                    "current_temp": current_temp,
+                    "target_temp": target_temp,
+                    "remaining_min": round(remaining_min, 1)
                 }
             )
 
@@ -246,20 +282,19 @@ class SchedulerService(threading.Thread):
             self.logger.control_decision(
                 device="boiler",
                 action="off",
-                reason="automatic_wait",
+                reason=f"automatic_{reason}",
                 success=True,
                 extra={
-                    "pv_surplus_kw": pv_surplus,
-                    "remaining_min": round(remaining_min, 1),
-                    "pv_today": pv_today,
-                    "pv_tomorrow": pv_tomorrow
+                    "current_temp": current_temp,
+                    "target_temp": target_temp,
+                    "remaining_min": round(remaining_min, 1)
                 }
             )
-            
+
             # DEVICE STATE CHANGE LOG
             self.logger.device_state_change("boiler", True, False)
 
-        # Optimal Wait-Logging when decided to wait due to forecast but boiler is already off
+        # Optionales WAIT Logging (nur bei Forecast-Wartezustand)
         elif not decision_on and not boiler_on and reason == "forecast_wait":
             self.logger.control_decision(
                 device="boiler",
@@ -267,19 +302,30 @@ class SchedulerService(threading.Thread):
                 reason="automatic_forecast_wait",
                 success=True,
                 extra={
-                    "remaining_min": round(remaining_min, 1),
-                    "pv_today": pv_today,
-                    "pv_tomorrow": pv_tomorrow
+                    "current_temp": current_temp,
+                    "target_temp": target_temp,
+                    "remaining_min": round(remaining_min, 1)
                 }
             )
 
+
     # AUTOMATIC – Wallbox 
-    def automatic_wallbox(self):
+    def automatic_wallbox(self, forecast):
         config = self.automatic_config.get()
         season = self.schedule_manager.determine_season()
         wb_cfg = config.get("wallbox", {}).get(season, {})
 
         if not wb_cfg.get("enabled", False):
+            return
+        
+        if not self.wallbox:
+            return
+        
+        try:
+            if hasattr(self.wallbox, "is_online"):
+                if not self.wallbox.is_online():
+                    return
+        except Exception:
             return
 
         try:
@@ -335,7 +381,6 @@ class SchedulerService(threading.Thread):
         PV_MIN_KW = 1.4
 
         # Forecast
-        forecast = self.pv_forecast.get_forecast()
         pv_today = forecast.get("pv_today", False)
         pv_tomorrow = forecast.get("pv_tomorrow", False)
 
@@ -397,9 +442,10 @@ class SchedulerService(threading.Thread):
             return
 
         # 3) Deadline-Failsafe: No PV, no good forecast and deadline is close -> allow charging if not already allowed (optionally only if allow_night_grid is set)
-        if allow_night and remaining_hours <= 2.0 and not allow:
+
+        if (allow_night and remaining_hours <= 2.0 and pv_surplus < PV_MIN_KW and not (pv_today or pv_tomorrow) and not allow ):
             self.wallbox.set_allow_charging(True)
-            
+
             # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="wallbox",
@@ -412,7 +458,6 @@ class SchedulerService(threading.Thread):
                 }
             )
 
-            # DEVICE STATE CHANGE LOG
             self.logger.device_state_change("wallbox", False, True)
             return
 
