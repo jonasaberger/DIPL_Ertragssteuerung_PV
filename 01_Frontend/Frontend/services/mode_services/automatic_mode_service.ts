@@ -1,7 +1,6 @@
 import { fetchJson, postJson, putJson } from '../helper'
 
 export interface SeasonConfig {
-  enabled: boolean
   target_time: string
   target_temp_c?: number // nur für Boiler
   min_runtime_min?: number // nur für Boiler
@@ -10,15 +9,12 @@ export interface SeasonConfig {
 }
 
 export interface BoilerAutomaticConfig {
-  enabled: boolean
   summer: {
-    enabled: boolean
     target_time: string
     target_temp_c: number
     min_runtime_min: number
   }
   winter: {
-    enabled: boolean
     target_time: string
     target_temp_c: number
     min_runtime_min: number
@@ -26,15 +22,12 @@ export interface BoilerAutomaticConfig {
 }
 
 export interface WallboxAutomaticConfig {
-  enabled: boolean
   summer: {
-    enabled: boolean
     target_time: string
     energy_kwh: number
     allow_night_grid: boolean
   }
   winter: {
-    enabled: boolean
     target_time: string
     energy_kwh: number
     allow_night_grid: boolean
@@ -82,15 +75,9 @@ export async function updateAutomaticConfig(
     // Check boiler changes
     const boilerChanges: any = {}
     
-    if (currentConfig.boiler.enabled !== originalConfig.boiler.enabled) {
-      boilerChanges.enabled = currentConfig.boiler.enabled
-    }
     
     // Check summer changes
     const summerChanges: any = {}
-    if (currentConfig.boiler.summer.enabled !== originalConfig.boiler.summer.enabled) {
-      summerChanges.enabled = currentConfig.boiler.summer.enabled
-    }
     if (currentConfig.boiler.summer.target_time !== originalConfig.boiler.summer.target_time) {
       summerChanges.target_time = currentConfig.boiler.summer.target_time
     }
@@ -106,9 +93,6 @@ export async function updateAutomaticConfig(
     
     // Check winter changes
     const winterChanges: any = {}
-    if (currentConfig.boiler.winter.enabled !== originalConfig.boiler.winter.enabled) {
-      winterChanges.enabled = currentConfig.boiler.winter.enabled
-    }
     if (currentConfig.boiler.winter.target_time !== originalConfig.boiler.winter.target_time) {
       winterChanges.target_time = currentConfig.boiler.winter.target_time
     }
@@ -129,15 +113,8 @@ export async function updateAutomaticConfig(
     // Check wallbox changes
     const wallboxChanges: any = {}
     
-    if (currentConfig.wallbox.enabled !== originalConfig.wallbox.enabled) {
-      wallboxChanges.enabled = currentConfig.wallbox.enabled
-    }
-    
     // Check summer changes
     const wallboxSummerChanges: any = {}
-    if (currentConfig.wallbox.summer.enabled !== originalConfig.wallbox.summer.enabled) {
-      wallboxSummerChanges.enabled = currentConfig.wallbox.summer.enabled
-    }
     if (currentConfig.wallbox.summer.target_time !== originalConfig.wallbox.summer.target_time) {
       wallboxSummerChanges.target_time = currentConfig.wallbox.summer.target_time
     }
@@ -153,9 +130,6 @@ export async function updateAutomaticConfig(
     
     // Check winter changes
     const wallboxWinterChanges: any = {}
-    if (currentConfig.wallbox.winter.enabled !== originalConfig.wallbox.winter.enabled) {
-      wallboxWinterChanges.enabled = currentConfig.wallbox.winter.enabled
-    }
     if (currentConfig.wallbox.winter.target_time !== originalConfig.wallbox.winter.target_time) {
       wallboxWinterChanges.target_time = currentConfig.wallbox.winter.target_time
     }

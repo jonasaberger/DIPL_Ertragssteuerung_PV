@@ -5,19 +5,19 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 interface DeviceCardProps {
   icon: string
   title: string
-  enabled: boolean
-  onToggle: () => void
   children?: React.ReactNode
-  showToggle?: boolean // Optional: für Time Schedule ohne Master Toggle
+  showToggle?: boolean
+  enabled?: boolean
+  onToggle?: () => void
 }
 
 export default function DeviceCard({
   icon,
   title,
-  enabled,
-  onToggle,
   children,
-  showToggle = true,
+  showToggle = false, // Default auf false, da wir bei Automatik keine Toggle brauchen
+  enabled = true,     // Default true
+  onToggle,
 }: DeviceCardProps) {
   return (
     <View style={styles.card}>
@@ -26,7 +26,7 @@ export default function DeviceCard({
           <MaterialCommunityIcons name={icon as any} size={24} color="#1EAFF3" />
           <Text style={styles.title}>{title}</Text>
         </View>
-        {showToggle && (
+        {showToggle && onToggle && (
           <Switch
             value={enabled}
             onValueChange={onToggle}
@@ -36,7 +36,8 @@ export default function DeviceCard({
           />
         )}
       </View>
-      {(enabled || !showToggle) && children}
+      {/* Kinder immer rendern, wenn keine Toggle */}
+      {(!showToggle || enabled) && children}
     </View>
   )
 }
