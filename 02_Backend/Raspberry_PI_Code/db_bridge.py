@@ -1,9 +1,8 @@
 import os
-from influxdb_client import InfluxDBClient, Point, WritePrecision
+import pytz
+from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 from dotenv import load_dotenv
-import pytz
-from datetime import datetime, timezone
 
 class DB_Bridge:
     def __init__(self):

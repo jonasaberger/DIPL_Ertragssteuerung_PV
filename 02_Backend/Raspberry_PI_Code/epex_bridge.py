@@ -1,10 +1,9 @@
 import requests
-from dotenv import load_dotenv
+from datetime import datetime
 
 from device_manager import DeviceManager
 from db_bridge import DB_Bridge
-from datetime import datetime
-import os
+
 
 class EpexBridge: 
     def __init__(self):

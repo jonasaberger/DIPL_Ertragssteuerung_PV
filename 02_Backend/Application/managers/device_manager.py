@@ -1,6 +1,7 @@
+import os
 import json
 from flask import request, jsonify
-import os
+
 
 class DeviceManager:
     def __init__(self, config_path: str = "config/devices.json", default_path: str = "config/devices-default.json"):

@@ -1,5 +1,8 @@
 import os
-
+import platform
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+from dotenv import load_dotenv, find_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_swagger_ui import get_swaggerui_blueprint
@@ -8,21 +11,18 @@ from managers.device_manager import DeviceManager
 from managers.schedule_manager import ScheduleManager
 
 from bridges.db_bridge import DB_Bridge
+from bridges.logging_bridge import LoggingBridge
+
 from controllers.wallbox_controller import WallboxController
-from dotenv import load_dotenv, find_dotenv
 from controllers.boiler_controller import BoilerController
 
 from stores.system_mode_store import SystemMode, SystemModeStore
 from stores.schedule_store import ScheduleStore
-from services.scheduler_service import SchedulerService
 from stores.automatic_config_store import AutomaticConfigStore
+
+from services.scheduler_service import SchedulerService
 from services.pv_forecast_service import PVForecastService
 
-import platform
-from datetime import datetime
-from bridges.logging_bridge import LoggingBridge
-from zoneinfo import ZoneInfo
-from datetime import timedelta
 
 SWAGGER_URL = '/swagger'
 API_URL = '/static/swagger.json'  
