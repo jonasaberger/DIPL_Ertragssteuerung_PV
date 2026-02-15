@@ -3,7 +3,7 @@ import { fetchJson, postJson, putJson } from '../helper'
 export interface BoilerAutomaticConfig {
   enabled: boolean
   target_time: string
-  energy_kwh: number
+  target_temp_c: number
   min_runtime_min: number
 }
 
@@ -60,8 +60,8 @@ export async function updateAutomaticConfig(
     if (currentConfig.boiler.target_time !== originalConfig.boiler.target_time) {
       boilerChanges.target_time = currentConfig.boiler.target_time
     }
-    if (currentConfig.boiler.energy_kwh !== originalConfig.boiler.energy_kwh) {
-      boilerChanges.energy_kwh = currentConfig.boiler.energy_kwh
+    if (currentConfig.boiler.target_temp_c !== originalConfig.boiler.target_temp_c) {
+      boilerChanges.target_temp_c = currentConfig.boiler.target_temp_c
     }
     if (currentConfig.boiler.min_runtime_min !== originalConfig.boiler.min_runtime_min) {
       boilerChanges.min_runtime_min = currentConfig.boiler.min_runtime_min

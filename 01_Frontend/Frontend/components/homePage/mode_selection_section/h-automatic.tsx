@@ -139,8 +139,26 @@ export default function HAutomaticSettings() {
     setShowTimePicker({ device: null })
   }
 
-  // Update energy
-  const updateEnergy = (device: 'boiler' | 'wallbox', delta: number) => {
+  // Update temperature (boiler only)
+  const updateTemperature = (device: 'boiler', delta: number) => {
+    if (!config) return
+
+    setConfig((prev) => {
+      if (!prev) return prev
+      const currentValue = prev.boiler.target_temp_c
+      const newValue = Math.max(0, Math.min(100, currentValue + delta))
+      return {
+        ...prev,
+        boiler: {
+          ...prev.boiler,
+          target_temp_c: newValue,
+        },
+      }
+    })
+  }
+
+  // Update energy (wallbox only)
+  const updateEnergy = (device: 'wallbox', delta: number) => {
     if (!config) return
 
     setConfig((prev) => {
@@ -197,7 +215,7 @@ export default function HAutomaticSettings() {
     field: keyof AutomaticConfig['boiler'] | keyof AutomaticConfig['wallbox']
   ): boolean => {
     if (!config || !originalConfig) return false
-    return config[device][field as keyof typeof config[typeof device]] !== 
+    return config[device][field as keyof typeof config[typeof device]] !==
            originalConfig[device][field as keyof typeof originalConfig[typeof device]]
   }
 
@@ -208,7 +226,7 @@ export default function HAutomaticSettings() {
     return (
       config.boiler.enabled !== originalConfig.boiler.enabled ||
       config.boiler.target_time !== originalConfig.boiler.target_time ||
-      config.boiler.energy_kwh !== originalConfig.boiler.energy_kwh ||
+      config.boiler.target_temp_c !== originalConfig.boiler.target_temp_c ||
       config.boiler.min_runtime_min !== originalConfig.boiler.min_runtime_min ||
       config.wallbox.enabled !== originalConfig.wallbox.enabled ||
       config.wallbox.target_time !== originalConfig.wallbox.target_time ||
@@ -264,7 +282,7 @@ export default function HAutomaticSettings() {
                   <Text style={styles.settingLabelText}>Zielzeit</Text>
                 </View>
                 <View style={styles.settingValue}>
-                  <Text 
+                  <Text
                     style={[
                       styles.settingValueText,
                       isFieldChanged('boiler', 'target_time') && styles.settingValueTextChanged
@@ -276,30 +294,30 @@ export default function HAutomaticSettings() {
                 </View>
               </TouchableOpacity>
 
-              {/* Energy */}
+              {/* Temperature */}
               <View style={styles.settingRow}>
                 <View style={styles.settingLabel}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={20} color="#666" />
-                  <Text style={styles.settingLabelText}>Energie</Text>
+                  <MaterialCommunityIcons name="thermometer" size={20} color="#666" />
+                  <Text style={styles.settingLabelText}>Zieltemperatur</Text>
                 </View>
                 <View style={styles.counterControl}>
                   <TouchableOpacity
                     style={styles.counterButton}
-                    onPress={() => updateEnergy('boiler', -0.5)}
+                    onPress={() => updateTemperature('boiler', -5)}
                   >
                     <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
                   </TouchableOpacity>
-                  <Text 
+                  <Text
                     style={[
                       styles.counterValue,
-                      isFieldChanged('boiler', 'energy_kwh') && styles.counterValueChanged
+                      isFieldChanged('boiler', 'target_temp_c') && styles.counterValueChanged
                     ]}
                   >
-                    {config.boiler.energy_kwh} kWh
+                    {config.boiler.target_temp_c} °C
                   </Text>
                   <TouchableOpacity
                     style={styles.counterButton}
-                    onPress={() => updateEnergy('boiler', 0.5)}
+                    onPress={() => updateTemperature('boiler', 5)}
                   >
                     <MaterialCommunityIcons name="plus" size={20} color="#1EAFF3" />
                   </TouchableOpacity>
@@ -319,7 +337,7 @@ export default function HAutomaticSettings() {
                   >
                     <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
                   </TouchableOpacity>
-                  <Text 
+                  <Text
                     style={[
                       styles.counterValue,
                       isFieldChanged('boiler', 'min_runtime_min') && styles.counterValueChanged
@@ -366,7 +384,7 @@ export default function HAutomaticSettings() {
                   <Text style={styles.settingLabelText}>Zielzeit</Text>
                 </View>
                 <View style={styles.settingValue}>
-                  <Text 
+                  <Text
                     style={[
                       styles.settingValueText,
                       isFieldChanged('wallbox', 'target_time') && styles.settingValueTextChanged
@@ -391,7 +409,7 @@ export default function HAutomaticSettings() {
                   >
                     <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
                   </TouchableOpacity>
-                  <Text 
+                  <Text
                     style={[
                       styles.counterValue,
                       isFieldChanged('wallbox', 'energy_kwh') && styles.counterValueChanged
