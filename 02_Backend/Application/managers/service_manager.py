@@ -16,6 +16,7 @@ from stores.system_mode_store import SystemMode, SystemModeStore
 from stores.schedule_store import ScheduleStore
 from services.scheduler_service import SchedulerService
 from stores.automatic_config_store import AutomaticConfigStore
+from services.pv_forecast_service import PVForecastService
 
 import platform
 from datetime import datetime
@@ -68,6 +69,9 @@ class ServiceManager:
         # AUTOMATIC mode configuration store
         self.automatic_config_store = AutomaticConfigStore()
 
+        # Initialize forecast service
+        self.pv_forecast_service = PVForecastService()
+
         self.scheduler = SchedulerService(
              mode_store=self.mode_store,
             schedule_manager=self.schedule_manager,
@@ -117,6 +121,7 @@ class ServiceManager:
         # Wallbox endpoints
         self.app.add_url_rule('/api/wallbox/latest', 'wallbox_latest', self.get_wallbox_latest, methods=['GET'])
         self.app.add_url_rule('/api/wallbox/setCharging','wallbox_set_charging',self.set_wallbox_allow,methods=['POST'])
+        self.app.add_url_rule('/api/wallbox/setCurrent','wallbox_set_current',self.set_wallbox_current,methods=['POST'])
 
         # Boiler endpoints
         self.app.add_url_rule('/api/boiler/latest','boiler_latest',self.get_boiler_latest,methods=['GET'])
@@ -135,19 +140,9 @@ class ServiceManager:
         # Device IP-Manager
         self.app.add_url_rule('/api/devices/get_devices', 'get_devices', self.device_manager.get_devices, methods=['GET'])
         self.app.add_url_rule('/api/devices/get_device', 'get_device', self.device_manager.get_device, methods=['GET'])
-        self.app.add_url_rule(
-            '/api/devices/admin/verify_admin_pw',
-            'verify_admin_pw',
-            self.device_manager.verify_admin_pw,
-            methods=['POST']
-        )
+        self.app.add_url_rule('/api/devices/admin/verify_admin_pw', 'verify_admin_pw', self.device_manager.verify_admin_pw, methods=['POST'])
         self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.device_manager.edit_device_endpoint, methods=['POST'])
-        self.app.add_url_rule(
-            '/api/devices/reset_devices',
-            'reset_devices',
-            self.device_manager.reset_devices_endpoint,
-            methods=["POST"]
-        )
+        self.app.add_url_rule( '/api/devices/reset_devices', 'reset_devices', self.device_manager.reset_devices_endpoint, methods=["POST"])
 
         # Mode Management endpoints
         self.app.add_url_rule('/api/mode', 'mode', self.mode_endpoint, methods=['GET', 'POST'])
@@ -156,6 +151,9 @@ class ServiceManager:
 
         # AUTOMATIC mode configuration endpoint
         self.app.add_url_rule("/api/automatic-config","automatic_config",self.automatic_config_endpoint,methods=["GET", "PUT", "POST"])
+
+        # Forecast service endpoint
+        self.app.add_url_rule( "/api/forecast", "forecast", self.get_forecast, methods=["GET"])
 
     # Route Handlers
     def _json(self, payload, status=200):
@@ -421,6 +419,7 @@ class ServiceManager:
             "wallbox": "unknown",
             "boiler": "unknown",
             "epex": "unknown",
+            "forecast": "unknown",
             "timestamp": datetime.now(ZoneInfo("Europe/Vienna")).isoformat()
         }
 
@@ -475,6 +474,23 @@ class ServiceManager:
                 source="monitoring",
                 message=f"EPEX data check failed: {e}"
         )
+            
+        # PV Forecast
+        try:
+            forecast_data = self.pv_forecast_service.get_forecast()
+
+            if not forecast_data:
+                status["forecast"] = "no_data"
+            else:
+                status["forecast"] = "ok"
+
+        except Exception as e:
+            status["forecast"] = "error"
+            self.logger.system_event(
+                level="error",
+                source="monitoring",
+                message=f"Forecast service failed: {e}"
+            )
 
         return jsonify(status), 200
     
@@ -630,3 +646,80 @@ class ServiceManager:
                 "status": "ok",
                 "message": "AUTOMATIC configuration reset to default"
             })
+        
+    # GET /api/forecast - Get PV forecast for today and tomorrow
+    def get_forecast(self):
+        try:
+            data = self.pv_forecast_service.get_forecast()
+            return self._json(data, 200)
+        except Exception as e:
+            # API ERROR LOG
+            self.logger.api_error(
+                device="forecast",
+                endpoint="/api/forecast",
+                error=e
+            )
+            return self._json(
+                {"error": "Forecast service unavailable"},
+                502
+            )
+    
+    # POST JSON: { "amp": 6 | 10 | 12 | 14 | 16 }
+    def set_wallbox_current(self):
+        # Manual control disabled in automatic modes
+        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
+            return self._json(
+                {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                },
+                403
+            )
+
+        payload = request.get_json(silent=True)
+
+        if not payload or "amp" not in payload:
+            return self._json({"error": "Missing 'amp' field"}, 400)
+
+        try:
+            amp = int(payload["amp"])
+
+            # Old value for state-change logging
+            old_data = self.wallbox_controller.fetch_data()
+            old_amp = old_data.get("amp")
+
+            result = self.wallbox_controller.set_charging_ampere(amp)
+
+            # New value for state-change logging
+            new_data = self.wallbox_controller.fetch_data()
+            new_amp = new_data.get("amp")
+
+            # CONTROL DECISION LOG
+            self.logger.control_decision(
+                device="wallbox",
+                action="set_ampere",
+                reason="manual_api_call",
+                success=True,
+                extra=result
+            )
+
+            # DEVICE STATE CHANGE LOG
+            if old_amp != new_amp:
+                self.logger.device_state_change(
+                    device="wallbox_ampere",
+                    old_state=old_amp,
+                    new_state=new_amp
+                )
+
+            return self._json(result, 200)
+
+        except ValueError as e:
+            return self._json({"error": str(e)}, 400)
+
+        except Exception as e:
+            # API ERROR LOG
+            self.logger.api_error(
+                device="wallbox",
+                endpoint="/api/wallbox/setCurrent",
+                error=e
+            )
+            return self._json({"error": str(e)}, 502)

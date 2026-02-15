@@ -35,7 +35,7 @@
       }
     },
 
-      "/api/state": {
+     "/api/state": {
         "get": {
           "summary": "System status overview",
           "description": "Returns a compact health status of backend service, InfluxDB connection and connected devices. This endpoint is read-only and intended purely for monitoring.",
@@ -58,6 +58,7 @@
           }
         }
       },
+
       "/api/logging": {
         "get": {
           "summary": "Query system logs",
@@ -116,7 +117,37 @@
           }
         }
       },
-     
+
+      "/api/forecast": {
+        "get": {
+          "summary": "Get PV weather forecast",
+          "description": "Returns PV generation forecast based on cloud cover and sunrise/sunset data from Open-Meteo.",
+          "tags": ["Forecast"],
+          "responses": {
+            "200": {
+              "description": "PV forecast data",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PVForecast"
+                  },
+                  "example": {
+                    "pv_today": true,
+                    "pv_tomorrow": false,
+                    "pv_hours_today": 6,
+                    "best_hour_today": "13:00",
+                    "source": "open-meteo"
+                  }
+                }
+              }
+            },
+            "502": {
+              "description": "Forecast service unavailable"
+            }
+          }
+        }
+      },
+
       "/api/mode": {
         "get": {
           "summary": "Get current system mode",
@@ -247,7 +278,7 @@
       "/api/automatic-config": {
       "get": {
         "summary": "Get AUTOMATIC mode configuration",
-        "description": "Returns the current configuration for the AUTOMATIC system mode, including target times and energy goals.",
+        "description": "Returns the current configuration for the AUTOMATIC system mode, including target times and temperature goals for the boiler and energy targets for the wallbox.",
         "tags": ["Automatic"],
         "responses": {
           "200": {
@@ -259,16 +290,32 @@
                 },
                 "example": {
                   "boiler": {
-                    "enabled": true,
-                    "target_time": "07:00",
-                    "energy_kwh": 3.0,
-                    "min_runtime_min": 90
+                    "winter": {
+                      "enabled": true,
+                      "target_time": "16:00",
+                      "target_temp_c": 67,
+                      "min_runtime_min": 90
+                    },
+                    "summer": {
+                      "enabled": true,
+                      "target_time": "14:00",
+                      "target_temp_c": 65,
+                      "min_runtime_min": 70
+                    }
                   },
                   "wallbox": {
-                    "enabled": true,
-                    "target_time": "06:00",
-                    "energy_kwh": 12.0,
-                    "allow_night_grid": true
+                    "winter": {
+                      "enabled": true,
+                      "target_time": "18:00",
+                      "energy_kwh": 12.0,
+                      "allow_night_grid": true
+                    },
+                    "summer": {
+                      "enabled": true,
+                      "target_time": "20:00",
+                      "energy_kwh": 10.0,
+                      "allow_night_grid": false
+                    }
                   }
                 }
               }
@@ -290,7 +337,9 @@
               },
               "example": {
                 "boiler": {
-                  "target_time": "06:30"
+                  "winter": {
+                    "target_time": "15:30"
+                  }
                 }
               }
             }
@@ -687,7 +736,16 @@
           "summary": "Get latest Wallbox data",
           "tags": ["Wallbox"],
           "responses": {
-            "200": { "description": "Latest Wallbox measurement" },
+            "200": {
+              "description": "Latest Wallbox measurement",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/WallboxLatest"
+                  }
+                }
+              }
+            },
             "404": { "description": "No wallbox data found" },
             "502": { "description": "Wallbox not reachable" }
           }
@@ -722,12 +780,78 @@
         }
       },
 
+      "/api/wallbox/setCurrent": {
+        "post": {
+          "summary": "Set wallbox charging ampere",
+          "description": "Sets the charging current (ampere) of the wallbox. Allowed values are 6, 10, 12, 14 or 16.",
+          "tags": ["Wallbox"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WallboxSetAmpere"
+                },
+                "example": {
+                  "amp": 16
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Charging ampere updated successfully",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "amp": 16,
+                    "message": "Charging ampere updated"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid amp value or missing payload",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "error": "Invalid amp value. Allowed values: [6, 10, 12, 14, 16]"
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Manual control disabled in current mode",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                  }
+                }
+              }
+            },
+            "502": {
+              "description": "Wallbox communication failed"
+            }
+          }
+        }
+      },
+
       "/api/boiler/latest": {
         "get": {
           "summary": "Get latest Boiler temperature",
           "tags": ["Boiler"],
           "responses": {
-            "200": { "description": "Latest boiler temperature" },
+            "200": {
+              "description": "Latest boiler temperature",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/BoilerLatest"
+                  }
+                }
+              }
+            },
             "404": { "description": "No boiler data found" }
           }
         }
@@ -771,7 +895,16 @@
           "summary": "Get latest EPEX data",
           "tags": ["EPEX"],
           "responses": {
-            "200": { "description": "Latest EPEX market price" },
+            "200": {
+              "description": "Latest EPEX market price",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/EpexLatest"
+                  }
+                }
+              }
+            },
             "404": { "description": "No EPEX data found" }
           }
         }
@@ -800,6 +933,33 @@
           }
         },
 
+          "PVForecast": {
+              "type": "object",
+              "properties": {
+                "pv_today": {
+                  "type": "boolean",
+                  "description": "Indicates if PV generation is expected today"
+                },
+                "pv_tomorrow": {
+                  "type": "boolean",
+                  "description": "Indicates if PV generation is expected tomorrow"
+                },
+                "pv_hours_today": {
+                  "type": "integer",
+                  "description": "Number of forecasted hours today with sufficient PV conditions"
+                },
+                "best_hour_today": {
+                  "type": "string",
+                  "example": "13:00",
+                  "description": "Hour with lowest cloud cover today"
+                },
+                "source": {
+                  "type": "string",
+                  "example": "open-meteo"
+                }
+              }
+            },
+
           "PVMeasurement": {
             "type": "object",
             "additionalProperties": true,
@@ -810,8 +970,8 @@
               "load_power": { "type": "number" },
               "battery_power": { "type": "number" },
               "soc": { "type": "number" },
-            "e_day": { "type": "number" },
-            "e_year": { "type": "number" },
+              "e_day": { "type": "number" },
+              "e_year": { "type": "number" },
               "e_total": { "type": "number" },
               "rel_autonomy": { "type": "number" },
               "rel_selfconsumption": { "type": "number" }
@@ -867,42 +1027,50 @@
             },
 
            "AutomaticConfig": {
-              "type": "object",
-              "properties": {
-                "boiler": {
-                  "$ref": "#/components/schemas/AutomaticBoilerConfig"
-                },
-                "wallbox": {
-                  "$ref": "#/components/schemas/AutomaticWallboxConfig"
+            "type": "object",
+            "properties": {
+              "boiler": {
+                "type": "object",
+                "properties": {
+                  "winter": { "$ref": "#/components/schemas/AutomaticBoilerConfig" },
+                  "summer": { "$ref": "#/components/schemas/AutomaticBoilerConfig" }
+                }
+              },
+              "wallbox": {
+                "type": "object",
+                "properties": {
+                  "winter": { "$ref": "#/components/schemas/AutomaticWallboxConfig" },
+                  "summer": { "$ref": "#/components/schemas/AutomaticWallboxConfig" }
                 }
               }
-            },
+            }
+          },
 
-           "AutomaticBoilerConfig": {
-              "type": "object",
-              "properties": {
-                "enabled": {
-                  "type": "boolean",
-                  "description": "Enable or disable boiler control in AUTOMATIC mode"
-                },
-                "target_time": {
-                  "type": "string",
-                  "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
-                  "example": "07:00",
-                  "description": "Time by which the boiler must be heated"
-                },
-                "energy_kwh": {
-                  "type": "number",
-                  "example": 3.0,
-                  "description": "Target energy for boiler heating"
-                },
-                "min_runtime_min": {
-                  "type": "integer",
-                  "example": 90,
-                  "description": "Minimum required runtime to reach target temperature"
-                }
+          "AutomaticBoilerConfig": {
+            "type": "object",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "Enable or disable boiler control in AUTOMATIC mode"
+              },
+              "target_time": {
+                "type": "string",
+                "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+                "example": "16:00",
+                "description": "Time by which the boiler must reach target temperature"
+              },
+              "target_temp_c": {
+                "type": "number",
+                "example": 55,
+                "description": "Target boiler temperature in °C"
+              },
+              "min_runtime_min": {
+                "type": "integer",
+                "example": 90,
+                "description": "Minimum runtime safeguard before deadline failsafe activates"
               }
-            },
+            }
+          },
 
            "AutomaticWallboxConfig": {
             "type": "object",
@@ -945,6 +1113,18 @@
               "pha_L3": { "type": "integer", "description": "Phase L3 active (1/0)" },
               "pha_count": { "type": "integer", "description": "Number of active phases" },
               "charging": { "type": "integer", "description": "Charging currently active (1/0)" }
+            }
+          },
+
+          "WallboxSetAmpere": {
+            "type": "object",
+            "required": ["amp"],
+            "properties": {
+              "amp": {
+                "type": "integer",
+                "enum": [6, 10, 12, 14, 16],
+                "description": "Charging current in ampere"
+              }
             }
           },
 
