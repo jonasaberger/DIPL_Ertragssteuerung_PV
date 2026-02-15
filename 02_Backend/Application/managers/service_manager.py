@@ -130,6 +130,12 @@ class ServiceManager:
 
         # EPEX endpoints
         self.app.add_url_rule('/api/epex/latest', 'epex_latest', self.get_epex_latest, methods=['GET'])
+        self.app.add_url_rule(
+            '/api/epex/price-offset',
+            'epex_price_offset',
+            self.device_manager.epex_price_offset_endpoint,
+            methods=['PUT']
+        )
 
         # Monitoring-/State Enpoint
         self.app.add_url_rule('/api/state', 'state', self.get_state, methods=['GET'])
@@ -402,9 +408,20 @@ class ServiceManager:
     def get_epex_latest(self):
         try:
             data = self.db_bridge.get_latest_epex_data()
-            return (jsonify(data), 200) if data else (jsonify({"message": "No EPEX data found"}), 404)
+            
+            if not data:
+                return jsonify({"message": "No EPEX data found"}), 404
+            
+            # Add the configured price offset
+            price_offset = self.device_manager.get_epex_price_offset()
+            
+            if "price" in data:
+                data["price_raw"] = data["price"]  # Original DB price
+                data["price"] = data["price"] + price_offset  # Adjusted price
+                data["price_offset"] = price_offset  # For transparency
+            return jsonify(data), 200
+            
         except Exception as e:
-            # API ERROR LOG 
             self.logger.api_error(
                 device="epex",
                 endpoint="/api/epex/latest",

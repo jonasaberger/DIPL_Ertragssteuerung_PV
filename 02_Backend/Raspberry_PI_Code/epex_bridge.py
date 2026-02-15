@@ -12,7 +12,7 @@ class EpexBridge:
         self.api_url = self.device_manager.get_device_url(
             "epex",
             "price"
-        )
+        )   
 
         # Connect to the InfluxDB
         self.db = DB_Bridge()

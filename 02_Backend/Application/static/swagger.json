@@ -908,6 +908,52 @@
             "404": { "description": "No EPEX data found" }
           }
         }
+      },
+      "/api/epex/price-offset": {
+        "put": {
+          "summary": "Update EPEX price offset",
+          "description": "Updates the price offset that is added to raw EPEX prices. No admin password required. The offset is typically used to add grid fees, meter charges, or other fixed costs to the market price.",
+          "tags": ["EPEX"],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EpexPriceOffset"
+                },
+                "example": {
+                  "priceOffset": 0.15
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Price offset updated successfully",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "success": true,
+                    "priceOffset": 0.15
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Invalid or missing priceOffset value",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "error": "Invalid priceOffset value, must be a number"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "EPEX device configuration not found"
+            }
+          }
+        }
       }
     },
 
@@ -1147,13 +1193,38 @@
               }
             }
           },
-
           "EpexLatest": {
             "type": "object",
             "properties": {
-              "_time": { "type": "string", "format": "date-time" },
-              "epex_value": { "type": "number", "description": "EPEX market price in EUR/MWh" }
-          }
+              "_time": { 
+                "type": "string", 
+                "format": "date-time" 
+              },
+              "price_raw": { 
+                "type": "number", 
+                "description": "Raw EPEX market price from database in EUR/MWh" 
+              },
+              "price": { 
+                "type": "number", 
+                "description": "Adjusted EPEX price (raw + offset) in EUR/MWh" 
+              },
+              "price_offset": { 
+                "type": "number", 
+                "description": "Applied price offset in EUR/MWh" 
+              }
+            }
+          },
+          "EpexPriceOffset": {
+            "type": "object",
+            "required": ["priceOffset"],
+            "properties": {
+              "priceOffset": {
+                "type": "number",
+                "format": "float",
+                "description": "Price offset in EUR/kWh to add to raw EPEX prices (e.g., for grid fees or meter charges)",
+                "example": 0.1
+              }
+            }
           }
         }
       }
