@@ -170,9 +170,6 @@ class SchedulerService(threading.Thread):
         season = self.schedule_manager.determine_season()
         boiler_cfg = config.get("boiler", {}).get(season, {})
 
-        if not boiler_cfg.get("enabled", False):
-            return
-
         target_time = boiler_cfg.get("target_time")
         target_temp = boiler_cfg.get("target_temp_c")
         min_runtime = int(boiler_cfg.get("min_runtime_min", 90))
@@ -316,10 +313,7 @@ class SchedulerService(threading.Thread):
         config = self.automatic_config.get()
         season = self.schedule_manager.determine_season()
         wb_cfg = config.get("wallbox", {}).get(season, {})
-
-        if not wb_cfg.get("enabled", False):
-            return
-        
+   
         if not self.wallbox:
             return
         
@@ -337,6 +331,9 @@ class SchedulerService(threading.Thread):
 
         car_connected = data.get("car") == 1
         eto_now = data.get("eto")  # Wh
+
+        if eto_now is None:
+         return
 
         # RESET on car disconnect
         if not car_connected:
@@ -388,6 +385,10 @@ class SchedulerService(threading.Thread):
 
         # Deadline 
         target_time = wb_cfg.get("target_time")
+
+        if not target_time:
+            return
+ 
         allow_night = wb_cfg.get("allow_night_grid", False)
 
         now = datetime.now(ZoneInfo("Europe/Vienna"))
