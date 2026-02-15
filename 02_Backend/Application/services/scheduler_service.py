@@ -24,6 +24,7 @@ class SchedulerService(threading.Thread):
 
         self.last_time_controlled_error_date = None
         self.wallbox_online_last_state = None
+        self.boiler_last_reason = None
 
         self.automatic_config = AutomaticConfigStore()
         self.pv_service = PVSurplusService(db_bridge)
@@ -172,7 +173,11 @@ class SchedulerService(threading.Thread):
 
         target_time = boiler_cfg.get("target_time")
         target_temp = boiler_cfg.get("target_temp_c")
-        min_runtime = int(boiler_cfg.get("min_runtime_min", 90))
+
+        try:
+            min_runtime = int(boiler_cfg.get("min_runtime_min", 90))
+        except (TypeError, ValueError):
+            min_runtime = 90
 
         if not target_time or target_temp is None:
             return
@@ -190,7 +195,7 @@ class SchedulerService(threading.Thread):
             current_temp = None
         
         if current_temp is None:
-          return
+            return
 
         now = datetime.now(ZoneInfo("Europe/Vienna"))
 
@@ -295,17 +300,21 @@ class SchedulerService(threading.Thread):
 
         # Optionales WAIT Logging (nur bei Forecast-Wartezustand)
         elif not decision_on and not boiler_on and reason == "forecast_wait":
-            self.logger.control_decision(
-                device="boiler",
-                action="wait",
-                reason="automatic_forecast_wait",
-                success=True,
-                extra={
-                    "current_temp": current_temp,
-                    "target_temp": target_temp,
-                    "remaining_min": round(remaining_min, 1)
-                }
-            )
+            if self.boiler_last_reason != "forecast_wait":
+                self.logger.control_decision(
+                    device="boiler",
+                    action="wait",
+                    reason="automatic_forecast_wait",
+                    success=True,
+                    extra={
+                        "current_temp": current_temp,
+                        "target_temp": target_temp,
+                        "remaining_min": round(remaining_min, 1)
+                    }
+                )
+
+        # Zustand merken zur Vermeidung von WAIT-Log-Spam
+        self.boiler_last_reason = reason
 
 
     # AUTOMATIC – Wallbox 
@@ -313,7 +322,7 @@ class SchedulerService(threading.Thread):
         config = self.automatic_config.get()
         season = self.schedule_manager.determine_season()
         wb_cfg = config.get("wallbox", {}).get(season, {})
-   
+
         if not self.wallbox:
             return
         
@@ -321,19 +330,29 @@ class SchedulerService(threading.Thread):
             if hasattr(self.wallbox, "is_online"):
                 if not self.wallbox.is_online():
                     return
-        except Exception:
+        except Exception as e:
+            self.logger.system_event(
+                level="error",
+                source="scheduler",
+                message=f"automatic_wallbox: Wallbox online-check failed: {e}"
+            )
             return
 
         try:
             data = self.wallbox.fetch_data()
-        except Exception:
+        except Exception as e:
+            self.logger.system_event(
+                level="error",
+                source="scheduler",
+                message=f"automatic_wallbox: Failed to fetch wallbox data: {e}"
+            )
             return
 
         car_connected = data.get("car") == 1
         eto_now = data.get("eto")  # Wh
 
         if eto_now is None:
-         return
+            return
 
         # RESET on car disconnect
         if not car_connected:
@@ -388,7 +407,7 @@ class SchedulerService(threading.Thread):
 
         if not target_time:
             return
- 
+    
         allow_night = wb_cfg.get("allow_night_grid", False)
 
         now = datetime.now(ZoneInfo("Europe/Vienna"))
@@ -405,22 +424,24 @@ class SchedulerService(threading.Thread):
         # Desicion logic:
 
         # 1) PV-surplus -> allow charging
-        if pv_surplus >= PV_MIN_KW and not allow:
-            self.wallbox.set_allow_charging(True)
-
-            # CONTROL DECISION LOG
-            self.logger.control_decision(
-                device="wallbox",
-                action="set_allow",
-                reason="automatic_pv_surplus",
-                success=True,
-                extra={"pv_surplus_kw": pv_surplus}
-            )
-            self.logger.device_state_change("wallbox", False, True)
-            return
+        allow = self.wallbox.get_allow_state()
+        if pv_surplus >= PV_MIN_KW:
+            if not allow:
+                self.wallbox.set_allow_charging(True)
+                # CONTROL DECISION LOG
+                self.logger.control_decision(
+                    device="wallbox",
+                    action="set_allow",
+                    reason="automatic_pv_surplus",
+                    success=True,
+                    extra={"pv_surplus_kw": pv_surplus}
+                )
+                self.logger.device_state_change("wallbox", False, True)
+            return 
 
         # 2) No PV, but forecast says there will be -> wait (don't allow charging)
         if pv_surplus < PV_MIN_KW and (pv_today or pv_tomorrow):
+            allow = self.wallbox.get_allow_state()
             if allow:
                 self.wallbox.set_allow_charging(False)
 
@@ -445,7 +466,7 @@ class SchedulerService(threading.Thread):
             return
 
         # 3) Deadline-Failsafe: No PV, no good forecast and deadline is close -> allow charging if not already allowed (optionally only if allow_night_grid is set)
-
+        allow = self.wallbox.get_allow_state()
         if (allow_night and remaining_hours <= 2.0 and pv_surplus < PV_MIN_KW and not (pv_today or pv_tomorrow) and not allow ):
             self.wallbox.set_allow_charging(True)
 
@@ -465,6 +486,7 @@ class SchedulerService(threading.Thread):
             return
 
         # 4) Else: loading off 
+        allow = self.wallbox.get_allow_state()
         if allow:
             self.wallbox.set_allow_charging(False)
             

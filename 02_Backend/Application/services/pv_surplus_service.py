@@ -5,7 +5,7 @@ class PVSurplusService:
     #  Returns current PV surplus in kW ( Positive = available surplus | Negative = grid consumption)
     def get_surplus_kw(self) -> float:
         data = self.db.get_latest_pv_data()
-        if not data:
+        if data is None:
             raise RuntimeError("PV data unavailable")
 
         pv_power = float(data.get("pv_power_kw", 0))
