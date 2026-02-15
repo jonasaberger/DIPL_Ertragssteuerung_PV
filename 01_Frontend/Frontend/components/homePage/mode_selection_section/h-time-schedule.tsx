@@ -1,13 +1,24 @@
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator } from 'react-native'
+import { View, StyleSheet, ScrollView, Platform, ActivityIndicator, Text, TouchableOpacity } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import Toast from 'react-native-toast-message'
-import {timeStringToDate, dateToTimeString} from '@/services/helper'
-import {fetchScheduleConfig, updateScheduleConfig, resetScheduleConfig, ScheduleConfig, Season,} from '@/services/mode_services/time_schedule_mode_service'
+import { timeStringToDate, dateToTimeString } from '@/services/helper'
+import {
+  fetchScheduleConfig,
+  updateScheduleConfig,
+  resetScheduleConfig,
+  ScheduleConfig,
+  Season,
+} from '@/services/mode_services/time_schedule_mode_service'
+
+// Import Components
+import SeasonToggle from './components/SeasonToggle'
+import DeviceCard from './components/DeviceCard'
+import SettingRow from './components/SettingRow'
 
 export default function HTimeSchedule() {
-  const [activeSeason, setActiveSeason] = useState<Season>('winter')
+  const [activeSeason, setActiveSeason] = useState<Season>('summer')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showTimePicker, setShowTimePicker] = useState<{
@@ -19,7 +30,6 @@ export default function HTimeSchedule() {
   const [config, setConfig] = useState<ScheduleConfig | null>(null)
   const [originalConfig, setOriginalConfig] = useState<ScheduleConfig | null>(null)
 
-  // Load configuration on mount
   useEffect(() => {
     loadScheduleConfig()
   }, [])
@@ -102,7 +112,6 @@ export default function HTimeSchedule() {
     }
   }
 
-  // Update time
   const updateTime = (
     device: 'boiler' | 'wallbox',
     season: Season,
@@ -128,7 +137,6 @@ export default function HTimeSchedule() {
     setShowTimePicker({ device: null, timeType: null, season: null })
   }
 
-  // Check if value has changed
   const isChanged = (
     device: 'boiler' | 'wallbox',
     season: Season,
@@ -138,7 +146,6 @@ export default function HTimeSchedule() {
     return config[device][season][timeType] !== originalConfig[device][season][timeType]
   }
 
-  // Check if any value has changed
   const hasAnyChanges = (): boolean => {
     if (!config || !originalConfig) return false
     return JSON.stringify(config) !== JSON.stringify(originalConfig)
@@ -155,189 +162,84 @@ export default function HTimeSchedule() {
 
   return (
     <View style={styles.container}>
-      {/* Header with Season Selector & Reset Button */}
+      {/* Header */}
       <View style={styles.header}>
-        {/* Season Selector */}
-        <View style={styles.seasonSelector}>
-          <TouchableOpacity
-            style={[
-              styles.seasonButton,
-              activeSeason === 'winter' && styles.seasonButtonActiveWinter,
-            ]}
-            onPress={() => setActiveSeason('winter')}
-          >
-            <MaterialCommunityIcons
-              name="snowflake"
-              size={20}
-              color={activeSeason === 'winter' ? '#FFFFFF' : '#8E8E93'}
-            />
-            <Text
-              style={[
-                styles.seasonText,
-                activeSeason === 'winter' && styles.seasonTextActive,
-              ]}
-            >
-              Winter
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.seasonButton,
-              activeSeason === 'summer' && styles.seasonButtonActiveSummer,
-            ]}
-            onPress={() => setActiveSeason('summer')}
-          >
-            <MaterialCommunityIcons
-              name="white-balance-sunny"
-              size={20}
-              color={activeSeason === 'summer' ? '#FFFFFF' : '#8E8E93'}
-            />
-            <Text
-              style={[
-                styles.seasonText,
-                activeSeason === 'summer' && styles.seasonTextActive,
-              ]}
-            >
-              Sommer
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Reset Button - always Visible */}
-        <TouchableOpacity
-          style={styles.iconButton}
-          onPress={handleReset}
-          disabled={saving}
-        >
+        <Text style={styles.headerTitle}>Zeitplan</Text>
+        <TouchableOpacity style={styles.iconButton} onPress={handleReset} disabled={saving}>
           <MaterialCommunityIcons name="restore" size={24} color="#8E8E93" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Boiler Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="water-boiler" size={24} color="#1EAFF3" />
-            <Text style={styles.sectionTitle}>Boiler</Text>
-          </View>
+      {/* Season Toggle */}
+      <SeasonToggle selectedSeason={activeSeason} onSeasonChange={setActiveSeason} />
 
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Boiler Card */}
+        <DeviceCard
+          icon="water-boiler"
+          title="Boiler"
+          enabled={true}
+          onToggle={() => {}}
+          showToggle={false}
+        >
           <View style={styles.settingsContainer}>
-            {/* Start Time */}
-            <TouchableOpacity
-              style={styles.settingRow}
+            <SettingRow
+              icon="clock-start"
+              label="Startzeit"
+              value={config.boiler[activeSeason].start}
               onPress={() =>
                 setShowTimePicker({ device: 'boiler', timeType: 'start', season: activeSeason })
               }
-            >
-              <View style={styles.settingLabel}>
-                <MaterialCommunityIcons name="clock-start" size={20} color="#666" />
-                <Text style={styles.settingLabelText}>Startzeit</Text>
-              </View>
-              <View style={styles.settingValue}>
-                <Text
-                  style={[
-                    styles.settingValueText,
-                    isChanged('boiler', activeSeason, 'start') && styles.settingValueTextChanged,
-                  ]}
-                >
-                  {config.boiler[activeSeason].start}
-                </Text>
-                <MaterialCommunityIcons name="chevron-right" size={20} color="#C7C7CC" />
-              </View>
-            </TouchableOpacity>
+              changed={isChanged('boiler', activeSeason, 'start')}
+            />
 
-            {/* End Time */}
-            <TouchableOpacity
-              style={styles.settingRow}
+            <SettingRow
+              icon="clock-end"
+              label="Endzeit"
+              value={config.boiler[activeSeason].end}
               onPress={() =>
                 setShowTimePicker({ device: 'boiler', timeType: 'end', season: activeSeason })
               }
-            >
-              <View style={styles.settingLabel}>
-                <MaterialCommunityIcons name="clock-end" size={20} color="#666" />
-                <Text style={styles.settingLabelText}>Endzeit</Text>
-              </View>
-              <View style={styles.settingValue}>
-                <Text
-                  style={[
-                    styles.settingValueText,
-                    isChanged('boiler', activeSeason, 'end') && styles.settingValueTextChanged,
-                  ]}
-                >
-                  {config.boiler[activeSeason].end}
-                </Text>
-                <MaterialCommunityIcons name="chevron-right" size={20} color="#C7C7CC" />
-              </View>
-            </TouchableOpacity>
+              changed={isChanged('boiler', activeSeason, 'end')}
+            />
           </View>
-        </View>
+        </DeviceCard>
 
-        {/* Wallbox Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <MaterialCommunityIcons name="ev-station" size={24} color="#1EAFF3" />
-            <Text style={styles.sectionTitle}>Wallbox</Text>
-          </View>
-
+        {/* Wallbox Card */}
+        <DeviceCard
+          icon="ev-station"
+          title="Wallbox"
+          enabled={true}
+          onToggle={() => {}}
+          showToggle={false}
+        >
           <View style={styles.settingsContainer}>
-            {/* Start Time */}
-            <TouchableOpacity
-              style={styles.settingRow}
+            <SettingRow
+              icon="clock-start"
+              label="Startzeit"
+              value={config.wallbox[activeSeason].start}
               onPress={() =>
                 setShowTimePicker({ device: 'wallbox', timeType: 'start', season: activeSeason })
               }
-            >
-              <View style={styles.settingLabel}>
-                <MaterialCommunityIcons name="clock-start" size={20} color="#666" />
-                <Text style={styles.settingLabelText}>Startzeit</Text>
-              </View>
-              <View style={styles.settingValue}>
-                <Text
-                  style={[
-                    styles.settingValueText,
-                    isChanged('wallbox', activeSeason, 'start') && styles.settingValueTextChanged,
-                  ]}
-                >
-                  {config.wallbox[activeSeason].start}
-                </Text>
-                <MaterialCommunityIcons name="chevron-right" size={20} color="#C7C7CC" />
-              </View>
-            </TouchableOpacity>
+              changed={isChanged('wallbox', activeSeason, 'start')}
+            />
 
-            {/* End Time */}
-            <TouchableOpacity
-              style={styles.settingRow}
+            <SettingRow
+              icon="clock-end"
+              label="Endzeit"
+              value={config.wallbox[activeSeason].end}
               onPress={() =>
                 setShowTimePicker({ device: 'wallbox', timeType: 'end', season: activeSeason })
               }
-            >
-              <View style={styles.settingLabel}>
-                <MaterialCommunityIcons name="clock-end" size={20} color="#666" />
-                <Text style={styles.settingLabelText}>Endzeit</Text>
-              </View>
-              <View style={styles.settingValue}>
-                <Text
-                  style={[
-                    styles.settingValueText,
-                    isChanged('wallbox', activeSeason, 'end') && styles.settingValueTextChanged,
-                  ]}
-                >
-                  {config.wallbox[activeSeason].end}
-                </Text>
-                <MaterialCommunityIcons name="chevron-right" size={20} color="#C7C7CC" />
-              </View>
-            </TouchableOpacity>
+              changed={isChanged('wallbox', activeSeason, 'end')}
+            />
           </View>
-        </View>
+        </DeviceCard>
 
-        {/* Save/Cancel Buttons - only show for Changes */}
+        {/* Save/Cancel Buttons */}
         {hasAnyChanges() && (
           <View style={styles.buttonContainer}>
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={handleSave}
-              disabled={saving}
-            >
+            <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
               {saving ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
@@ -345,11 +247,7 @@ export default function HTimeSchedule() {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancel}
-              disabled={saving}
-            >
+            <TouchableOpacity style={styles.cancelButton} onPress={handleCancel} disabled={saving}>
               <Text style={styles.cancelButtonText}>Abbrechen</Text>
             </TouchableOpacity>
           </View>
@@ -390,7 +288,6 @@ export default function HTimeSchedule() {
   )
 }
 
-// Styles created with help from ChatGPT
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -410,39 +307,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
     marginBottom: 16,
   },
-  seasonSelector: {
-    flex: 1,
-    flexDirection: 'row',
-    backgroundColor: '#F0F0F0',
-    borderRadius: 12,
-    padding: 4,
-    gap: 4,
-  },
-  seasonButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  seasonButtonActiveWinter: {
-    backgroundColor: '#5BA3D0', // Eisblau für Winter
-  },
-  seasonButtonActiveSummer: {
-    backgroundColor: '#FF9500', // Orange für Sommer
-  },
-  seasonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  seasonTextActive: {
-    color: '#FFFFFF',
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000',
   },
   iconButton: {
     width: 44,
@@ -455,53 +325,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flex: 1,
   },
-  section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
-  },
   settingsContainer: {
-    gap: 12,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  settingLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
-  },
-  settingLabelText: {
-    fontSize: 15,
-    color: '#333',
-  },
-  settingValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  settingValueText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1EAFF3',
-  },
-  settingValueTextChanged: {
-    color: '#FF3B30',
   },
   buttonContainer: {
     gap: 12,

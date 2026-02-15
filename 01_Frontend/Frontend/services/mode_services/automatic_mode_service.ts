@@ -1,17 +1,44 @@
 import { fetchJson, postJson, putJson } from '../helper'
 
-export interface BoilerAutomaticConfig {
+export interface SeasonConfig {
   enabled: boolean
   target_time: string
-  target_temp_c: number
-  min_runtime_min: number
+  target_temp_c?: number // nur für Boiler
+  min_runtime_min?: number // nur für Boiler
+  energy_kwh?: number // nur für Wallbox
+  allow_night_grid?: boolean // nur für Wallbox
+}
+
+export interface BoilerAutomaticConfig {
+  enabled: boolean
+  summer: {
+    enabled: boolean
+    target_time: string
+    target_temp_c: number
+    min_runtime_min: number
+  }
+  winter: {
+    enabled: boolean
+    target_time: string
+    target_temp_c: number
+    min_runtime_min: number
+  }
 }
 
 export interface WallboxAutomaticConfig {
   enabled: boolean
-  target_time: string
-  energy_kwh: number
-  allow_night_grid: boolean
+  summer: {
+    enabled: boolean
+    target_time: string
+    energy_kwh: number
+    allow_night_grid: boolean
+  }
+  winter: {
+    enabled: boolean
+    target_time: string
+    energy_kwh: number
+    allow_night_grid: boolean
+  }
 }
 
 export interface AutomaticConfig {
@@ -53,37 +80,95 @@ export async function updateAutomaticConfig(
     const payload: PartialAutomaticConfig = {}
 
     // Check boiler changes
-    const boilerChanges: PartialBoilerConfig = {}
+    const boilerChanges: any = {}
+    
     if (currentConfig.boiler.enabled !== originalConfig.boiler.enabled) {
       boilerChanges.enabled = currentConfig.boiler.enabled
     }
-    if (currentConfig.boiler.target_time !== originalConfig.boiler.target_time) {
-      boilerChanges.target_time = currentConfig.boiler.target_time
+    
+    // Check summer changes
+    const summerChanges: any = {}
+    if (currentConfig.boiler.summer.enabled !== originalConfig.boiler.summer.enabled) {
+      summerChanges.enabled = currentConfig.boiler.summer.enabled
     }
-    if (currentConfig.boiler.target_temp_c !== originalConfig.boiler.target_temp_c) {
-      boilerChanges.target_temp_c = currentConfig.boiler.target_temp_c
+    if (currentConfig.boiler.summer.target_time !== originalConfig.boiler.summer.target_time) {
+      summerChanges.target_time = currentConfig.boiler.summer.target_time
     }
-    if (currentConfig.boiler.min_runtime_min !== originalConfig.boiler.min_runtime_min) {
-      boilerChanges.min_runtime_min = currentConfig.boiler.min_runtime_min
+    if (currentConfig.boiler.summer.target_temp_c !== originalConfig.boiler.summer.target_temp_c) {
+      summerChanges.target_temp_c = currentConfig.boiler.summer.target_temp_c
     }
+    if (currentConfig.boiler.summer.min_runtime_min !== originalConfig.boiler.summer.min_runtime_min) {
+      summerChanges.min_runtime_min = currentConfig.boiler.summer.min_runtime_min
+    }
+    if (Object.keys(summerChanges).length > 0) {
+      boilerChanges.summer = summerChanges
+    }
+    
+    // Check winter changes
+    const winterChanges: any = {}
+    if (currentConfig.boiler.winter.enabled !== originalConfig.boiler.winter.enabled) {
+      winterChanges.enabled = currentConfig.boiler.winter.enabled
+    }
+    if (currentConfig.boiler.winter.target_time !== originalConfig.boiler.winter.target_time) {
+      winterChanges.target_time = currentConfig.boiler.winter.target_time
+    }
+    if (currentConfig.boiler.winter.target_temp_c !== originalConfig.boiler.winter.target_temp_c) {
+      winterChanges.target_temp_c = currentConfig.boiler.winter.target_temp_c
+    }
+    if (currentConfig.boiler.winter.min_runtime_min !== originalConfig.boiler.winter.min_runtime_min) {
+      winterChanges.min_runtime_min = currentConfig.boiler.winter.min_runtime_min
+    }
+    if (Object.keys(winterChanges).length > 0) {
+      boilerChanges.winter = winterChanges
+    }
+    
     if (Object.keys(boilerChanges).length > 0) {
       payload.boiler = boilerChanges
     }
 
     // Check wallbox changes
-    const wallboxChanges: PartialWallboxConfig = {}
+    const wallboxChanges: any = {}
+    
     if (currentConfig.wallbox.enabled !== originalConfig.wallbox.enabled) {
       wallboxChanges.enabled = currentConfig.wallbox.enabled
     }
-    if (currentConfig.wallbox.target_time !== originalConfig.wallbox.target_time) {
-      wallboxChanges.target_time = currentConfig.wallbox.target_time
+    
+    // Check summer changes
+    const wallboxSummerChanges: any = {}
+    if (currentConfig.wallbox.summer.enabled !== originalConfig.wallbox.summer.enabled) {
+      wallboxSummerChanges.enabled = currentConfig.wallbox.summer.enabled
     }
-    if (currentConfig.wallbox.energy_kwh !== originalConfig.wallbox.energy_kwh) {
-      wallboxChanges.energy_kwh = currentConfig.wallbox.energy_kwh
+    if (currentConfig.wallbox.summer.target_time !== originalConfig.wallbox.summer.target_time) {
+      wallboxSummerChanges.target_time = currentConfig.wallbox.summer.target_time
     }
-    if (currentConfig.wallbox.allow_night_grid !== originalConfig.wallbox.allow_night_grid) {
-      wallboxChanges.allow_night_grid = currentConfig.wallbox.allow_night_grid
+    if (currentConfig.wallbox.summer.energy_kwh !== originalConfig.wallbox.summer.energy_kwh) {
+      wallboxSummerChanges.energy_kwh = currentConfig.wallbox.summer.energy_kwh
     }
+    if (currentConfig.wallbox.summer.allow_night_grid !== originalConfig.wallbox.summer.allow_night_grid) {
+      wallboxSummerChanges.allow_night_grid = currentConfig.wallbox.summer.allow_night_grid
+    }
+    if (Object.keys(wallboxSummerChanges).length > 0) {
+      wallboxChanges.summer = wallboxSummerChanges
+    }
+    
+    // Check winter changes
+    const wallboxWinterChanges: any = {}
+    if (currentConfig.wallbox.winter.enabled !== originalConfig.wallbox.winter.enabled) {
+      wallboxWinterChanges.enabled = currentConfig.wallbox.winter.enabled
+    }
+    if (currentConfig.wallbox.winter.target_time !== originalConfig.wallbox.winter.target_time) {
+      wallboxWinterChanges.target_time = currentConfig.wallbox.winter.target_time
+    }
+    if (currentConfig.wallbox.winter.energy_kwh !== originalConfig.wallbox.winter.energy_kwh) {
+      wallboxWinterChanges.energy_kwh = currentConfig.wallbox.winter.energy_kwh
+    }
+    if (currentConfig.wallbox.winter.allow_night_grid !== originalConfig.wallbox.winter.allow_night_grid) {
+      wallboxWinterChanges.allow_night_grid = currentConfig.wallbox.winter.allow_night_grid
+    }
+    if (Object.keys(wallboxWinterChanges).length > 0) {
+      wallboxChanges.winter = wallboxWinterChanges
+    }
+    
     if (Object.keys(wallboxChanges).length > 0) {
       payload.wallbox = wallboxChanges
     }
