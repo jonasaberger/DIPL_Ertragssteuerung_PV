@@ -1,13 +1,11 @@
 {
   "boiler": {
     "winter": {
-      "enabled": true,
       "target_time": "16:00",
       "target_temp_c": 68,
       "min_runtime_min": 90
     },
     "summer": {
-      "enabled": true,
       "target_time": "14:00",
       "target_temp_c": 68,
       "min_runtime_min": 60
@@ -15,13 +13,11 @@
   },
   "wallbox": {
     "winter": {
-      "enabled": true,
       "target_time": "18:00",
       "energy_kwh": 12.0,
       "allow_night_grid": true
     },
     "summer": {
-      "enabled": true,
       "target_time": "17:00",
       "energy_kwh": 10.0,
       "allow_night_grid": false
