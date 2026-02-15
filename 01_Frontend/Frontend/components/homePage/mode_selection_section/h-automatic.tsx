@@ -1,10 +1,18 @@
-// components/homePage/h-automatic-settings.tsx
 import React, { useState, useEffect } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, ActivityIndicator, Switch } from 'react-native'
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
+  ActivityIndicator,
+  Switch,
+} from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
 import Toast from 'react-native-toast-message'
-import {timeStringToDate, dateToTimeString} from '@/services/helper'
+import { timeStringToDate, dateToTimeString } from '@/services/helper'
 import {
   fetchAutomaticConfig,
   updateAutomaticConfig,
@@ -12,36 +20,79 @@ import {
   AutomaticConfig,
 } from '@/services/mode_services/automatic_mode_service'
 
+// Import Components
+import SeasonToggle from './components/SeasonToggle'
+import DeviceCard from './components/DeviceCard'
+import SettingRow from './components/SettingRow'
+import CounterControl from './components/CounterControl'
+
+type Season = 'summer' | 'winter'
+
 export default function HAutomaticSettings() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [showTimePicker, setShowTimePicker] = useState<{
-    device: 'boiler' | 'wallbox' | null
-  }>({ device: null })
+  const [selectedSeason, setSelectedSeason] = useState<Season>('summer')
+  const [showTimePicker, setShowTimePicker] = useState<{ device: 'boiler' | 'wallbox' | null }>({ device: null })
 
   const [config, setConfig] = useState<AutomaticConfig | null>(null)
   const [originalConfig, setOriginalConfig] = useState<AutomaticConfig | null>(null)
 
-  // Load configuration on mount
   useEffect(() => {
     loadAutomaticConfig()
   }, [])
 
   const loadAutomaticConfig = async () => {
     setLoading(true)
-    const data = await fetchAutomaticConfig()
-    if (data) {
-      setConfig(data)
-      setOriginalConfig(JSON.parse(JSON.stringify(data)))
-    } else {
+    try {
+      const data = await fetchAutomaticConfig()
+      if (data) {
+        const validatedConfig: AutomaticConfig = {
+          boiler: {
+            summer: {
+              target_time: data.boiler?.summer?.target_time ?? '14:00',
+              target_temp_c: data.boiler?.summer?.target_temp_c ?? 68,
+              min_runtime_min: data.boiler?.summer?.min_runtime_min ?? 60,
+            },
+            winter: {
+              target_time: data.boiler?.winter?.target_time ?? '16:00',
+              target_temp_c: data.boiler?.winter?.target_temp_c ?? 68,
+              min_runtime_min: data.boiler?.winter?.min_runtime_min ?? 90,
+            },
+          },
+          wallbox: {
+            summer: {
+              target_time: data.wallbox?.summer?.target_time ?? '17:00',
+              energy_kwh: data.wallbox?.summer?.energy_kwh ?? 10,
+              allow_night_grid: data.wallbox?.summer?.allow_night_grid ?? false,
+            },
+            winter: {
+              target_time: data.wallbox?.winter?.target_time ?? '18:00',
+              energy_kwh: data.wallbox?.winter?.energy_kwh ?? 12,
+              allow_night_grid: data.wallbox?.winter?.allow_night_grid ?? true,
+            },
+          },
+        }
+        setConfig(validatedConfig)
+        setOriginalConfig(JSON.parse(JSON.stringify(validatedConfig)))
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Fehler',
+          text2: 'Automatik-Konfiguration konnte nicht geladen werden',
+          position: 'bottom',
+        })
+      }
+    } catch (error) {
+      console.error('Error loading config:', error)
       Toast.show({
         type: 'error',
         text1: 'Fehler',
         text2: 'Automatik-Konfiguration konnte nicht geladen werden',
         position: 'bottom',
       })
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleSave = async () => {
@@ -71,7 +122,6 @@ export default function HAutomaticSettings() {
 
   const handleCancel = () => {
     if (!originalConfig) return
-
     setConfig(JSON.parse(JSON.stringify(originalConfig)))
     Toast.show({
       type: 'info',
@@ -105,26 +155,8 @@ export default function HAutomaticSettings() {
     }
   }
 
-  // Toggle device enabled/disabled
-  const toggleDevice = (device: 'boiler' | 'wallbox') => {
-    if (!config) return
-
-    setConfig((prev) => {
-      if (!prev) return prev
-      return {
-        ...prev,
-        [device]: {
-          ...prev[device],
-          enabled: !prev[device].enabled,
-        },
-      }
-    })
-  }
-
-  // Update target time
   const updateTargetTime = (device: 'boiler' | 'wallbox', time: Date) => {
     if (!config) return
-
     const timeString = dateToTimeString(time)
     setConfig((prev) => {
       if (!prev) return prev
@@ -132,92 +164,103 @@ export default function HAutomaticSettings() {
         ...prev,
         [device]: {
           ...prev[device],
-          target_time: timeString,
+          [selectedSeason]: {
+            ...prev[device][selectedSeason],
+            target_time: timeString,
+          },
         },
       }
     })
     setShowTimePicker({ device: null })
   }
 
-  // Update energy
-  const updateEnergy = (device: 'boiler' | 'wallbox', delta: number) => {
+  const updateTemperature = (delta: number) => {
     if (!config) return
-
     setConfig((prev) => {
       if (!prev) return prev
-      const currentValue = prev[device].energy_kwh
-      const newValue = Math.max(0, currentValue + delta)
+      const currentValue = prev.boiler[selectedSeason].target_temp_c ?? 60
+      const newValue = Math.max(0, Math.min(100, currentValue + delta))
       return {
         ...prev,
-        [device]: {
-          ...prev[device],
-          energy_kwh: parseFloat(newValue.toFixed(1)),
+        boiler: {
+          ...prev.boiler,
+          [selectedSeason]: {
+            ...prev.boiler[selectedSeason],
+            target_temp_c: newValue,
+          },
         },
       }
     })
   }
 
-  // Update runtime (boiler only)
-  const updateRuntime = (delta: number) => {
+  const updateEnergy = (delta: number) => {
     if (!config) return
-
     setConfig((prev) => {
       if (!prev) return prev
-      const currentValue = prev.boiler.min_runtime_min
+      const currentValue = prev.wallbox[selectedSeason].energy_kwh ?? 0
+      const newValue = Math.max(0, currentValue + delta)
+      return {
+        ...prev,
+        wallbox: {
+          ...prev.wallbox,
+          [selectedSeason]: {
+            ...prev.wallbox[selectedSeason],
+            energy_kwh: parseFloat(newValue.toFixed(1)),
+          },
+        },
+      }
+    })
+  }
+
+  const updateRuntime = (delta: number) => {
+    if (!config) return
+    setConfig((prev) => {
+      if (!prev) return prev
+      const currentValue = prev.boiler[selectedSeason].min_runtime_min ?? 0
       const newValue = Math.max(0, currentValue + delta)
       return {
         ...prev,
         boiler: {
           ...prev.boiler,
-          min_runtime_min: newValue,
+          [selectedSeason]: {
+            ...prev.boiler[selectedSeason],
+            min_runtime_min: newValue,
+          },
         },
       }
     })
   }
 
-  // Toggle night grid (wallbox only)
   const toggleNightGrid = () => {
     if (!config) return
-
     setConfig((prev) => {
       if (!prev) return prev
       return {
         ...prev,
         wallbox: {
           ...prev.wallbox,
-          allow_night_grid: !prev.wallbox.allow_night_grid,
+          [selectedSeason]: {
+            ...prev.wallbox[selectedSeason],
+            allow_night_grid: !prev.wallbox[selectedSeason].allow_night_grid,
+          },
         },
       }
     })
   }
 
-  // Check if specific field has changed
-  const isFieldChanged = (
-    device: 'boiler' | 'wallbox',
-    field: keyof AutomaticConfig['boiler'] | keyof AutomaticConfig['wallbox']
-  ): boolean => {
+  // Prüft, ob ein Feld verändert wurde
+  const isFieldChanged = (device: 'boiler' | 'wallbox', field: string) => {
     if (!config || !originalConfig) return false
-    return config[device][field as keyof typeof config[typeof device]] !== 
-           originalConfig[device][field as keyof typeof originalConfig[typeof device]]
+    return (config[device][selectedSeason] as any)[field] !==
+           (originalConfig[device][selectedSeason] as any)[field]
   }
 
-  // Check if any value has changed
   const hasAnyChanges = (): boolean => {
     if (!config || !originalConfig) return false
-
-    return (
-      config.boiler.enabled !== originalConfig.boiler.enabled ||
-      config.boiler.target_time !== originalConfig.boiler.target_time ||
-      config.boiler.energy_kwh !== originalConfig.boiler.energy_kwh ||
-      config.boiler.min_runtime_min !== originalConfig.boiler.min_runtime_min ||
-      config.wallbox.enabled !== originalConfig.wallbox.enabled ||
-      config.wallbox.target_time !== originalConfig.wallbox.target_time ||
-      config.wallbox.energy_kwh !== originalConfig.wallbox.energy_kwh ||
-      config.wallbox.allow_night_grid !== originalConfig.wallbox.allow_night_grid
-    )
+    return JSON.stringify(config) !== JSON.stringify(originalConfig)
   }
 
-  if (loading || !config || !originalConfig) {
+  if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1EAFF3" />
@@ -226,9 +269,21 @@ export default function HAutomaticSettings() {
     )
   }
 
+  if (!config || !originalConfig) {
+    return (
+      <View style={styles.loadingContainer}>
+        <MaterialCommunityIcons name="alert-circle-outline" size={48} color="#FF3B30" />
+        <Text style={styles.loadingText}>Konfiguration konnte nicht geladen werden</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadAutomaticConfig}>
+          <Text style={styles.retryButtonText}>Erneut versuchen</Text>
+        </TouchableOpacity>
+      </View>
+    )
+  }
+
   return (
     <View style={styles.container}>
-      {/* Header with Reset Button */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Automatik-Einstellungen</Text>
         <TouchableOpacity style={styles.iconButton} onPress={handleReset} disabled={saving}>
@@ -236,206 +291,76 @@ export default function HAutomaticSettings() {
         </TouchableOpacity>
       </View>
 
+      {/* Season Toggle */}
+      <SeasonToggle selectedSeason={selectedSeason} onSeasonChange={setSelectedSeason} />
+
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Boiler Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <MaterialCommunityIcons name="water-boiler" size={24} color="#1EAFF3" />
-              <Text style={styles.sectionTitle}>Boiler</Text>
-            </View>
-            <Switch
-              value={config.boiler.enabled}
-              onValueChange={() => toggleDevice('boiler')}
-              trackColor={{ false: '#D1D1D6', true: '#1EAFF3' }}
-              thumbColor="#FFFFFF"
+        {/* Boiler Card */}
+        <DeviceCard icon="water-boiler" title="Boiler">
+          <View style={styles.settingsContainer}>
+            <SettingRow
+              icon="clock-outline"
+              label="Zielzeit"
+              value={config.boiler[selectedSeason].target_time}
+              onPress={() => setShowTimePicker({ device: 'boiler' })}
             />
+            <SettingRow icon="thermometer" label="Zieltemperatur">
+              <CounterControl
+                value={config.boiler[selectedSeason].target_temp_c}
+                unit="°C"
+                onIncrement={() => updateTemperature(5)}
+                onDecrement={() => updateTemperature(-5)}
+                changed={isFieldChanged('boiler', 'target_temp_c')}
+              />
+            </SettingRow>
+            <SettingRow icon="timer-outline" label="Min. Laufzeit">
+              <CounterControl
+                value={config.boiler[selectedSeason].min_runtime_min}
+                unit="min"
+                onIncrement={() => updateRuntime(15)}
+                onDecrement={() => updateRuntime(-15)}
+                changed={isFieldChanged('boiler', 'min_runtime_min')}
+              />
+            </SettingRow>
           </View>
+        </DeviceCard>
 
-          {config.boiler.enabled && (
-            <View style={styles.settingsContainer}>
-              {/* Target Time */}
-              <TouchableOpacity
-                style={styles.settingRow}
-                onPress={() => setShowTimePicker({ device: 'boiler' })}
-              >
-                <View style={styles.settingLabel}>
-                  <MaterialCommunityIcons name="clock-outline" size={20} color="#666" />
-                  <Text style={styles.settingLabelText}>Zielzeit</Text>
-                </View>
-                <View style={styles.settingValue}>
-                  <Text 
-                    style={[
-                      styles.settingValueText,
-                      isFieldChanged('boiler', 'target_time') && styles.settingValueTextChanged
-                    ]}
-                  >
-                    {config.boiler.target_time}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#C7C7CC" />
-                </View>
-              </TouchableOpacity>
-
-              {/* Energy */}
-              <View style={styles.settingRow}>
-                <View style={styles.settingLabel}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={20} color="#666" />
-                  <Text style={styles.settingLabelText}>Energie</Text>
-                </View>
-                <View style={styles.counterControl}>
-                  <TouchableOpacity
-                    style={styles.counterButton}
-                    onPress={() => updateEnergy('boiler', -0.5)}
-                  >
-                    <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
-                  </TouchableOpacity>
-                  <Text 
-                    style={[
-                      styles.counterValue,
-                      isFieldChanged('boiler', 'energy_kwh') && styles.counterValueChanged
-                    ]}
-                  >
-                    {config.boiler.energy_kwh} kWh
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.counterButton}
-                    onPress={() => updateEnergy('boiler', 0.5)}
-                  >
-                    <MaterialCommunityIcons name="plus" size={20} color="#1EAFF3" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Min Runtime */}
-              <View style={styles.settingRow}>
-                <View style={styles.settingLabel}>
-                  <MaterialCommunityIcons name="timer-outline" size={20} color="#666" />
-                  <Text style={styles.settingLabelText}>Min. Laufzeit</Text>
-                </View>
-                <View style={styles.counterControl}>
-                  <TouchableOpacity
-                    style={styles.counterButton}
-                    onPress={() => updateRuntime(-15)}
-                  >
-                    <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
-                  </TouchableOpacity>
-                  <Text 
-                    style={[
-                      styles.counterValue,
-                      isFieldChanged('boiler', 'min_runtime_min') && styles.counterValueChanged
-                    ]}
-                  >
-                    {config.boiler.min_runtime_min} min
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.counterButton}
-                    onPress={() => updateRuntime(15)}
-                  >
-                    <MaterialCommunityIcons name="plus" size={20} color="#1EAFF3" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Wallbox Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionTitleRow}>
-              <MaterialCommunityIcons name="ev-station" size={24} color="#1EAFF3" />
-              <Text style={styles.sectionTitle}>Wallbox</Text>
-            </View>
-            <Switch
-              value={config.wallbox.enabled}
-              onValueChange={() => toggleDevice('wallbox')}
-              trackColor={{ false: '#D1D1D6', true: '#1EAFF3' }}
-              thumbColor="#FFFFFF"
+        {/* Wallbox Card */}
+        <DeviceCard icon="ev-station" title="Wallbox">
+          <View style={styles.settingsContainer}>
+            <SettingRow
+              icon="clock-outline"
+              label="Zielzeit"
+              value={config.wallbox[selectedSeason].target_time}
+              onPress={() => setShowTimePicker({ device: 'wallbox' })}
             />
+            <SettingRow icon="lightning-bolt" label="Energie">
+              <CounterControl
+                value={config.wallbox[selectedSeason].energy_kwh}
+                unit="kWh"
+                onIncrement={() => updateEnergy(1)}
+                onDecrement={() => updateEnergy(-1)}
+                changed={isFieldChanged('wallbox', 'energy_kwh')}
+              />
+            </SettingRow>
+            <SettingRow icon="weather-night" label="Nachtladung (Netz)">
+              <Switch
+                value={config.wallbox[selectedSeason].allow_night_grid}
+                onValueChange={toggleNightGrid}
+                trackColor={{ false: '#D1D1D6', true: '#1EAFF3' }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor="#D1D1D6"
+              />
+            </SettingRow>
           </View>
-
-          {config.wallbox.enabled && (
-            <View style={styles.settingsContainer}>
-              {/* Target Time */}
-              <TouchableOpacity
-                style={styles.settingRow}
-                onPress={() => setShowTimePicker({ device: 'wallbox' })}
-              >
-                <View style={styles.settingLabel}>
-                  <MaterialCommunityIcons name="clock-outline" size={20} color="#666" />
-                  <Text style={styles.settingLabelText}>Zielzeit</Text>
-                </View>
-                <View style={styles.settingValue}>
-                  <Text 
-                    style={[
-                      styles.settingValueText,
-                      isFieldChanged('wallbox', 'target_time') && styles.settingValueTextChanged
-                    ]}
-                  >
-                    {config.wallbox.target_time}
-                  </Text>
-                  <MaterialCommunityIcons name="chevron-right" size={20} color="#C7C7CC" />
-                </View>
-              </TouchableOpacity>
-
-              {/* Energy */}
-              <View style={styles.settingRow}>
-                <View style={styles.settingLabel}>
-                  <MaterialCommunityIcons name="lightning-bolt" size={20} color="#666" />
-                  <Text style={styles.settingLabelText}>Energie</Text>
-                </View>
-                <View style={styles.counterControl}>
-                  <TouchableOpacity
-                    style={styles.counterButton}
-                    onPress={() => updateEnergy('wallbox', -1)}
-                  >
-                    <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
-                  </TouchableOpacity>
-                  <Text 
-                    style={[
-                      styles.counterValue,
-                      isFieldChanged('wallbox', 'energy_kwh') && styles.counterValueChanged
-                    ]}
-                  >
-                    {config.wallbox.energy_kwh} kWh
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.counterButton}
-                    onPress={() => updateEnergy('wallbox', 1)}
-                  >
-                    <MaterialCommunityIcons name="plus" size={20} color="#1EAFF3" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Night Grid */}
-              <View style={styles.settingRow}>
-                <View style={styles.settingLabel}>
-                  <MaterialCommunityIcons name="weather-night" size={20} color="#666" />
-                  <Text style={styles.settingLabelText}>Nachtladung (Netz)</Text>
-                </View>
-                <Switch
-                  value={config.wallbox.allow_night_grid}
-                  onValueChange={toggleNightGrid}
-                  trackColor={{ false: '#D1D1D6', true: '#1EAFF3' }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-            </View>
-          )}
-        </View>
+        </DeviceCard>
 
         {/* Save/Cancel Buttons */}
         {hasAnyChanges() && (
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
-              {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.saveButtonText}>Speichern</Text>
-              )}
+              {saving ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.saveButtonText}>Speichern</Text>}
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.cancelButton} onPress={handleCancel} disabled={saving}>
               <Text style={styles.cancelButtonText}>Abbrechen</Text>
             </TouchableOpacity>
@@ -447,7 +372,7 @@ export default function HAutomaticSettings() {
       {showTimePicker.device && (
         <View style={styles.timePickerContainer}>
           <DateTimePicker
-            value={timeStringToDate(config[showTimePicker.device].target_time)}
+            value={timeStringToDate(config[showTimePicker.device][selectedSeason].target_time)}
             mode="time"
             is24Hour={true}
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
@@ -465,149 +390,22 @@ export default function HAutomaticSettings() {
   )
 }
 
-// Styles created with ChatGPT
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 15,
-    color: '#666',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#000',
-  },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scrollContent: {
-    flex: 1,
-  },
-  section: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#000',
-  },
-  settingsContainer: {
-    gap: 12,
-  },
-  settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  settingLabel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  settingLabelText: {
-    fontSize: 15,
-    color: '#333',
-  },
-  settingValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  settingValueText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#1EAFF3',
-  },
-  settingValueTextChanged: {
-    color: '#FF3B30',
-  },
-  counterControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  counterButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  counterValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#000',
-    minWidth: 80,
-    textAlign: 'center',
-  },
-  counterValueChanged: {
-    color: '#FF3B30',
-  },
-  buttonContainer: {
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  saveButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1EAFF3',
-    borderRadius: 12,
-    paddingVertical: 16,
-  },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  cancelButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F0F0F0',
-    borderRadius: 12,
-    paddingVertical: 16,
-  },
-  cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#8E8E93',
-  },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  loadingText: { marginTop: 12, fontSize: 15, color: '#666', textAlign: 'center' },
+  retryButton: { marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#1EAFF3', borderRadius: 8 },
+  retryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '600' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: '#000' },
+  iconButton: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },
+  scrollContent: { flex: 1 },
+  settingsContainer: { gap: 8 },
+  buttonContainer: { gap: 12, marginTop: 8, marginBottom: 24 },
+  saveButton: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#1EAFF3', borderRadius: 12, paddingVertical: 16 },
+  saveButtonText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  cancelButton: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F0F0', borderRadius: 12, paddingVertical: 16 },
+  cancelButtonText: { fontSize: 16, fontWeight: '700', color: '#8E8E93' },
   timePickerContainer: {
     position: 'absolute',
     bottom: 0,
@@ -618,15 +416,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 16,
     padding: 16,
     ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 8,
-      },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 8 },
+      android: { elevation: 8 },
     }),
   },
 })
