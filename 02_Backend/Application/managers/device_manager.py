@@ -1,6 +1,7 @@
+import os
 import json
 from flask import request, jsonify
-import os
+
 
 class DeviceManager:
     def __init__(self, config_path: str = "config/devices.json", default_path: str = "config/devices-default.json"):
@@ -56,6 +57,52 @@ class DeviceManager:
         if not device:
             raise KeyError(f"Device '{device_id}' not found")
         return device
+    
+
+    # -------- READ CONSTANTS METHODS --------
+    def get_epex_price_offset(self) -> float:
+        """Get the configured EPEX price offset to add to raw prices"""
+        try:
+            epex_device = self._config["devices"].get("epex", {})
+            return float(epex_device.get("priceOffset", 0.0))
+        except (KeyError, ValueError, TypeError):
+            return 0.0
+
+    def set_epex_price_offset(self, offset: float):
+        """Set the EPEX price offset (no admin password required)"""
+        if "epex" not in self._config["devices"]:
+            raise KeyError("EPEX device not found in configuration")
+        
+        self._config["devices"]["epex"]["priceOffset"] = float(offset)
+        self.save()
+        
+    def epex_price_offset_endpoint(self):
+        """GET/PUT endpoint for EPEX price offset"""
+        # GET: Return current offset
+        if request.method == "GET":
+            return jsonify({
+                "priceOffset": self.get_epex_price_offset()
+            }), 200
+        
+        # PUT: Update offset
+        if request.method == "PUT":
+            payload = request.get_json(silent=True)
+            if not payload or "priceOffset" not in payload:
+                return jsonify({"error": "Missing 'priceOffset' in request"}), 400
+            
+            try:
+                offset = float(payload["priceOffset"])
+                self.set_epex_price_offset(offset)
+                
+                return jsonify({
+                    "success": True,
+                    "priceOffset": offset
+                }), 200
+                
+            except (ValueError, TypeError):
+                return jsonify({"error": "Invalid priceOffset value, must be a number"}), 400
+            except KeyError as e:
+                return jsonify({"error": str(e)}), 404
 
     # -------- ADMIN METHODS --------
 

@@ -18,7 +18,8 @@
       "baseUrl": "http://apis.smartenergy.at",
       "endpoints": {
         "price": "/market/v1/price"
-      }
+      },
+      "priceOffset": 0.14
     }
   }
 }

@@ -1,6 +1,7 @@
 import json
-from pathlib import Path
 import copy
+from pathlib import Path
+
 
 #  Handles AUTOMATIC mode configuration
 #  Supports default fallback and runtime updates via API

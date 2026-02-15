@@ -1,9 +1,11 @@
+import sys
+from datetime import datetime
+
 from device_manager import DeviceManager
 from pv_bridge import PV_Bridge
 from boiler_bridge import Boiler_Bridge
 from db_bridge import DB_Bridge
-from datetime import datetime
-import sys
+
 
 def main():
     # Connect to DB

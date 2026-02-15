@@ -1,7 +1,6 @@
 import requests
 from decimal import Decimal
-from dotenv import load_dotenv
-import os
+
 
 class PV_Bridge:
     def __init__(self, device_manager):

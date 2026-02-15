@@ -1,8 +1,8 @@
 import os
+import pytz
 from dotenv import load_dotenv, find_dotenv
 from influxdb_client import InfluxDBClient
-from datetime import datetime, timedelta, time
-import pytz
+from datetime import datetime, timedelta
 
 class DB_Bridge:
     def __init__(self):
