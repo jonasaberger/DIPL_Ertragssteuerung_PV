@@ -1,5 +1,5 @@
-import React from 'react'
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
+import React, { useState } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native'
 import Card from '@/components/card'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 
@@ -11,6 +11,7 @@ type Props = {
   phases?: number
   selectedSetting: 'MANUAL_OFF' | 'MANUAL_ON'
   onSelect: (setting: 'MANUAL_OFF' | 'MANUAL_ON') => void
+  onAmpereChange: (ampere: number) => void
   available: boolean
   showControls?: boolean
 }
@@ -23,14 +24,27 @@ export default function HWallbox({
   phases = 3,
   selectedSetting,
   onSelect,
+  onAmpereChange,
   available,
-  showControls = true, // Default = true
+  showControls = true,
 }: Props) {
+  const [showAmpereModal, setShowAmpereModal] = useState(false)
+  const [tempAmpere, setTempAmpere] = useState(ampere)
+
+  // Nur erlaubte Backend-Werte
+  const amperePresets = [6, 10, 12, 14, 16]
+
+  const handleAmpereSubmit = () => {
+    if (amperePresets.includes(tempAmpere)) {
+      onAmpereChange(tempAmpere)
+      setShowAmpereModal(false)
+    }
+  }
+
   return (
     <Card>
       <View style={styles.wallboxCard}>
         {!available ? (
-          /* ================= NOT AVAILABLE STATE ================= */
           <View style={styles.unavailableContainer}>
             <MaterialCommunityIcons
               name="alert-circle-outline"
@@ -45,7 +59,6 @@ export default function HWallbox({
             </Text>
           </View>
         ) : (
-          /* ================= NORMAL STATE ================= */
           <>
             {/* Header */}
             <View style={styles.headerSection}>
@@ -122,12 +135,7 @@ export default function HWallbox({
                   </View>
                   <View style={styles.statusContent}>
                     <Text style={styles.statusLabel}>Leistung</Text>
-                    <Text
-                      style={[
-                        styles.statusValue,
-                        { color: '#1EAFF3' },
-                      ]}
-                    >
+                    <Text style={[styles.statusValue, { color: '#1EAFF3' }]}>
                       {ampere}A · {phases}Ph
                     </Text>
                   </View>
@@ -135,84 +143,91 @@ export default function HWallbox({
               )}
             </View>
 
-            {/* Settings oder Hinweis - nur anzeigen wenn showControls true ist */}
             {showControls && (
               <>
                 <View style={styles.divider} />
 
                 {carConnected ? (
-                  <View style={styles.settingsSection}>
-                    <Text style={styles.settingsTitle}>Lademodus</Text>
+                  <>
+                    {/* Lademodus */}
+                    <View style={styles.settingsSection}>
+                      <Text style={styles.settingsTitle}>Lademodus</Text>
 
-                    <View style={styles.settingsButtons}>
+                      <View style={styles.settingsButtons}>
+                        {(['MANUAL_ON', 'MANUAL_OFF'] as const).map(
+                          (mode) => (
+                            <TouchableOpacity
+                              key={mode}
+                              activeOpacity={0.7}
+                              style={[
+                                styles.settingButton,
+                                selectedSetting === mode &&
+                                  styles.settingButtonActive,
+                              ]}
+                              onPress={() => onSelect(mode)}
+                            >
+                              <View style={styles.settingButtonContent}>
+                                <View
+                                  style={[
+                                    styles.radioButton,
+                                    selectedSetting === mode &&
+                                      styles.radioButtonActive,
+                                  ]}
+                                >
+                                  {selectedSetting === mode && (
+                                    <View style={styles.radioButtonInner} />
+                                  )}
+                                </View>
+                                <Text style={styles.settingButtonText}>
+                                  {mode === 'MANUAL_ON'
+                                    ? 'Manuell EIN'
+                                    : 'Manuell AUS'}
+                                </Text>
+                              </View>
+                            </TouchableOpacity>
+                          )
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Ampere */}
+                    <View style={[styles.settingsSection, { marginTop: 12 }]}>
+                      <Text style={styles.settingsTitle}>Ladestrom</Text>
+
                       <TouchableOpacity
                         activeOpacity={0.7}
-                        style={[
-                          styles.settingButton,
-                          selectedSetting === 'MANUAL_ON' &&
-                            styles.settingButtonActive,
-                        ]}
-                        onPress={() => onSelect('MANUAL_ON')}
+                        style={styles.ampereControl}
+                        onPress={() => {
+                          setTempAmpere(ampere)
+                          setShowAmpereModal(true)
+                        }}
                       >
-                        <View style={styles.settingButtonContent}>
-                          <View
-                            style={[
-                              styles.radioButton,
-                              selectedSetting === 'MANUAL_ON' &&
-                                styles.radioButtonActive,
-                            ]}
-                          >
-                            {selectedSetting === 'MANUAL_ON' && (
-                              <View style={styles.radioButtonInner} />
-                            )}
-                          </View>
-                          <View style={styles.settingTextContainer}>
-                            <Text style={styles.settingButtonText}>
-                              Manuell EIN
+                        <View style={styles.ampereControlContent}>
+                          <MaterialCommunityIcons
+                            name="speedometer"
+                            size={20}
+                            color="#1EAFF3"
+                          />
+                          <View style={styles.ampereTextContainer}>
+                            <Text style={styles.ampereValue}>
+                              {ampere} A
                             </Text>
-                            <Text style={styles.settingButtonSubtext}>
-                              Laden erlauben
+                            <Text style={styles.ampereSubtext}>
+                              Passe den Ladestrom an (6-16A)
                             </Text>
                           </View>
-                        </View>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        style={[
-                          styles.settingButton,
-                          selectedSetting === 'MANUAL_OFF' &&
-                            styles.settingButtonActive,
-                        ]}
-                        onPress={() => onSelect('MANUAL_OFF')}
-                      >
-                        <View style={styles.settingButtonContent}>
-                          <View
-                            style={[
-                              styles.radioButton,
-                              selectedSetting === 'MANUAL_OFF' &&
-                                styles.radioButtonActive,
-                            ]}
-                          >
-                            {selectedSetting === 'MANUAL_OFF' && (
-                              <View style={styles.radioButtonInner} />
-                            )}
-                          </View>
-                          <View style={styles.settingTextContainer}>
-                            <Text style={styles.settingButtonText}>
-                              Manuell AUS
-                            </Text>
-                            <Text style={styles.settingButtonSubtext}>
-                              Laden blockieren
-                            </Text>
-                          </View>
+                          <MaterialCommunityIcons
+                            name="chevron-right"
+                            size={20}
+                            color="#8E8E93"
+                          />
                         </View>
                       </TouchableOpacity>
                     </View>
-                  </View>
+                  </>
                 ) : (
                   <Text style={styles.settingsHint}>
-                    Fahrzeug nicht verbunden – Lademodi nicht verfügbar
+                    Fahrzeug nicht verbunden – Einstellungen nicht verfügbar
                   </Text>
                 )}
               </>
@@ -220,14 +235,76 @@ export default function HWallbox({
           </>
         )}
       </View>
+
+      {/* Modal */}
+      <Modal
+        visible={showAmpereModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAmpereModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Ladestrom einstellen</Text>
+
+            <View style={styles.presetsGrid}>
+              {amperePresets.map((preset) => (
+                <TouchableOpacity
+                  key={preset}
+                  style={[
+                    styles.presetButton,
+                    tempAmpere === preset &&
+                      styles.presetButtonActive,
+                  ]}
+                  onPress={() => setTempAmpere(preset)}
+                >
+                  <Text
+                    style={[
+                      styles.presetButtonText,
+                      tempAmpere === preset &&
+                        styles.presetButtonTextActive,
+                    ]}
+                  >
+                    {preset}A
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalButtonSecondary}
+                onPress={() => setShowAmpereModal(false)}
+              >
+                <Text style={styles.modalButtonSecondaryText}>
+                  Abbrechen
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButtonPrimary,
+                  !amperePresets.includes(tempAmpere) && {
+                    opacity: 0.5,
+                  },
+                ]}
+                disabled={!amperePresets.includes(tempAmpere)}
+                onPress={handleAmpereSubmit}
+              >
+                <Text style={styles.modalButtonPrimaryText}>
+                  Übernehmen
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Card>
   )
 }
 
 const styles = StyleSheet.create({
-  wallboxCard: {
-    padding: 14,
-  },
+  wallboxCard: { padding: 14 },
   headerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -238,7 +315,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
     color: '#1C1C1E',
-    letterSpacing: -0.5,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -248,22 +324,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 16,
   },
-  statusBadgeCharging: {
-    backgroundColor: '#E8F8ED',
-  },
-  statusBadgeIdle: {
-    backgroundColor: '#FFE8E8',
-  },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statusTextCharging: {
-    color: '#16C75C',
-  },
-  statusTextIdle: {
-    color: '#FF3B30',
-  },
+  statusBadgeCharging: { backgroundColor: '#E8F8ED' },
+  statusBadgeIdle: { backgroundColor: '#FFE8E8' },
+  statusBadgeText: { fontSize: 12, fontWeight: '600' },
+  statusTextCharging: { color: '#16C75C' },
+  statusTextIdle: { color: '#FF3B30' },
   energySection: {
     alignItems: 'center',
     paddingVertical: 12,
@@ -271,34 +336,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
   },
-  energyDisplay: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-  },
+  energyDisplay: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
   energyValue: {
     fontSize: 32,
     fontWeight: '700',
     color: '#1EAFF3',
-    letterSpacing: -1,
   },
   energyUnit: {
     fontSize: 18,
     fontWeight: '600',
     color: '#1EAFF3',
-    opacity: 0.8,
   },
   energyLabel: {
     fontSize: 12,
     fontWeight: '500',
     color: '#1C1C1E',
-    marginTop: 2,
   },
-  statusGrid: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
+  statusGrid: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   statusItem: {
     flex: 1,
     flexDirection: 'row',
@@ -316,36 +370,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
   },
-  statusContent: {
-    flex: 1,
-  },
-  statusLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: '#1C1C1E',
-    marginBottom: 1,
-  },
-  statusValue: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
+  statusContent: { flex: 1 },
+  statusLabel: { fontSize: 10, color: '#1C1C1E' },
+  statusValue: { fontSize: 13, fontWeight: '600' },
   divider: {
     height: 1,
     backgroundColor: '#E5E5EA',
     marginVertical: 12,
   },
-  settingsSection: {
-    gap: 8,
-  },
-  settingsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 2,
-  },
-  settingsButtons: {
-    gap: 8,
-  },
+  settingsSection: { gap: 8 },
+  settingsButtons: { gap: 8 },
+
+  settingsTitle: { fontSize: 14, fontWeight: '600' },
   settingButton: {
     backgroundColor: '#F8F9FA',
     borderRadius: 10,
@@ -371,49 +407,123 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  radioButtonActive: {
-    borderColor: '#1EAFF3',
-  },
+  radioButtonActive: { borderColor: '#1EAFF3' },
   radioButtonInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
     backgroundColor: '#1EAFF3',
   },
-  settingTextContainer: {
-    flex: 1,
-  },
   settingButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1C1C1E',
-    marginBottom: 1,
-  },
-  settingButtonSubtext: {
-    fontSize: 11,
-    fontWeight: '400',
-    color: '#8E8E93',
   },
   settingsHint: {
     fontSize: 12,
     color: '#8E8E93',
     textAlign: 'center',
-    marginTop: 4,
   },
   unavailableContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 32,
-    gap: 6,
   },
   unavailableTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1C1C1E',
   },
   unavailableSubtitle: {
     fontSize: 12,
     color: '#8E8E93',
     textAlign: 'center',
+  },
+  ampereControl: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 10,
+  },
+  ampereControlContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 10,
+  },
+  ampereTextContainer: { flex: 1 },
+  ampereValue: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  ampereSubtext: {
+    fontSize: 11,
+    color: '#8E8E93',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 20,
+  },
+  presetsGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
+  },
+  presetButton: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  presetButtonActive: {
+    backgroundColor: '#E3F2FD',
+    borderColor: '#1EAFF3',
+    borderWidth: 2,
+  },
+  presetButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  presetButtonTextActive: {
+    color: '#1EAFF3',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modalButtonSecondary: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalButtonSecondaryText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  modalButtonPrimary: {
+    flex: 1,
+    backgroundColor: '#1EAFF3',
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalButtonPrimaryText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 })

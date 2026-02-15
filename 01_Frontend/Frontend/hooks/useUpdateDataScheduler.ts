@@ -165,6 +165,11 @@ export function useUpdateDataScheduler() {
       setWallboxData(data)
   }
 
+  const refetchEpexData = async () => {
+    const data = await fetchEpexData()
+    setEpexData(data)
+  }
+
   return {
     pvData,
     boilerData,
@@ -172,6 +177,7 @@ export function useUpdateDataScheduler() {
     wallboxData,
     systemState,
     refetchBoilerData,
-    refetchEGoData
+    refetchEGoData,
+    refetchEpexData
   }
 }

@@ -14,6 +14,9 @@ import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
 import { toggleBoilerSetting } from '@/services/iot_services/boiler_service'
 import { allowEGoPower } from '@/services/iot_services/e_go_service'
 import { fetchModeData, setModeData, ModeData, Mode } from '@/services/mode_services/mode_service'
+import { updatePriceOffset } from '@/services/ext_services/epex_service'
+import { setEGoAmpere } from '@/services/iot_services/e_go_service'
+
 
 type EGoWallboxSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'
@@ -25,7 +28,7 @@ const toNum = (v: any) => {
 const clamp0 = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0)
 
 export default function HomeScreen() {
-  const { pvData, boilerData, epexData, wallboxData, systemState, refetchBoilerData, refetchEGoData } = useUpdateDataScheduler()
+  const { pvData, boilerData, epexData, wallboxData, systemState, refetchBoilerData, refetchEGoData, refetchEpexData } = useUpdateDataScheduler()
 
   const available = {
     influx: systemState?.influx === 'ok',
@@ -38,7 +41,21 @@ export default function HomeScreen() {
     selectedWallboxSetting: 'MANUAL_OFF' as EGoWallboxSetting,
     selectedBoilerSetting: 'MANUAL_OFF' as BoilerSetting,
     currentMode: 'MANUAL' as Mode,
+    ampere: 0,
   })
+
+  // Sync ampere from backend data
+  useEffect(() => {
+    if (wallboxData?.ampere !== undefined) {
+      setUiState((prev) => {
+        if (prev.ampere !== wallboxData.ampere) {
+          return { ...prev, ampere: wallboxData.ampere }
+        }
+        return prev
+      })
+    }
+  }, [wallboxData?.ampere])
+
 
   // Fetch current mode on component mount
   useEffect(() => {
@@ -136,6 +153,24 @@ export default function HomeScreen() {
     }
   }
 
+  const handleAmpereChange = async (newAmpere: number) => {
+    const previousAmpere = uiState.ampere
+
+    // Optimistic update
+    setUiState((prev) => ({ ...prev, ampere: newAmpere }))
+
+    const success = await setEGoAmpere(newAmpere)
+
+    if (success) {
+      await refetchEGoData()
+    } else {
+      console.warn('Failed to update ampere on backend - reverting UI')
+      setUiState((prev) => ({ ...prev, ampere: previousAmpere }))
+      Alert.alert('Fehler', 'Ladestrom konnte nicht geändert werden')
+    }
+  }
+
+
   const handleBoilerSelect = async (setting: BoilerSetting) => {
     const previousSetting = uiState.selectedBoilerSetting
 
@@ -176,6 +211,15 @@ export default function HomeScreen() {
     console.log('Ladeprioritäten:', data.map((item) => item.id))
   }
 
+  // Handler für Offset-Update mit Refetch
+  const handleOffsetUpdate = async (newOffset: number) => {
+    await updatePriceOffset(newOffset)
+    // Daten neu laden nach Update
+    if (refetchEpexData) {
+      await refetchEpexData()
+    }
+  }
+
   // Check if manual controls should be shown
   const showManualControls = uiState.currentMode === 'MANUAL'
 
@@ -189,12 +233,14 @@ export default function HomeScreen() {
           onModeChange={handleModeChange}
         />
 
-        <HPrices
-          date={epexData?.date ?? ''}
-          time={epexData?.time ?? 'Loading...'}
-          location="Österreich"
+       <HPrices
+          date={epexData?.date ?? '--'}
+          time={epexData?.time ?? '--'}
+          priceRaw={epexData?.priceRaw ?? 0}
+          priceOffset={epexData?.priceOffset ?? 0}
           pricePerKWh={epexData?.pricePerKWh ?? 0}
-          available={available.epex}
+          available={available.epex && epexData !== null}
+          onOffsetUpdate={handleOffsetUpdate}
         />
 
         <HBoiler
@@ -215,6 +261,7 @@ export default function HomeScreen() {
           ampere={wallboxData?.ampere ?? 0}
           available={available.wallbox}
           showControls={showManualControls}
+          onAmpereChange={handleAmpereChange}
         />
       </ScrollView>
     </ThemedView>
