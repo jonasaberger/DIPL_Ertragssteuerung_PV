@@ -1,3 +1,4 @@
+// app/(tabs)/settings.tsx
 import React, { useCallback, useRef, useState } from 'react'
 import { ScrollView, StyleSheet } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
@@ -5,6 +6,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import SSystemSettings from '@/components/settings/s-systemsettings'
 import SProtocol from '@/components/settings/s-protocol'
 import SDeviceStates from '@/components/settings/s-devicestates'
+import SErrorLog from '@/components/settings/s-errorlog'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
 
 export default function SettingsScreen() {
@@ -44,6 +46,8 @@ export default function SettingsScreen() {
             <SProtocol />
 
             <SDeviceStates />
+
+            <SErrorLog />
           </>
         ) : null}
       </ScrollView>
