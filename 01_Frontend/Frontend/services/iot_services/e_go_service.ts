@@ -1,4 +1,4 @@
-import { fetchJson, postJson,  parseInfluxTime, round1 } from '../helper'
+import { fetchJson, postJson, parseInfluxTime, round1 } from '../helper'
 
 export interface EGoData {
   date: string
@@ -34,16 +34,35 @@ export async function fetchEGoData(): Promise<EGoData | null> {
   }
 }
 
+// Setzt den Lademodus (EIN/AUS)
 export async function allowEGoPower(setting: 'MANUAL_OFF' | 'MANUAL_ON'): Promise<boolean> {
-    try {
-        const allow = setting === 'MANUAL_ON' ? true : false
-        console.log('Toggling EGoAllow to:', allow)
-        await postJson('/wallbox/setCharging', {allow})
+  try {
+    const allow = setting === 'MANUAL_ON' ? true : false
+    console.log('Toggling EGoAllow to:', allow)
+    await postJson('/wallbox/setCharging', { allow })
 
-        return true
+    return true
+  } catch (error) {
+    console.error('Failed to allow the EGoPower:', error)
+    return false
+  }
+}
+
+// Setzt die Amperezahl (6-32A)
+export async function setEGoAmpere(ampere: number): Promise<boolean> {
+  try {
+    // Validierung: Ampere muss zwischen 6 und 32 sein
+    if (ampere < 6 || ampere > 32) {
+      console.error('Invalid ampere value. Must be between 6 and 32.')
+      return false
     }
-    catch(error) {
-        console.error('Failed to allow the EGoPower:',error)
-        return false
-    }
+
+    console.log('Setting EGo ampere to:', ampere)
+    await postJson('/wallbox/setCurrent', { amp: ampere })
+
+    return true
+  } catch (error) {
+    console.error('Failed to set EGo ampere:', error)
+    return false
+  }
 }
