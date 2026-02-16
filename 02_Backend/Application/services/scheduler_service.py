@@ -33,6 +33,7 @@ class SchedulerService(threading.Thread):
         # Wallbox runtime state
         self.wallbox_eto_start = None
         self.wallbox_finished = False
+        self.wallbox_last_set_allow = None  # Tracks last intended allow state to prevent log spam
 
     def run(self):
         while True:
@@ -282,10 +283,13 @@ class SchedulerService(threading.Thread):
         elif not decision_on and boiler_on:
             self.boiler.control("off")
 
+            # Determine log action based on reason for more granular logging (e.g. target reached vs waiting)
+            log_action = "target_reached" if reason == "target_temp_reached" else "off"
+
             # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="boiler",
-                action="off",
+                action=log_action,
                 reason=f"automatic_{reason}",
                 success=True,
                 extra={
@@ -298,7 +302,7 @@ class SchedulerService(threading.Thread):
             # DEVICE STATE CHANGE LOG
             self.logger.device_state_change("boiler", True, False)
 
-        # Optionales WAIT Logging (nur bei Forecast-Wartezustand)
+        # Optional: log if waiting due to forecast to provide insight into how often this is the case
         elif not decision_on and not boiler_on and reason == "forecast_wait":
             if self.boiler_last_reason != "forecast_wait":
                 self.logger.control_decision(
@@ -313,7 +317,7 @@ class SchedulerService(threading.Thread):
                     }
                 )
 
-        # Zustand merken zur Vermeidung von WAIT-Log-Spam
+        # Update last reason for boiler to prevent log spam in wait state
         self.boiler_last_reason = reason
 
 
@@ -329,7 +333,7 @@ class SchedulerService(threading.Thread):
         try:
             if hasattr(self.wallbox, "is_online"):
                 if not self.wallbox.is_online():
-                    return
+                    return  
         except Exception as e:
             self.logger.system_event(
                 level="error",
@@ -354,11 +358,29 @@ class SchedulerService(threading.Thread):
         if eto_now is None:
             return
 
-        # RESET on car disconnect
+        # RESET on car disconnect  
         if not car_connected:
-            self.wallbox_eto_start = None
-            self.wallbox_finished = False
-            return
+            if self.wallbox_eto_start is not None:
+                target_kwh = float(wb_cfg.get("energy_kwh", 0))
+                charged_kwh = max((eto_now - self.wallbox_eto_start) / 1000, 0)
+                target_reached = charged_kwh >= target_kwh
+
+                self.logger.control_decision(
+                    device="wallbox",
+                    action="session_ended",
+                    reason="car_disconnected",
+                    success=target_reached,
+                    extra={
+                        "charged_kwh": round(charged_kwh, 2),
+                        "target_kwh": target_kwh,
+                        "target_reached": target_reached
+                    }
+                )
+
+                self.wallbox_eto_start = None
+                self.wallbox_finished = False
+                self.wallbox_last_set_allow = None  # Reset log-spam guard on disconnect
+                return
 
         # Initial value save 
         if self.wallbox_eto_start is None:
@@ -377,14 +399,18 @@ class SchedulerService(threading.Thread):
                 # CONTROL DECISION LOG
                 self.logger.control_decision(
                     device="wallbox",
-                    action="set_allow",
+                    action="session_complete", 
                     reason="automatic_target_reached",
                     success=True,
-                    extra={"charged_kwh": round(charged_kwh, 2)}
+                    extra={
+                        "charged_kwh": round(charged_kwh, 2),
+                        "target_kwh": float(wb_cfg.get("energy_kwh", 0))
+                    }
                 )
 
                 self.logger.device_state_change("wallbox", True, False)
                 self.wallbox_finished = True
+                self.wallbox_last_set_allow = False
             return
 
         # Current allow state
@@ -437,7 +463,8 @@ class SchedulerService(threading.Thread):
                     extra={"pv_surplus_kw": pv_surplus}
                 )
                 self.logger.device_state_change("wallbox", False, True)
-            return 
+                self.wallbox_last_set_allow = True
+            return
 
         # 2) No PV, but forecast says there will be -> wait (don't allow charging)
         if pv_surplus < PV_MIN_KW and (pv_today or pv_tomorrow):
@@ -463,11 +490,12 @@ class SchedulerService(threading.Thread):
                     old_state=allow,
                     new_state=False
                 )
+                self.wallbox_last_set_allow = False
             return
 
         # 3) Deadline-Failsafe: No PV, no good forecast and deadline is close -> allow charging if not already allowed (optionally only if allow_night_grid is set)
         allow = self.wallbox.get_allow_state()
-        if (allow_night and remaining_hours <= 2.0 and pv_surplus < PV_MIN_KW and not (pv_today or pv_tomorrow) and not allow ):
+        if (allow_night and remaining_hours <= 2.0 and pv_surplus < PV_MIN_KW and not (pv_today or pv_tomorrow) and not allow):
             self.wallbox.set_allow_charging(True)
 
             # CONTROL DECISION LOG
@@ -483,13 +511,14 @@ class SchedulerService(threading.Thread):
             )
 
             self.logger.device_state_change("wallbox", False, True)
+            self.wallbox_last_set_allow = True
             return
 
-        # 4) Else: loading off 
-        allow = self.wallbox.get_allow_state()
-        if allow:
+        # 4) Else: loading off
+        if allow and self.wallbox_last_set_allow is not True:
             self.wallbox.set_allow_charging(False)
-            
+
+            # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="wallbox",
                 action="set_allow",
@@ -508,6 +537,7 @@ class SchedulerService(threading.Thread):
                 old_state=True,
                 new_state=False
             )
+            self.wallbox_last_set_allow = False
 
     # TIME-CONTROLLED ERROR LOGGING with throttling to prevent log spam in case of persistent errors
     def log_time_controlled_error(self, error: Exception):

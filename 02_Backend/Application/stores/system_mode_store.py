@@ -20,6 +20,7 @@ class SystemModeStore:
             return SystemMode(json.load(f)["mode"])
 
     def _save(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("w") as f:
             json.dump({"mode": self._mode.value}, f)
 

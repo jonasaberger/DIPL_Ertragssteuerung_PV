@@ -233,7 +233,18 @@ class ServiceManager:
 
     def get_latest(self):
         data = self.db_bridge.get_latest_pv_data()
-        return (jsonify(data), 200) if data else (jsonify({"message": "No PV data found"}), 404)
+        if not data:
+            return jsonify({"message": "No PV data found"}), 404
+
+        # Rename _kw keys back to original field names for frontend compatibility
+        frontend_data = {**data}
+        frontend_data["pv_power"]      = frontend_data.pop("pv_power_kw",      None)
+        frontend_data["load_power"]    = frontend_data.pop("house_load_kw",    None)
+        frontend_data["battery_power"] = frontend_data.pop("battery_power_kw", None)
+
+        frontend_data = {k: v for k, v in frontend_data.items() if v is not None}
+
+        return jsonify(frontend_data), 200
 
     # GET /api/pv/daily?date=YYYY-MM-DD
     def get_daily(self):
@@ -407,7 +418,7 @@ class ServiceManager:
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
             return self._json(
                 {
-                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                    "error": "Manual boiler control disabled in AUTOMATIC and TIME_CONTROLLED mode"
                 },
                 403
             )

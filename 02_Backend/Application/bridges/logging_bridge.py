@@ -54,26 +54,14 @@ class LoggingBridge:
 
     # System-level events
     def system_event(self, level, source, message):
-        with InfluxDBClient(
-            url=self.url,
-            token=self.token,
-            org=self.org
-        ) as client:
-            write_api = client.write_api(write_options=SYNCHRONOUS)
-
-            point = (
-                Point("system_event")
-                .tag("level", level)
-                .tag("source", source)
-                .field("message", message)
-                .time(datetime.now(timezone.utc), WritePrecision.NS)
-            )
-
-            write_api.write(
-                bucket=self.bucket,
-                org=self.org,
-                record=point
-            )
+        point = (
+            Point("system_event")
+            .tag("level", level)
+            .tag("source", source)
+            .field("message", message)
+            .time(datetime.now(timezone.utc), WritePrecision.NS)
+        )
+        self._write(point) 
 
     # External API errors (WITH DEVICE INFORMATION)
     def api_error(self, device, endpoint, error):

@@ -34,6 +34,7 @@ class DB_Bridge:
             return {}
         if "_time" in record and hasattr(record["_time"], "astimezone"):
             record["_time"] = record["_time"].astimezone(self.timezone).isoformat()
+
         default_keep = ["_time", "pv_power", "grid_power", "load_power",
                         "battery_power", "soc", "e_day", "e_year", "e_total",
                         "rel_autonomy", "rel_selfconsumption",
@@ -52,27 +53,35 @@ class DB_Bridge:
     def get_latest_pv_data(self):
         query = f'''
         from(bucket: "{self.bucket}")
-          |> range(start: -1h)
-          |> filter(fn: (r) => r["_measurement"] == "pv_measurements")
-          |> filter(fn: (r) =>
-              r["_field"] == "battery_power" or
-              r["_field"] == "e_total" or
-              r["_field"] == "grid_power" or
-              r["_field"] == "load_power" or
-              r["_field"] == "pv_power" or
-              r["_field"] == "rel_autonomy" or
-              r["_field"] == "rel_selfconsumption" or
-              r["_field"] == "soc"
-          )
-          |> sort(columns: ["_time"], desc: true)
-          |> limit(n:1)
-          |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        |> range(start: -1h)
+        |> filter(fn: (r) => r["_measurement"] == "pv_measurements")
+        |> filter(fn: (r) =>
+            r["_field"] == "battery_power" or
+            r["_field"] == "e_total" or
+            r["_field"] == "grid_power" or
+            r["_field"] == "load_power" or
+            r["_field"] == "pv_power" or
+            r["_field"] == "rel_autonomy" or
+            r["_field"] == "rel_selfconsumption" or
+            r["_field"] == "soc"
+        )
+        |> sort(columns: ["_time"], desc: true)
+        |> limit(n:1)
+        |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
         '''
         try:
             tables = self.query_api.query(query, org=self.org)
             if tables and len(tables[0].records) > 0:
                 record = tables[0].records[0].values
-                return self.clean_record(record)
+                cleaned = self.clean_record(record)
+
+                # Rename InfluxDB field names to application-level keys
+                # PVSurplusService expects: pv_power_kw, house_load_kw, battery_power_kw
+                cleaned["pv_power_kw"]      = cleaned.pop("pv_power",      0.0)
+                cleaned["house_load_kw"]    = cleaned.pop("load_power",     0.0)
+                cleaned["battery_power_kw"] = cleaned.pop("battery_power",  0.0)
+
+                return cleaned
             return None
         except Exception as e:
             print(f"Error querying latest PV data: {e}")

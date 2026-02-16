@@ -37,6 +37,9 @@ class WallboxController:
 
 
 
+        # Prevents log spam when the wallbox resets alw=1 on its own
+        self._intended_allow = None
+
     # Safely convert a value to Decimal (avoids None or invalid numbers)
     def safe_decimal(self, value):
         try:
@@ -60,16 +63,16 @@ class WallboxController:
             pha = [1 if v else 0 for v in (pha + [0, 0, 0])[:3]]
 
             data = {
-                "_time": datetime.now(ZoneInfo("Europe/Vienna")).isoformat(),   # Current timestamp in ISO 8601 format
-                "amp": int(status_data.get("amp", 0)),                          # Current (A)
-                "car": 1 if int(status_data.get("car", 0)) > 0 else 0,          # Car connected (1/0)
-                "alw": int(api_data.get("alw", 0)),                             # Charging allowed (1/0)
-                "wst": int(status_data.get("wst", 0)),                          # Wallbox status code
-                "eto": float(status_data.get("eto", 0)),                        # Total energy charged (Wh)
-                "pha_L1": pha[0],                                               # Phase L1 active (1/0)
-                "pha_L2": pha[1],                                               # Phase L2 active (1/0)
-                "pha_L3": pha[2],                                               # Phase L3 active (1/0)
-                "pha_count": sum(pha)                                           # Number of active phases
+                "_time": datetime.now(ZoneInfo("Europe/Vienna")).isoformat(),
+                "amp": int(status_data.get("amp", 0)),
+                "car": 1 if int(status_data.get("car", 0)) > 0 else 0,
+                "alw": int(api_data.get("alw", 0)),
+                "wst": int(status_data.get("wst", 0)),
+                "eto": float(status_data.get("eto", 0)),
+                "pha_L1": pha[0],
+                "pha_L2": pha[1],
+                "pha_L3": pha[2],
+                "pha_count": sum(pha)
             }
 
             # Determine if charging is currently active
@@ -85,7 +88,6 @@ class WallboxController:
 
     # Enable / disable charging via MQTT (alw flag)
     def set_allow_charging(self, allow: bool):
-      
         alw_value = 1 if allow else 0
 
         requests.get(
@@ -94,27 +96,39 @@ class WallboxController:
             timeout=5
         ).raise_for_status()
 
+        # Update intended state immediately after successful command
+        self._intended_allow = allow
+
         return {
             "alw": alw_value,
             "charging_allowed": allow
         }
-    
+
     def get_allow_state(self) -> bool | None:
         try:
             data = self.fetch_data()
-            print(f"ALW: {data.get('alw')}")
-            return bool(data.get("alw"))
+            hw_allow = bool(data.get("alw"))
+
+            # If hardware reports a different value than last set, return intended state to prevent the scheduler from acting
+            if self._intended_allow is not None and hw_allow != self._intended_allow:
+                return self._intended_allow
+
+            # Hardware matches intended (or no intended set yet) -> trust hardware
+            self._intended_allow = hw_allow
+            return hw_allow
+
         except Exception:
-            return None
-        
+            # On error: return last known intended state
+            return self._intended_allow
+
     def is_online(self) -> bool:
         try:
             self.fetch_data()
             return True
         except Exception:
             return False
-        
-     # Set charging current (Ampere)
+
+    # Set charging current (Ampere)
     def set_charging_ampere(self, amp: int):
         allowed_values = [6, 10, 12, 14, 16]
 
