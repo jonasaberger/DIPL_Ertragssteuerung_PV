@@ -5,6 +5,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import SSystemSettings from '@/components/settings/s-systemsettings'
 import SProtocol from '@/components/settings/s-protocol'
 import SDeviceStates from '@/components/settings/s-devicestates'
+import SErrorLog from '@/components/settings/s-errorlog'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
 import { useAuth } from '@/contexts/s-authcontext'
 
@@ -43,6 +44,8 @@ export default function SettingsScreen() {
             <SProtocol />
 
             <SDeviceStates />
+
+            <SErrorLog />
           </>
         )}
       </ScrollView>

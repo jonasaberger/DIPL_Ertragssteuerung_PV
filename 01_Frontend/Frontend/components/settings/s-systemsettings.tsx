@@ -42,7 +42,7 @@ export default function SSystemSettings({ ipAddress, onChangeIpAddress }: Props)
 
 const styles = StyleSheet.create({
   item: {
-    backgroundColor: '#d8d8d8',
+    backgroundColor: '#eeeeee',
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
