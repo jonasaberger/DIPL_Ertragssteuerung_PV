@@ -283,10 +283,13 @@ class SchedulerService(threading.Thread):
         elif not decision_on and boiler_on:
             self.boiler.control("off")
 
+            # Determine log action based on reason for more granular logging (e.g. target reached vs waiting)
+            log_action = "target_reached" if reason == "target_temp_reached" else "off"
+
             # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="boiler",
-                action="off",
+                action=log_action,
                 reason=f"automatic_{reason}",
                 success=True,
                 extra={
@@ -330,7 +333,7 @@ class SchedulerService(threading.Thread):
         try:
             if hasattr(self.wallbox, "is_online"):
                 if not self.wallbox.is_online():
-                    return
+                    return  
         except Exception as e:
             self.logger.system_event(
                 level="error",
@@ -355,12 +358,29 @@ class SchedulerService(threading.Thread):
         if eto_now is None:
             return
 
-        # RESET on car disconnect
+        # RESET on car disconnect  
         if not car_connected:
-            self.wallbox_eto_start = None
-            self.wallbox_finished = False
-            self.wallbox_last_set_allow = None  # Reset log-spam guard on disconnect
-            return
+            if self.wallbox_eto_start is not None:
+                target_kwh = float(wb_cfg.get("energy_kwh", 0))
+                charged_kwh = max((eto_now - self.wallbox_eto_start) / 1000, 0)
+                target_reached = charged_kwh >= target_kwh
+
+                self.logger.control_decision(
+                    device="wallbox",
+                    action="session_ended",
+                    reason="car_disconnected",
+                    success=target_reached,
+                    extra={
+                        "charged_kwh": round(charged_kwh, 2),
+                        "target_kwh": target_kwh,
+                        "target_reached": target_reached
+                    }
+                )
+
+                self.wallbox_eto_start = None
+                self.wallbox_finished = False
+                self.wallbox_last_set_allow = None  # Reset log-spam guard on disconnect
+                return
 
         # Initial value save 
         if self.wallbox_eto_start is None:
@@ -379,14 +399,18 @@ class SchedulerService(threading.Thread):
                 # CONTROL DECISION LOG
                 self.logger.control_decision(
                     device="wallbox",
-                    action="set_allow",
+                    action="session_complete", 
                     reason="automatic_target_reached",
                     success=True,
-                    extra={"charged_kwh": round(charged_kwh, 2)}
+                    extra={
+                        "charged_kwh": round(charged_kwh, 2),
+                        "target_kwh": float(wb_cfg.get("energy_kwh", 0))
+                    }
                 )
 
                 self.logger.device_state_change("wallbox", True, False)
                 self.wallbox_finished = True
+                self.wallbox_last_set_allow = False
             return
 
         # Current allow state
@@ -491,10 +515,10 @@ class SchedulerService(threading.Thread):
             return
 
         # 4) Else: loading off
-        allow = self.wallbox.get_allow_state()
-        if allow and self.wallbox_last_set_allow != False:
+        if allow and self.wallbox_last_set_allow is not True:
             self.wallbox.set_allow_charging(False)
-            
+
+            # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="wallbox",
                 action="set_allow",
