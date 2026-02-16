@@ -44,26 +44,57 @@ export interface UpdateDevicePayload {
 // BACKEND CONFIG (AsyncStorage - nur Backend IP)
 // -----------------------
 
-export async function getBackendConfig(): Promise<BackendConfig> {
+export async function setBackendConfigLocal(
+  ip: string,
+  port: number,
+  path: string
+): Promise<void> {
   try {
-    const json = await AsyncStorage.getItem(CONFIG_KEY)
-    if (json) {
-      return JSON.parse(json)
+    const newConfig: BackendConfig = {
+      backend_ip: ip,
+      backend_port: port,
+      backend_path: path
     }
-  } catch (error) {
-    console.error('Error loading backend config:', error)
-  }
 
-  // Default config
+    await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(newConfig))
+    console.log('Backend config updated locally:', newConfig)
+  } catch (error) {
+    console.error('Error updating backend config locally:', error)
+    throw error
+  }
+}
+
+
+export async function getBackendConfig(): Promise<BackendConfig> {
   const defaultConfig: BackendConfig = {
     backend_ip: '100.120.107.71',
     backend_port: 5050,
     backend_path: '/api',
   }
-  await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(defaultConfig))
 
-  console.log('Using default backend config:', defaultConfig)
-  return defaultConfig
+  try {
+    const json = await AsyncStorage.getItem(CONFIG_KEY)
+    
+    if (!json || json.trim() === '') {
+      console.log('No config in storage, using and saving default')
+      await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(defaultConfig))
+      return defaultConfig
+    }
+
+    const parsed = JSON.parse(json)
+    console.log('Loaded config from storage:', parsed)
+    return parsed
+    
+  } catch (error) {
+    console.error('Config error - using default:', error)
+    // Versuche trotzdem den Default zu speichern
+    try {
+      await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(defaultConfig))
+    } catch (saveError) {
+      console.error('Could not save default config:', saveError)
+    }
+    return defaultConfig
+  }
 }
 
 export async function editBackendURL(ip: string, port: number, path: string) {

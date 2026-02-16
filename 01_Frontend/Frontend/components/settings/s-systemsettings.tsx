@@ -1,3 +1,4 @@
+import * as Updates from 'expo-updates'
 import React, { useState, useEffect } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -6,14 +7,14 @@ import SIPModal from '@/components/settings/s-ipmodal'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
 import {
   getBackendConfig,
-  editBackendURL,
+  setBackendConfigLocal,
   fetchDevices,
   updateDeviceConfig,
   parseDeviceUrl,
   buildDeviceUrl,
-  type Device,
   type DevicesResponse
 } from '@/services/setting_services/backend_config_service'
+import { resetAPIBase } from '@/services/helper'
 
 type ServiceConfig = {
   ip: string
@@ -40,14 +41,23 @@ export default function SSystemSettings() {
   const loadConfigs = async () => {
     try {
       setLoading(true)
+
+      // Backend Config laden (sollte immer funktionieren, ist lokal)
       const backend = await getBackendConfig()
       setBackendConfig(backend)
 
-      const devicesData = await fetchDevices()
-      setDevices(devicesData)
+      // Devices laden (kann fehlschlagen wenn Backend nicht erreichbar)
+      try {
+        const devicesData = await fetchDevices()
+        setDevices(devicesData)
+      } catch (deviceError) {
+        console.warn('Could not fetch devices:', deviceError)
+        // Nicht blocken, nur Devices auf leer setzen
+        setDevices({})
+      }
     } catch (error) {
-      console.error('Error loading configs:', error)
-      Alert.alert('Fehler', 'Konfiguration konnte nicht geladen werden')
+      console.error('Error loading backend config:', error)
+      Alert.alert('Fehler', 'Backend-Konfiguration konnte nicht geladen werden')
     } finally {
       setLoading(false)
     }
@@ -56,17 +66,45 @@ export default function SSystemSettings() {
   const handleBackendConfirm = async (config: ServiceConfig) => {
     try {
       setLoading(true)
-      await editBackendURL(config.ip, Number(config.port), config.path)
-      await loadConfigs()
+      
+      // Backend-URL lokal speichern
+      await setBackendConfigLocal(config.ip, Number(config.port), config.path)
+      
+      // API Base zurücksetzen
+      resetAPIBase()
+      
       setOpenModal(null)
-      Alert.alert('Erfolg', 'Backend-Konfiguration gespeichert')
+      setLoading(false)
+      
+      // Alert mit Neustart-Option
+      Alert.alert(
+        'Erfolg', 
+        'Backend-Konfiguration wurde gespeichert.\n\nDie App muss neu geladen werden, um die Änderungen zu übernehmen.',
+        [
+          {
+            text: 'Jetzt neu starten',
+            onPress: async () => {
+              try {
+                await Updates.reloadAsync()
+              } catch (error) {
+                console.warn('App konnte nicht automatisch neu geladen werden:', error)
+                Alert.alert(
+                  'Manueller Neustart nötig',
+                  'In der Entwicklungsumgebung muss die App manuell neu geladen werden (R drücken oder Reload im Expo Go).'
+                )
+              }
+            }
+          }
+        ],
+        { cancelable: false }
+      )
     } catch (error) {
       console.error('Error updating backend:', error)
-      Alert.alert('Fehler', 'Backend konnte nicht aktualisiert werden')
-    } finally {
       setLoading(false)
+      Alert.alert('Fehler', 'Backend-Konfiguration konnte nicht gespeichert werden')
     }
   }
+
 
   const handleDeviceConfirm = async (deviceId: string, config: ServiceConfig) => {
     // Zeige Password Modal
@@ -82,18 +120,18 @@ export default function SSystemSettings() {
     try {
       setLoading(true)
       const baseUrl = buildDeviceUrl(config.ip, config.port, deviceId === 'epex')
-      
+
       // Get current device to preserve other endpoints
       const currentDevice = devices[deviceId]
       const endpoints = currentDevice?.endpoints || {}
-      
+
       // Update the first endpoint with new path
       const endpointKey = Object.keys(endpoints)[0] || 'default'
       const updatedEndpoints = { ...endpoints, [endpointKey]: config.path }
 
       await updateDeviceConfig(deviceId, password, baseUrl, updatedEndpoints)
       await loadConfigs()
-      
+
       setPasswordModal(null)
       Alert.alert('Erfolg', `${deviceId.toUpperCase()} Konfiguration gespeichert`)
     } catch (error: any) {
