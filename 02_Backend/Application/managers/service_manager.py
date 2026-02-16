@@ -148,7 +148,8 @@ class ServiceManager:
         self.app.add_url_rule('/api/devices/get_device', 'get_device', self.device_manager.get_device, methods=['GET'])
         self.app.add_url_rule('/api/devices/admin/verify_admin_pw', 'verify_admin_pw', self.device_manager.verify_admin_pw, methods=['POST'])
         self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.device_manager.edit_device_endpoint, methods=['POST'])
-        self.app.add_url_rule( '/api/devices/reset_devices', 'reset_devices', self.device_manager.reset_devices_endpoint, methods=["POST"])
+        self.app.add_url_rule('/api/devices/reset_devices', 'reset_devices', self.device_manager.reset_devices_endpoint, methods=["POST"])
+        self.app.add_url_rule('/api/devices/reload', 'reload_devices', self.reload_devices, methods=["POST"])
 
         # Mode Management endpoints
         self.app.add_url_rule('/api/mode', 'mode', self.mode_endpoint, methods=['GET', 'POST'])
@@ -160,6 +161,14 @@ class ServiceManager:
 
         # Forecast service endpoint
         self.app.add_url_rule( "/api/forecast", "forecast", self.get_forecast, methods=["GET"])
+
+    # Reload devices for now only wallbox-controller
+    def reload_devices(self):
+        try :
+            self.wallbox_controller.load_config()
+        except Exception as e:
+            return jsonify({"success": False, "message": f"Failed to reload devices: {e}"}), 500
+        return jsonify({"success": True, "message": "Device configurations reloaded from file"}), 200
 
     # Route Handlers
     def _json(self, payload, status=200):

@@ -8,13 +8,11 @@ import SDeviceStates from '@/components/settings/s-devicestates'
 import SErrorLog from '@/components/settings/s-errorlog'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
 import { useAuth } from '@/contexts/s-authcontext'
-import { verifyAdminPW } from '@/services/settings_service'
-import { getBackendIP } from '@/services/helper'
+import { verifyAdminPW } from '@/services/setting_services/settings_service'
 
 export default function SettingsScreen() {
   const router = useRouter()
-  const { password, authorize, deauthorize } = useAuth()
-  const [currentIp, setCurrentIp] = useState(getBackendIP()) // optional für Anzeige
+  const { password, authorize, deauthorize } = useAuth()// optional für Anzeige
 
   const authorized = password !== null
 
@@ -34,7 +32,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         {authorized && (
           <>
-            <SSystemSettings initialIp={currentIp} onChangeIpAddress={setCurrentIp} />
+            <SSystemSettings/>
             <SProtocol />
             <SDeviceStates />
             <SErrorLog />

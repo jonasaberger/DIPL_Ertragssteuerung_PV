@@ -11,7 +11,8 @@
       "baseUrl": "http://192.168.0.2:25000",
       "endpoints": {
         "status": "/status",
-        "api": "/api/status"
+        "api": "/api/status",
+        "mqtt": "/mqtt"
       }
     },
     "epex": {
@@ -19,7 +20,7 @@
       "endpoints": {
         "price": "/market/v1/price"
       },
-      "priceOffset": 0.14
+      "priceOffset": 0.0
     }
   }
 }

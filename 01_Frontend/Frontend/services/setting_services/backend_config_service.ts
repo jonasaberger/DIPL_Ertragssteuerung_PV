@@ -61,6 +61,8 @@ export async function getBackendConfig(): Promise<BackendConfig> {
     backend_path: '/api',
   }
   await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(defaultConfig))
+
+  console.log('Using default backend config:', defaultConfig)
   return defaultConfig
 }
 
@@ -141,8 +143,8 @@ export async function updateDeviceConfig(
     if (baseUrl) payload.payload.baseUrl = baseUrl
     if (endpoints) payload.payload.endpoints = endpoints
 
-    const response = await fetch(`${backendUrl}/devices/update_device`, {
-      method: 'PUT',
+    const response = await fetch(`${backendUrl}/devices/edit_device`, {
+      method: 'POST',
       headers: {
         'accept': 'application/json',
         'Content-Type': 'application/json'

@@ -504,7 +504,44 @@
         }
       }
     },
-
+     "/api/devices/reload": {
+    "post": {
+      "summary": "Reload device configurations",
+      "description": "Reloads the current device configurations in memory without resetting to default. Useful if the underlying configuration files have been updated.",
+      "tags": ["Configuration"],
+      "responses": {
+        "200": {
+          "description": "Devices successfully reloaded",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "success": { "type": "boolean", "example": true },
+                  "message": { "type": "string", "example": "Devices reloaded successfully" }
+                }
+              }
+            }
+          }
+        },
+        "500": {
+          "description": "Reload operation failed",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "success": { "type": "boolean", "example": false },
+                  "message": { "type": "string", "example": "Failed to reload devices" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+    
       "/api/devices/admin/verify_admin_pw": {
         "post": {
           "summary": "Verify admin password",
