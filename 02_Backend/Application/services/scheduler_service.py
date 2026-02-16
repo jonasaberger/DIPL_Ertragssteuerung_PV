@@ -33,6 +33,7 @@ class SchedulerService(threading.Thread):
         # Wallbox runtime state
         self.wallbox_eto_start = None
         self.wallbox_finished = False
+        self.wallbox_last_set_allow = None  # Tracks last intended allow state to prevent log spam
 
     def run(self):
         while True:
@@ -298,7 +299,7 @@ class SchedulerService(threading.Thread):
             # DEVICE STATE CHANGE LOG
             self.logger.device_state_change("boiler", True, False)
 
-        # Optionales WAIT Logging (nur bei Forecast-Wartezustand)
+        # Optional: log if waiting due to forecast to provide insight into how often this is the case
         elif not decision_on and not boiler_on and reason == "forecast_wait":
             if self.boiler_last_reason != "forecast_wait":
                 self.logger.control_decision(
@@ -313,7 +314,7 @@ class SchedulerService(threading.Thread):
                     }
                 )
 
-        # Zustand merken zur Vermeidung von WAIT-Log-Spam
+        # Update last reason for boiler to prevent log spam in wait state
         self.boiler_last_reason = reason
 
 
@@ -358,6 +359,7 @@ class SchedulerService(threading.Thread):
         if not car_connected:
             self.wallbox_eto_start = None
             self.wallbox_finished = False
+            self.wallbox_last_set_allow = None  # Reset log-spam guard on disconnect
             return
 
         # Initial value save 
@@ -437,7 +439,8 @@ class SchedulerService(threading.Thread):
                     extra={"pv_surplus_kw": pv_surplus}
                 )
                 self.logger.device_state_change("wallbox", False, True)
-            return 
+                self.wallbox_last_set_allow = True
+            return
 
         # 2) No PV, but forecast says there will be -> wait (don't allow charging)
         if pv_surplus < PV_MIN_KW and (pv_today or pv_tomorrow):
@@ -463,11 +466,12 @@ class SchedulerService(threading.Thread):
                     old_state=allow,
                     new_state=False
                 )
+                self.wallbox_last_set_allow = False
             return
 
         # 3) Deadline-Failsafe: No PV, no good forecast and deadline is close -> allow charging if not already allowed (optionally only if allow_night_grid is set)
         allow = self.wallbox.get_allow_state()
-        if (allow_night and remaining_hours <= 2.0 and pv_surplus < PV_MIN_KW and not (pv_today or pv_tomorrow) and not allow ):
+        if (allow_night and remaining_hours <= 2.0 and pv_surplus < PV_MIN_KW and not (pv_today or pv_tomorrow) and not allow):
             self.wallbox.set_allow_charging(True)
 
             # CONTROL DECISION LOG
@@ -483,11 +487,12 @@ class SchedulerService(threading.Thread):
             )
 
             self.logger.device_state_change("wallbox", False, True)
+            self.wallbox_last_set_allow = True
             return
 
-        # 4) Else: loading off 
+        # 4) Else: loading off
         allow = self.wallbox.get_allow_state()
-        if allow:
+        if allow and self.wallbox_last_set_allow != False:
             self.wallbox.set_allow_charging(False)
             
             self.logger.control_decision(
@@ -508,6 +513,7 @@ class SchedulerService(threading.Thread):
                 old_state=True,
                 new_state=False
             )
+            self.wallbox_last_set_allow = False
 
     # TIME-CONTROLLED ERROR LOGGING with throttling to prevent log spam in case of persistent errors
     def log_time_controlled_error(self, error: Exception):
