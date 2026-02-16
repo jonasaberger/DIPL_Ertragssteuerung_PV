@@ -504,7 +504,6 @@
         }
       }
     },
-
       "/api/devices/admin/verify_admin_pw": {
         "post": {
           "summary": "Verify admin password",

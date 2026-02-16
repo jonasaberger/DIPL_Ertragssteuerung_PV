@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ScrollView, StyleSheet, Alert } from 'react-native'
+import { ScrollView, StyleSheet, Alert, View, Text, ActivityIndicator } from 'react-native'
 import Toast from 'react-native-toast-message'
 import { ThemedView } from '@/components/themed-view'
 
@@ -16,10 +16,22 @@ import { allowEGoPower } from '@/services/iot_services/e_go_service'
 import { fetchModeData, setModeData, ModeData, Mode } from '@/services/mode_services/mode_service'
 import { updatePriceOffset } from '@/services/ext_services/epex_service'
 import { setEGoAmpere } from '@/services/iot_services/e_go_service'
+import { getBackendBaseURL } from '@/services/setting_services/backend_config_service'
+import {EmergencyConfigModal} from "@/components/settings/s-emergency-config"
 
 
 type EGoWallboxSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'
+
+interface SystemHealthResponse {
+  backend: string
+  boiler: string
+  epex: string
+  forecast: string
+  influx: string
+  timestamp: string
+  wallbox: string
+}
 
 const toNum = (v: any) => {
   const n = Number(v)
@@ -28,7 +40,14 @@ const toNum = (v: any) => {
 const clamp0 = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0)
 
 export default function HomeScreen() {
+    // KEY für Screen Remount
+  const [key, setKey] = useState(0)
+
   const { pvData, boilerData, epexData, wallboxData, systemState, refetchBoilerData, refetchEGoData, refetchEpexData } = useUpdateDataScheduler()
+
+  const [healthCheckStatus, setHealthCheckStatus] = useState<'loading' | 'ok' | 'error'>('loading')
+  const [showEmergencyConfig, setShowEmergencyConfig] = useState(false)
+  const [healthError, setHealthError] = useState<string>('')
 
   const available = {
     influx: systemState?.influx === 'ok',
@@ -44,6 +63,71 @@ export default function HomeScreen() {
     ampere: 0,
   })
 
+  // Health Check beim Start
+  useEffect(() => {
+    checkBackendHealth()
+  }, [])
+
+  const handleConfigSaved = () => {
+    setShowEmergencyConfig(false)
+    setKey(prev => prev + 1) // Kompletter Screen Remount
+  }
+
+  const checkBackendHealth = async () => {
+    try {
+      setHealthCheckStatus('loading')
+      const baseUrl = await getBackendBaseURL()
+
+      // Manueller Timeout mit AbortController
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 Sekunden
+
+      try {
+        const response = await fetch(`${baseUrl}/state`, {
+          method: 'GET',
+          headers: {
+            'accept': 'application/json'
+          },
+          signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        const data: SystemHealthResponse = await response.json()
+
+        // Check if backend is ok
+        if (data.backend !== 'ok') {
+          setHealthError(`Backend Status: ${data.backend}`)
+          setHealthCheckStatus('error')
+          setShowEmergencyConfig(true)
+          return
+        }
+
+        console.log('Backend health check passed:', data)
+        setHealthCheckStatus('ok')
+        setHealthError('')
+
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId) // Timeout löschen bei Fehler
+        throw fetchError
+      }
+
+    } catch (error: any) {
+      let errorMsg = 'Backend nicht erreichbar'
+      if (error.name === 'AbortError') {
+        errorMsg = 'Verbindungs-Timeout (5s)'
+      } else if (error.message) {
+        errorMsg = error.message
+      }
+      setHealthError(errorMsg)
+      setHealthCheckStatus('error')
+      setShowEmergencyConfig(true)
+    }
+  }
+
   // Sync ampere from backend data
   useEffect(() => {
     if (wallboxData?.ampere !== undefined) {
@@ -56,9 +140,10 @@ export default function HomeScreen() {
     }
   }, [wallboxData?.ampere])
 
-
   // Fetch current mode on component mount
   useEffect(() => {
+    if (healthCheckStatus !== 'ok') return
+
     const initializeMode = async () => {
       const modeData = await fetchModeData()
       if (modeData) {
@@ -73,7 +158,7 @@ export default function HomeScreen() {
     }
 
     initializeMode()
-  }, [])
+  }, [healthCheckStatus])
 
   // Sync boiler setting from backend data
   useEffect(() => {
@@ -140,7 +225,6 @@ export default function HomeScreen() {
   // Handlers
   const handleWallboxSelect = async (setting: EGoWallboxSetting) => {
     const previousSetting = uiState.selectedWallboxSetting
-
     setUiState((prev) => ({ ...prev, selectedWallboxSetting: setting }))
 
     const success = await allowEGoPower(setting)
@@ -155,8 +239,6 @@ export default function HomeScreen() {
 
   const handleAmpereChange = async (newAmpere: number) => {
     const previousAmpere = uiState.ampere
-
-    // Optimistic update
     setUiState((prev) => ({ ...prev, ampere: newAmpere }))
 
     const success = await setEGoAmpere(newAmpere)
@@ -170,10 +252,8 @@ export default function HomeScreen() {
     }
   }
 
-
   const handleBoilerSelect = async (setting: BoilerSetting) => {
     const previousSetting = uiState.selectedBoilerSetting
-
     setUiState((prev) => ({ ...prev, selectedBoilerSetting: setting }))
 
     const success = await toggleBoilerSetting(setting)
@@ -189,7 +269,6 @@ export default function HomeScreen() {
 
   const handleModeChange = async (newMode: Mode) => {
     const previousMode = uiState.currentMode
-
     setUiState((prev) => ({ ...prev, currentMode: newMode }))
 
     const success = await setModeData({ mode: newMode })
@@ -197,7 +276,6 @@ export default function HomeScreen() {
     if (success) {
       console.log('Mode successfully changed to:', newMode)
       showToastMessage(`Modus geändert zu ${newMode}`, true)
-
     } else {
       console.warn('Failed to update mode on backend - reverting UI')
       showToastMessage('Modus konnte nicht geändert werden', false)
@@ -211,18 +289,64 @@ export default function HomeScreen() {
     console.log('Ladeprioritäten:', data.map((item) => item.id))
   }
 
-  // Handler für Offset-Update mit Refetch
   const handleOffsetUpdate = async (newOffset: number) => {
     await updatePriceOffset(newOffset)
-    // Daten neu laden nach Update
     if (refetchEpexData) {
       await refetchEpexData()
     }
   }
 
-  // Check if manual controls should be shown
+  const handleEmergencyConfigClose = () => {
+    setShowEmergencyConfig(false)
+    // Erneut Health Check durchführen
+    checkBackendHealth()
+  }
+
   const showManualControls = uiState.currentMode === 'MANUAL'
 
+  // Loading Screen
+  if (healthCheckStatus === 'loading') {
+    return (
+      <ThemedView style={styles.screen}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Verbinde mit Backend...</Text>
+        </View>
+      </ThemedView>
+    )
+  }
+
+  // Error Screen mit Emergency Config
+  if (healthCheckStatus === 'error') {
+    return (
+      <ThemedView style={styles.screen}>
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorTitle}>Backend nicht erreichbar</Text>
+          <Text style={styles.errorMessage}>{healthError}</Text>
+          
+          <View style={styles.errorActions}>
+            <Text style={styles.errorHint}>
+              Bitte Backend-Konfiguration überprüfen
+            </Text>
+          </View>
+        </View>
+
+        {/* Emergency Config Modal */}
+        <EmergencyConfigModal
+        visible={showEmergencyConfig}
+        errorMessage={healthError}
+        onCancel={() => setShowEmergencyConfig(false)}
+        onConfigSaved={() => {
+            handleConfigSaved()
+        }}
+      />
+
+      </ThemedView>
+    )
+  }
+
+  // Normal App Content
   return (
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -233,7 +357,7 @@ export default function HomeScreen() {
           onModeChange={handleModeChange}
         />
 
-       <HPrices
+        <HPrices
           date={epexData?.date ?? '--'}
           time={epexData?.time ?? '--'}
           priceRaw={epexData?.priceRaw ?? 0}
@@ -271,19 +395,19 @@ export default function HomeScreen() {
 const showToastMessage = (message: string, success: boolean) => {
   if (success) {
     Toast.show({
-            type: 'success',
-            text1: 'Erfolg',
-            text2: `${message}`,
-            position: 'bottom',
-            visibilityTime: 2000,
+      type: 'success',
+      text1: 'Erfolg',
+      text2: `${message}`,
+      position: 'bottom',
+      visibilityTime: 2000,
     })
   } else {
     Toast.show({
-            type: 'error',
-            text1: 'Error',
-            text2: `${message}`,
-            position: 'bottom',
-            visibilityTime: 2000,
+      type: 'error',
+      text1: 'Error',
+      text2: `${message}`,
+      position: 'bottom',
+      visibilityTime: 2000,
     })
   }
 }
@@ -298,5 +422,70 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 56,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  errorIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#474646',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorMessage: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  errorActions: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  errorHint: {
+    fontSize: 13,
+    color: '#888',
+    textAlign: 'center',
+  },
+
+  configButton: {
+    marginTop: 24,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    backgroundColor: '#007AFF',
+    borderRadius: 12,
+  },
+  configButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  retryButton: {
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  retryButtonText: {
+    color: '#474646',
+    fontSize: 15,
+    fontWeight: '600',
   },
 })

@@ -11,7 +11,8 @@
       "baseUrl": "http://192.168.0.2:25000",
       "endpoints": {
         "status": "/status",
-        "api": "/api/status"
+        "api": "/api/status",
+        "mqtt": "/mqtt"
       }
     },
     "epex": {

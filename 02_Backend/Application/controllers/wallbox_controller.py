@@ -10,7 +10,10 @@ class WallboxController:
     def __init__(self, config_path: str = "config/devices.json"):
         # Load device configuration from JSON configuration file
         self.config_path = os.path.abspath(config_path)
+        self.load_config()
+        
 
+    def load_config(self):
         if not os.path.exists(self.config_path):
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
 
@@ -26,9 +29,13 @@ class WallboxController:
         base_url = wallbox_config.get("baseUrl")
         endpoints = wallbox_config.get("endpoints", {})
 
-        self.status_url = f"{base_url}{endpoints.get('status', '/status')}"
-        self.api_status_url = f"{base_url}{endpoints.get('api', '/api/status')}"
-        self.mqtt_url = f"{base_url}/mqtt"
+        self.status_url, self.api_status_url, self.mqtt_url = (
+        f"{base_url}{endpoints.get('status', '/status')}",
+        f"{base_url}{endpoints.get('api', '/api/status')}",
+        f"{base_url}{endpoints.get('mqtt', '/mqtt')}"
+        )
+
+
 
     # Safely convert a value to Decimal (avoids None or invalid numbers)
     def safe_decimal(self, value):
