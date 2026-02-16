@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react'
-import { ScrollView, StyleSheet } from 'react-native'
-import { useFocusEffect, useRouter } from 'expo-router'
+import React, { useState } from 'react'
+import { ScrollView, StyleSheet, Alert } from 'react-native'
+import { useRouter } from 'expo-router'
 
 import SSystemSettings from '@/components/settings/s-systemsettings'
 import SProtocol from '@/components/settings/s-protocol'
@@ -8,67 +8,49 @@ import SDeviceStates from '@/components/settings/s-devicestates'
 import SErrorLog from '@/components/settings/s-errorlog'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
 import { useAuth } from '@/contexts/s-authcontext'
+import { verifyAdminPW } from '@/services/settings_service'
+import { getBackendIP } from '@/services/helper'
 
 export default function SettingsScreen() {
   const router = useRouter()
   const { password, authorize, deauthorize } = useAuth()
-
-  const [ipAddress, setIpAddress] = useState('192.168.14.67')
-  const [askPw, setAskPw] = useState(false)
+  const [currentIp, setCurrentIp] = useState(getBackendIP()) // optional für Anzeige
 
   const authorized = password !== null
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!authorized) {
-        setAskPw(true)
-      }
+  const handleCancel = () => {
+    deauthorize()
+    router.replace('/')
+  }
 
-      return () => {
-        setAskPw(false)
-        deauthorize()
-      }
-    }, [authorized, deauthorize])
-  )
+  const handleSuccess = async (pw: string) => {
+    const valid = await verifyAdminPW(pw)
+    if (valid) authorize(pw) // Modal verschwindet automatisch
+    else Alert.alert('Falsches Passwort')
+  }
 
   return (
     <>
       <ScrollView contentContainerStyle={styles.container}>
         {authorized && (
           <>
-            <SSystemSettings
-              ipAddress={ipAddress}
-              onChangeIpAddress={setIpAddress}
-            />
-
+            <SSystemSettings initialIp={currentIp} onChangeIpAddress={setCurrentIp} />
             <SProtocol />
-
             <SDeviceStates />
-
             <SErrorLog />
           </>
         )}
       </ScrollView>
 
       <SPasswordModal
-        visible={askPw}
-        onCancel={() => {
-          setAskPw(false)
-          router.replace('/')
-        }}
-        onSuccess={(pw: string) => {
-          authorize(pw)
-          setAskPw(false)
-        }}
+        visible={!authorized}
+        onCancel={handleCancel}
+        onSuccess={handleSuccess}
       />
     </>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    marginTop: 30,
-    gap: 12,
-  },
+  container: { padding: 16, marginTop: 30, gap: 12 }
 })

@@ -1,4 +1,45 @@
-const API_BASE = 'http://100.120.107.71:5050/api'
+let API_BASE = getBackendURL()
+
+export function setBaseUrl(url: string) {
+  API_BASE = url
+}
+
+// Getting the Backend-API URL from the config file
+export function getBackendURL(): string {
+    try {
+        const config = require('../config/backend_config.json')
+        return `http://${config.backend_ip}:${config.backend_port}${config.backend_path}`
+    } catch(error) {
+        console.error('Failed to get the backend URL:', error)
+        return ('http://100.120.107.71:5050/api')
+    }
+}
+
+export function getBackendIP(): string {
+    try {
+        const config = require('../config/backend_config.json')
+        return config.backend_ip
+    } catch(error) {
+        console.error('Failed to get the backend IP:', error)
+        return ''
+    }
+}
+
+export function editBackendURL(newIP: string, newPort: number, newPath: string): void {
+    try {
+        const config = require('../config/backend_config.json')
+        config.backend_ip = newIP
+        config.backend_port = newPort
+        config.backend_path = newPath
+        const fs = require('fs')
+        fs.writeFileSync('../config/backend_config.json', JSON.stringify(config, null, 2))
+        console.log('Backend URL updated successfully.')
+    }
+    catch(error) {
+        console.error('Failed to update the backend URL:', error)
+    }
+}
+
 
 // Fetch - Helper
 export async function fetchJson<T>(path: string): Promise<T> {
