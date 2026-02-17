@@ -1,8 +1,8 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { ScrollView, StyleSheet, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 
-import SSystemSettings from '@/components/settings/s-device-configs'
+import SDeviceConfigs from '@/components/settings/s-device-configs'
 import SProtocol from '@/components/settings/s-protocol'
 import SDeviceStates from '@/components/settings/s-devicestates'
 import SErrorLog from '@/components/settings/s-errorlog'
@@ -12,8 +12,7 @@ import { verifyAdminPW } from '@/services/setting_services/device-backend_config
 
 export default function SettingsScreen() {
   const router = useRouter()
-  const { password, authorize, deauthorize } = useAuth()// optional für Anzeige
-
+  const { password, authorize, deauthorize } = useAuth()
   const authorized = password !== null
 
   const handleCancel = () => {
@@ -32,7 +31,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         {authorized && (
           <>
-            <SSystemSettings/>
+            <SDeviceConfigs/>
             <SProtocol />
             <SDeviceStates />
             <SErrorLog />

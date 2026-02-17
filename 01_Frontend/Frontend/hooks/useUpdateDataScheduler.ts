@@ -4,6 +4,7 @@ import { fetchBoilerData, BoilerData } from '@/services/iot_services/boiler_serv
 import { fetchEpexData, EpexData } from '@/services/ext_services/epex_service'
 import { fetchSystemState, SystemState } from '@/services/setting_services/logging-state-services/state_service'
 import { fetchEGoData, EGoData } from '@/services/iot_services/e_go_service'
+import { fetchForecastData, ForecastData } from '@/services/ext_services/weatherforecast_service'
 
 function msUntilNextQuarterHour() {
   const now = new Date()
@@ -28,6 +29,7 @@ export function useUpdateDataScheduler() {
   const [epexData, setEpexData] = useState<EpexData | null>(null)
   const [systemState, setSystemState] = useState<SystemState | null>(null)
   const [wallboxData, setWallboxData] = useState<EGoData | null>(null)
+  const [forecastData, setForecastData] = useState<ForecastData | null>(null)
 
   useEffect(() => {
     let isMounted = true
@@ -38,6 +40,8 @@ export function useUpdateDataScheduler() {
     let epexInterval: ReturnType<typeof setInterval>
     let stateInterval: ReturnType<typeof setInterval>
     let wallboxInterval: ReturnType<typeof setInterval>
+    let forecastTimeout: ReturnType<typeof setTimeout>
+    let forecastInterval: ReturnType<typeof setInterval>
 
     /* -------- Fetch system state -------- */
     const fetchState = async () => {
@@ -74,7 +78,6 @@ export function useUpdateDataScheduler() {
       }
     }
 
-
     /* -------- Fetch EPEX if backend is OK -------- */
     const fetchEpex = async (state: SystemState | null) => {
       if (!state) return
@@ -109,6 +112,17 @@ export function useUpdateDataScheduler() {
       }
     }
 
+    /* -------- Fetch Forecast (stündlich) -------- */
+    const fetchForecast = async () => {
+      try {
+        const data = await fetchForecastData()
+        if (!isMounted) return
+        if (data) setForecastData(data)
+      } catch (err) {
+        console.error('Error fetching Forecast:', err)
+      }
+    }
+
     /* -------- Initial load -------- */
     const initialize = async () => {
       const state = await fetchState()
@@ -116,6 +130,7 @@ export function useUpdateDataScheduler() {
         fetchPVAndBoiler(state),
         fetchEpex(state),
         fetchWallbox(state),
+        fetchForecast(),
       ])
     }
 
@@ -134,10 +149,16 @@ export function useUpdateDataScheduler() {
       epexInterval = setInterval(() => fetchEpex(state), 60 * 60 * 1000)
     }, msUntilNextHourWithBuffer(2))
 
+    // Forecast: zum nächsten vollen Stunde + 1 Minute Puffer, dann stündlich
+    forecastTimeout = setTimeout(async () => {
+      await fetchForecast()
+      forecastInterval = setInterval(fetchForecast, 60 * 60 * 1000)
+    }, msUntilNextHourWithBuffer(1))
+
     wallboxInterval = setInterval(async () => {
       const state = await fetchState()
       await fetchWallbox(state)
-    }, 15 * 60 * 1000) // Wallbox alle 15 Minuten prüfen
+    }, 15 * 60 * 1000)
 
     stateInterval = setInterval(fetchState, 30 * 1000)
 
@@ -147,11 +168,12 @@ export function useUpdateDataScheduler() {
       clearInterval(pvInterval)
       clearTimeout(epexTimeout)
       clearInterval(epexInterval)
+      clearTimeout(forecastTimeout)
+      clearInterval(forecastInterval)
       clearInterval(stateInterval)
       clearInterval(wallboxInterval)
     }
   }, [])
-
 
   // Instant Update for the boilerData after toggle
   const refetchBoilerData = async () => {
@@ -161,8 +183,8 @@ export function useUpdateDataScheduler() {
 
   // Instant Update for the wallboxData after toggle
   const refetchEGoData = async () => {
-      const data = await fetchEGoData()
-      setWallboxData(data)
+    const data = await fetchEGoData()
+    setWallboxData(data)
   }
 
   const refetchEpexData = async () => {
@@ -176,8 +198,9 @@ export function useUpdateDataScheduler() {
     epexData,
     wallboxData,
     systemState,
+    forecastData,
     refetchBoilerData,
     refetchEGoData,
-    refetchEpexData
+    refetchEpexData,
   }
 }

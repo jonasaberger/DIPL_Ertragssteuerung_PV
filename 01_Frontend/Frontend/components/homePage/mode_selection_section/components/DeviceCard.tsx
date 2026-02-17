@@ -15,8 +15,8 @@ export default function DeviceCard({
   icon,
   title,
   children,
-  showToggle = false, // Default auf false, da wir bei Automatik keine Toggle brauchen
-  enabled = true,     // Default true
+  showToggle = false, 
+  enabled = true,    
   onToggle,
 }: DeviceCardProps) {
   return (
@@ -36,7 +36,7 @@ export default function DeviceCard({
           />
         )}
       </View>
-      {/* Kinder immer rendern, wenn keine Toggle */}
+      {/* Child-Items immer rendern =>  wenn keine Toggle */}
       {(!showToggle || enabled) && children}
     </View>
   )
