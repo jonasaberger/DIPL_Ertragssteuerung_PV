@@ -20,28 +20,32 @@ import {
 } from '@/services/setting_services/device-backend_configs/settings_service'
 import { resetAPIBase } from '@/services/helper'
 
-type ServiceConfig = {
+
+
+export type ServiceConfig = {
   ip: string
   port: string
-  path: string
+  paths: Record<string, string>
 }
 
 export default function SDeviceConfigs() {
-  const { password } = useAuth()
-
+  const { password } = useAuth() // Passwort wird vom Context bereitgestellt
   const [openModal, setOpenModal] = useState<'backend' | 'epex' | 'pv' | 'wallbox' | null>(null)
   const [loading, setLoading] = useState(false)
   const [backendConfig, setBackendConfig] = useState({ backend_ip: '', backend_port: 0, backend_path: '' })
   const [devices, setDevices] = useState<DevicesResponse>({})
 
+  // Initiales Laden der Konfigurationen
   useEffect(() => { loadConfigs() }, [])
 
   const loadConfigs = async () => {
     try {
+      // Lade Backend-Konfiguration (IP-Adresse / Port des Backends)
       setLoading(true)
       const backend = await getBackendConfig()
       setBackendConfig(backend)
       try {
+        // Laden der Geräte-Konfigurationen (EPEX, PV, Wallbox - IPs, Ports, Pfade) 
         const devicesData = await fetchDevices()
         setDevices(devicesData ?? {})
       } catch (deviceError) {
@@ -59,7 +63,8 @@ export default function SDeviceConfigs() {
   const handleBackendConfirm = async (config: ServiceConfig) => {
     try {
       setLoading(true)
-      await setBackendConfigLocal(config.ip, Number(config.port), config.path)
+      const path = Object.values(config.paths)[0] ?? '' // Für Backend gibt es immer nur einen zentralen Pfad
+      await setBackendConfigLocal(config.ip, Number(config.port), path)
       resetAPIBase()
       setOpenModal(null)
       setLoading(false)
@@ -94,11 +99,7 @@ export default function SDeviceConfigs() {
     try {
       setLoading(true)
       const baseUrl = buildDeviceUrl(config.ip, config.port, deviceId === 'epex')
-      const currentDevice = devices[deviceId]
-      const endpoints = currentDevice?.endpoints || {}
-      const endpointKey = Object.keys(endpoints)[0] || 'default'
-      const updatedEndpoints = { ...endpoints, [endpointKey]: config.path }
-      await updateDeviceConfig(deviceId, password, baseUrl, updatedEndpoints)
+      await updateDeviceConfig(deviceId, password, baseUrl, config.paths)
       await loadConfigs()
       Alert.alert('Erfolg', `${deviceId.toUpperCase()} Konfiguration gespeichert`)
     } catch (error: any) {
@@ -145,9 +146,18 @@ export default function SDeviceConfigs() {
 
   const getDeviceConfig = (deviceId: string): ServiceConfig => {
     const device = devices[deviceId]
-    if (!device) return { ip: '', port: '', path: '' }
+    if (!device) return { ip: '', port: '', paths: { default: '' } }
     const parsed = parseDeviceUrl({ deviceId, ...device })
-    return parsed || { ip: '', port: '', path: '' }
+    if (!parsed) return { ip: '', port: '', paths: { default: '' } }
+
+    const endpoints = device.endpoints || {}
+
+    // Wenn es keine benannten Endpunkte gibt, aber ein Pfad vorhanden ist -  diesen als "default" zurückgeben
+    const paths: Record<string, string> = Object.keys(endpoints).length > 0
+      ? { ...endpoints }
+      : { default: parsed.path ?? '' }
+
+    return { ip: parsed.ip, port: parsed.port, paths }
   }
 
   const renderServiceItem = (
@@ -169,13 +179,18 @@ export default function SDeviceConfigs() {
     </TouchableOpacity>
   )
 
+  // Hilfsfunktion, um die aktuelle Konfiguration für das geöffnete Modal zu erhalten
   const getModalConfig = (): ServiceConfig => {
     switch (openModal) {
-      case 'backend': return { ip: backendConfig.backend_ip, port: String(backendConfig.backend_port), path: backendConfig.backend_path }
+      case 'backend': return {
+        ip: backendConfig.backend_ip,
+        port: String(backendConfig.backend_port),
+        paths: { path: backendConfig.backend_path }
+      }
       case 'epex': return getDeviceConfig('epex')
       case 'pv': return getDeviceConfig('pv')
       case 'wallbox': return getDeviceConfig('wallbox')
-      default: return { ip: '', port: '', path: '' }
+      default: return { ip: '', port: '', paths: { default: '' } }
     }
   }
 
@@ -197,7 +212,7 @@ export default function SDeviceConfigs() {
   return (
     <>
       <SettingsCard title="System- & Backendeinstellungen">
-        {renderServiceItem('Backend API', null, { ip: backendConfig.backend_ip, port: String(backendConfig.backend_port), path: backendConfig.backend_path }, 'backend')}
+        {renderServiceItem('Backend API', null, { ip: backendConfig.backend_ip, port: String(backendConfig.backend_port), paths: { path: backendConfig.backend_path } }, 'backend')}
         {renderServiceItem('EPEX Spot', 'epex', getDeviceConfig('epex'), 'epex')}
         {renderServiceItem('PV Anlage', 'pv', getDeviceConfig('pv'), 'pv')}
         {renderServiceItem('Wallbox', 'wallbox', getDeviceConfig('wallbox'), 'wallbox')}

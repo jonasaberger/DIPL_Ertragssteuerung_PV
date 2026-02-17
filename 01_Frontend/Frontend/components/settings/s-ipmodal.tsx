@@ -1,12 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import AppModal from '@/components/modal'
-
-type ServiceConfig = {
-  ip: string
-  port: string
-  path: string
-}
+import type { ServiceConfig } from '@/components/settings/s-device-configs'
 
 type Props = {
   visible: boolean
@@ -16,152 +11,190 @@ type Props = {
   onConfirm: (config: ServiceConfig) => void
 }
 
-function splitIp(ip: string): [string, string, string, string] {
-  const p = ip.split('.')
-  return [p[0] ?? '', p[1] ?? '', p[2] ?? '', p[3] ?? '']
+type IpOctets = { first: string; second: string; third: string; fourth: string }
+
+// --- Hilfsfunktionen ---
+
+// IP-Adresse in vier Oktetten aufteilen
+function splitIpIntoOctets(ip: string): IpOctets {
+  const parts = ip.split('.')
+  return {
+    first:  parts[0] ?? '',
+    second: parts[1] ?? '',
+    third:  parts[2] ?? '',
+    fourth: parts[3] ?? '',
+  }
 }
 
-function onlyDigits(s: string) {
-  return s.replace(/[^\d]/g, '')
+// Vier Oktetten wieder zu einer IP-Adresse zusammensetzen
+function joinOctetsToIp({ first, second, third, fourth }: IpOctets): string {
+  return `${Number(first)}.${Number(second)}.${Number(third)}.${Number(fourth)}`
 }
 
-function isValidOctet(s: string) {
-  if (!s.length) return false
-  const n = Number(s)
-  return Number.isInteger(n) && n >= 0 && n <= 255
+// Nur Ziffern erlauben
+function digitsOnly(value: string): string {
+  return value.replace(/[^\d]/g, '')
 }
 
-function isValidPort(s: string) {
-  if (!s.length) return false
-  const n = Number(s)
-  return Number.isInteger(n) && n > 0 && n <= 65535
+// Validierung von IP-Oktetten
+function isValidOctet(value: string): boolean {
+  if (!value.length) return false
+  const num = Number(value)
+  return Number.isInteger(num) && num >= 0 && num <= 255
 }
 
+// Validierung von Portnummern
+function isValidPort(value: string): boolean {
+  if (!value.length) return false
+  const num = Number(value)
+  return Number.isInteger(num) && num > 0 && num <= 65535
+}
+
+// Validierung von Hostnamen (sehr einfach, nur auf Nicht-Leerzeichen prüfen)
 function isValidHostname(hostname: string): boolean {
-  if (!hostname || hostname.length === 0) return false
-  // Erlaubt Domains und IPs
-  return true
+  return !!hostname && hostname.length > 0 // !! bewirkt, dass auch reine Leerzeichen als ungültig erkannt werden
 }
-
-type InputRef = React.RefObject<TextInput | null>
 
 const SERVICE_TITLES: Record<string, string> = {
   backend: 'Backend API',
-  epex: 'EPEX Spot',
-  pv: 'PV Anlage',
-  wallbox: 'Wallbox'
+  epex:    'EPEX Spot',
+  pv:      'PV Anlage',
+  wallbox: 'Wallbox',
 }
 
 export default function SIPModal({ visible, service, config, onCancel, onConfirm }: Props) {
   const isEpex = service === 'epex'
 
-  // IP State (für IP-basierte Services)
-  const [o1, setO1] = useState('')
-  const [o2, setO2] = useState('')
-  const [o3, setO3] = useState('')
-  const [o4, setO4] = useState('')
-  
-  // Hostname State (für EPEX)
+  // IP-Oktetten (nur für Backend, PV und Wallbox, nicht für EPEX)
+  const [ipOctets, setIpOctets] = useState<IpOctets>({ first: '', second: '', third: '', fourth: '' })
+
+  // Hostname (nur für EPEX)
   const [hostname, setHostname] = useState('')
-  
+
+  // Portnummer und Endpoints (für alle Services)
   const [port, setPort] = useState('')
-  const [path, setPath] = useState('')
+  const [endpointPaths, setEndpointPaths] = useState<Record<string, string>>({})
 
-  // Refs
-  const r1 = useRef<TextInput>(null)
-  const r2 = useRef<TextInput>(null)
-  const r3 = useRef<TextInput>(null)
-  const r4 = useRef<TextInput>(null)
-  const rHostname = useRef<TextInput>(null)
-  const rPort = useRef<TextInput>(null)
-  const rPath = useRef<TextInput>(null)
+  // Refs für die TextInput-Felder, um Fokus zu steuern
+  const ipFirstRef  = useRef<TextInput>(null)
+  const ipSecondRef = useRef<TextInput>(null)
+  const ipThirdRef  = useRef<TextInput>(null)
+  const ipFourthRef = useRef<TextInput>(null)
+  const hostnameRef = useRef<TextInput>(null)
+  const portRef     = useRef<TextInput>(null)
 
-  // Initialize from props
+  // Dynamische Refs für Endpoint-Pfleger, da Anzahl und Keys variieren können
+  const endpointPathRefs = useRef<Record<string, React.RefObject<TextInput | null>>>({})
+
+  function getEndpointPathRef(key: string): React.RefObject<TextInput | null> {
+    if (!endpointPathRefs.current[key]) {
+      endpointPathRefs.current[key] = React.createRef<TextInput>()
+    }
+    return endpointPathRefs.current[key]
+  }
+
+  // Beim Öffnen Modal mit aktuellen Werten befüllen und Fokus setzen
   useEffect(() => {
     if (!visible) return
 
     if (isEpex) {
       setHostname(config.ip)
     } else {
-      const [a, b, c, d] = splitIp(config.ip)
-      setO1(a)
-      setO2(b)
-      setO3(c)
-      setO4(d)
+      setIpOctets(splitIpIntoOctets(config.ip))
     }
-    
+
     setPort(config.port)
-    setPath(config.path)
+    setEndpointPaths(config.paths ? { ...config.paths } : { default: '' })
+    endpointPathRefs.current = {}
 
     setTimeout(() => {
-      if (isEpex) {
-        rHostname.current?.focus()
-      } else {
-        r1.current?.focus()
-      }
+      if (isEpex) hostnameRef.current?.focus()
+      else ipFirstRef.current?.focus()
     }, 80)
   }, [visible, config, isEpex])
 
-  // Validation
-  const canConfirm = useMemo(() => {
-    const hostValid = isEpex
-      ? isValidHostname(hostname)
-      : (isValidOctet(o1) && isValidOctet(o2) && isValidOctet(o3) && isValidOctet(o4))
-    
-    return hostValid && isValidPort(port) && path.length > 0
-  }, [isEpex, hostname, o1, o2, o3, o4, port, path])
+  const endpointKeys = Object.keys(endpointPaths)
 
-  function confirm() {
+  // Validierung, ob alle Eingaben korrekt sind und der "Bestätigen"-Button aktiviert werden kann
+  const canConfirm = useMemo(() => {
+    const hostIsValid = isEpex
+      ? isValidHostname(hostname)
+      : Object.values(ipOctets).every(isValidOctet)
+
+    const allPathsFilled = endpointKeys.length > 0
+      && endpointKeys.every(key => endpointPaths[key].length > 0)
+
+    return hostIsValid && isValidPort(port) && allPathsFilled
+  }, [isEpex, hostname, ipOctets, port, endpointPaths, endpointKeys])
+
+  // --- Event-Handler ---
+  function handleConfirm() {
     if (!canConfirm) {
       Alert.alert('Ungültige Eingaben', 'Bitte überprüfe alle Felder.')
       return
     }
-
-    const finalIp = isEpex 
-      ? hostname 
-      : `${Number(o1)}.${Number(o2)}.${Number(o3)}.${Number(o4)}`
-
-    onConfirm({
-      ip: finalIp,
-      port: port,
-      path: path
-    })
+    const finalIp = isEpex ? hostname : joinOctetsToIp(ipOctets)
+    onConfirm({ ip: finalIp, port, paths: endpointPaths })
   }
 
-  function handleChange(setter: (v: string) => void, nextRef?: InputRef) {
-    return (t: string) => {
-      const v = onlyDigits(t).slice(0, 3)
-      setter(v)
-      if (v.length === 3) nextRef?.current?.focus()
+  function handleOctetChange(
+    field: keyof IpOctets,
+    value: string,
+    nextRef?: React.RefObject<TextInput | null>
+  ) {
+    const cleaned = digitsOnly(value).slice(0, 3)
+    setIpOctets(prev => ({ ...prev, [field]: cleaned }))
+    if (cleaned.length === 3) nextRef?.current?.focus()
+  }
+
+  function handleOctetBackspace(
+    currentValue: string,
+    previousRef?: React.RefObject<TextInput | null>
+  ) {
+    return (event: any) => {
+      if (event?.nativeEvent?.key === 'Backspace' && currentValue.length === 0) {
+        previousRef?.current?.focus()
+      }
     }
   }
 
-  function handleBackspace(current: string, prevRef?: InputRef) {
-    return (e: any) => {
-      if (e?.nativeEvent?.key === 'Backspace' && current.length === 0) {
-        prevRef?.current?.focus()
-      }
+  // Handler für Änderungen bei Endpoint-Pfaden
+  function handleEndpointPathChange(key: string, value: string) {
+    setEndpointPaths(prev => ({ ...prev, [key]: value }))
+  }
+
+  // Fokus auf nächsten Endpoint oder Bestätigen => wenn es der letzte ist
+  function focusNextEndpointOrConfirm(currentIndex: number) {
+    const nextKey = endpointKeys[currentIndex + 1]
+    if (nextKey) {
+      getEndpointPathRef(nextKey).current?.focus()
+    } else {
+      handleConfirm()
     }
   }
 
   return (
     <AppModal
       visible={visible}
-      title={SERVICE_TITLES[service] || 'Service Konfiguration'}
+      title={SERVICE_TITLES[service] || 'Service Konfiguration'} // Fallback-Titel
       onCancel={onCancel}
-      onConfirm={confirm}
-      confirmDisabled={!canConfirm}
+      onConfirm={handleConfirm}
+      confirmDisabled={!canConfirm} // Bestätigen-Button nur aktiv => wenn alle Eingaben gültig sind
     >
-      <View style={styles.container}>
-        {/* Host Input */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Hostname (EPEX) oder IP-Adresse (PV...) */}
         <Text style={styles.sectionLabel}>
           {isEpex ? 'Hostname/Domain' : 'IP-Adresse'}
         </Text>
-        
+
         {isEpex ? (
-          // Hostname Input für EPEX
           <TextInput
-            ref={rHostname}
+            ref={hostnameRef}
             value={hostname}
             onChangeText={setHostname}
             style={styles.hostnameInput}
@@ -171,117 +204,135 @@ export default function SIPModal({ visible, service, config, onCancel, onConfirm
             keyboardType="url"
             selectionColor="#474646"
             returnKeyType="next"
-            onSubmitEditing={() => rPort.current?.focus()}
+            onSubmitEditing={() => portRef.current?.focus()}
           />
         ) : (
-          // IP Input für andere Services
           <View style={styles.ipRow}>
             <TextInput
-              ref={r1}
-              value={o1}
-              onChangeText={handleChange(setO1, r2)}
-              onKeyPress={handleBackspace(o1)}
+              ref={ipFirstRef}
+              value={ipOctets.first}
+              onChangeText={(v) => handleOctetChange('first', v, ipSecondRef)}
+              onKeyPress={handleOctetBackspace(ipOctets.first)}
               keyboardType="number-pad"
               maxLength={3}
-              style={styles.ipInput}
+              style={styles.ipOctetInput}
               selectionColor="#474646"
               returnKeyType="next"
               blurOnSubmit={false}
-              onSubmitEditing={() => r2.current?.focus()}
+              onSubmitEditing={() => ipSecondRef.current?.focus()}
             />
-            <Text style={styles.dot}>.</Text>
-
+            <Text style={styles.ipDot}>.</Text>
             <TextInput
-              ref={r2}
-              value={o2}
-              onChangeText={handleChange(setO2, r3)}
-              onKeyPress={handleBackspace(o2, r1)}
+              ref={ipSecondRef}
+              value={ipOctets.second}
+              onChangeText={(v) => handleOctetChange('second', v, ipThirdRef)}
+              onKeyPress={handleOctetBackspace(ipOctets.second, ipFirstRef)}
               keyboardType="number-pad"
               maxLength={3}
-              style={styles.ipInput}
+              style={styles.ipOctetInput}
               selectionColor="#474646"
               returnKeyType="next"
               blurOnSubmit={false}
-              onSubmitEditing={() => r3.current?.focus()}
+              onSubmitEditing={() => ipThirdRef.current?.focus()}
             />
-            <Text style={styles.dot}>.</Text>
-
+            <Text style={styles.ipDot}>.</Text>
             <TextInput
-              ref={r3}
-              value={o3}
-              onChangeText={handleChange(setO3, r4)}
-              onKeyPress={handleBackspace(o3, r2)}
+              ref={ipThirdRef}
+              value={ipOctets.third}
+              onChangeText={(v) => handleOctetChange('third', v, ipFourthRef)}
+              onKeyPress={handleOctetBackspace(ipOctets.third, ipSecondRef)}
               keyboardType="number-pad"
               maxLength={3}
-              style={styles.ipInput}
+              style={styles.ipOctetInput}
               selectionColor="#474646"
               returnKeyType="next"
               blurOnSubmit={false}
-              onSubmitEditing={() => r4.current?.focus()}
+              onSubmitEditing={() => ipFourthRef.current?.focus()}
             />
-            <Text style={styles.dot}>.</Text>
-
+            <Text style={styles.ipDot}>.</Text>
             <TextInput
-              ref={r4}
-              value={o4}
-              onChangeText={handleChange(setO4, rPort)}
-              onKeyPress={handleBackspace(o4, r3)}
+              ref={ipFourthRef}
+              value={ipOctets.fourth}
+              onChangeText={(v) => handleOctetChange('fourth', v, portRef)}
+              onKeyPress={handleOctetBackspace(ipOctets.fourth, ipThirdRef)}
               keyboardType="number-pad"
               maxLength={3}
-              style={styles.ipInput}
+              style={styles.ipOctetInput}
               selectionColor="#474646"
               returnKeyType="next"
               blurOnSubmit={false}
-              onSubmitEditing={() => rPort.current?.focus()}
+              onSubmitEditing={() => portRef.current?.focus()}
             />
           </View>
         )}
 
-        {/* Port & Path */}
-        <View style={styles.extraRow}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Port</Text>
-            <TextInput
-              ref={rPort}
-              value={port}
-              onChangeText={(t) => setPort(onlyDigits(t).slice(0, 5))}
-              keyboardType="number-pad"
-              maxLength={5}
-              style={styles.portInput}
-              selectionColor="#474646"
-              returnKeyType="next"
-              blurOnSubmit={false}
-              onSubmitEditing={() => rPath.current?.focus()}
-            />
-          </View>
-
-          <View style={[styles.inputGroup, { flex: 2 }]}>
-            <Text style={styles.label}>Pfad</Text>
-            <TextInput
-              ref={rPath}
-              value={path}
-              onChangeText={setPath}
-              style={styles.pathInput}
-              selectionColor="#474646"
-              returnKeyType="done"
-              onSubmitEditing={confirm}
-            />
-          </View>
+        {/* Port Sektion */}
+        <View style={styles.portRow}>
+          <Text style={styles.fieldLabel}>Port</Text>
+          <TextInput
+            ref={portRef}
+            value={port}
+            onChangeText={(value) => setPort(digitsOnly(value).slice(0, 5))}
+            keyboardType="number-pad"
+            maxLength={5}
+            style={styles.portInput}
+            selectionColor="#474646"
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => {
+              const firstKey = endpointKeys[0]
+              if (firstKey) getEndpointPathRef(firstKey).current?.focus()
+            }}
+          />
         </View>
-      </View>
+
+        {/* Verschiedene Endpunkte oder Pfade */}
+        <View style={styles.endpointsSection}>
+          <Text style={styles.sectionLabel}>
+            {endpointKeys.length > 1 ? 'Endpunkte' : 'Pfad'}
+          </Text>
+
+          {endpointKeys.map((key, index) => (
+            <View key={key} style={styles.endpointRow}>
+              {endpointKeys.length > 1 && (
+                <View style={styles.endpointKeyBadge}>
+                  <Text style={styles.endpointKeyText} numberOfLines={1}>{key}</Text>
+                </View>
+              )}
+              <TextInput
+                ref={getEndpointPathRef(key)}
+                value={endpointPaths[key]}
+                onChangeText={(value) => handleEndpointPathChange(key, value)}
+                style={[styles.endpointPathInput, endpointKeys.length > 1 && styles.endpointPathInputWithBadge]}
+                placeholder={`/${key}`}
+                autoCapitalize="none"
+                autoCorrect={false}
+                selectionColor="#474646"
+                returnKeyType={index < endpointKeys.length - 1 ? 'next' : 'done'}
+                blurOnSubmit={false}
+                onSubmitEditing={() => focusNextEndpointOrConfirm(index)}
+              />
+            </View>
+          ))}
+        </View>
+      </ScrollView>
     </AppModal>
   )
 }
 
 const styles = StyleSheet.create({
+  scroll: {
+    flexGrow: 0,
+  },
   container: {
-    paddingTop: 8
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   sectionLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#666',
-    marginBottom: 8
+    marginBottom: 8,
   },
   hostnameInput: {
     height: 48,
@@ -292,15 +343,15 @@ const styles = StyleSheet.create({
     color: '#474646',
     paddingHorizontal: 12,
     marginBottom: 16,
-    textAlign: 'center'
+    textAlign: 'center',
   },
   ipRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16
+    marginBottom: 16,
   },
-  ipInput: {
+  ipOctetInput: {
     width: 58,
     height: 48,
     borderRadius: 12,
@@ -308,26 +359,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 20,
     fontWeight: '800',
-    color: '#474646'
+    color: '#474646',
   },
-  dot: {
+  ipDot: {
     marginHorizontal: 8,
     fontSize: 22,
     fontWeight: '900',
-    color: '#474646'
+    color: '#474646',
   },
-  extraRow: {
-    flexDirection: 'row',
-    gap: 12
+  portRow: {
+    marginBottom: 16,
   },
-  inputGroup: {
-    flex: 1
-  },
-  label: {
+  fieldLabel: {
     fontSize: 12,
     fontWeight: '600',
     color: '#666',
-    marginBottom: 6
+    marginBottom: 6,
   },
   portInput: {
     height: 48,
@@ -337,15 +384,43 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#474646',
-    paddingHorizontal: 12
+    paddingHorizontal: 12,
   },
-  pathInput: {
+  endpointsSection: {
+    gap: 8,
+  },
+  endpointRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  endpointKeyBadge: {
+    backgroundColor: '#474646',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    minWidth: 72,
+    maxWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+  },
+  endpointKeyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  endpointPathInput: {
+    flex: 1,
     height: 48,
     borderRadius: 12,
     backgroundColor: '#efefef',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#474646',
-    paddingHorizontal: 12
-  }
+    paddingHorizontal: 12,
+  },
+  endpointPathInputWithBadge: {
+    fontSize: 14,
+  },
 })
