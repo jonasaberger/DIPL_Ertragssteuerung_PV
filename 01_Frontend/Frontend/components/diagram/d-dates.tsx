@@ -224,18 +224,22 @@ export const DDates: React.FC<Props> = ({ selection, onChangeSelection }) => {
                 </View>
 
               </View>
-            </View>
 
-            {/* Footer */}
-            <View style={styles.footerRow}>
-              <Pressable onPress={closePopup}>
-                <Text style={styles.footerCancel}>Abbrechen</Text>
-              </Pressable>
-              <Pressable onPress={confirmSelection}>
-                <Text style={styles.footerConfirm}>Bestätigen</Text>
-              </Pressable>
-            </View>
+              {/* Footer */}
+              <View style={styles.footerDivider} />
+              <View style={styles.footerRow}>
+                <Pressable onPress={closePopup} style={styles.footerButton}>
+                  <Text style={styles.footerCancel}>Abbrechen</Text>
+                </Pressable>
 
+                <View style={styles.footerButtonDivider} />
+
+                <Pressable onPress={confirmSelection} style={styles.footerButton}>
+                  <Text style={styles.footerConfirm}>Bestätigen</Text>
+                </Pressable>
+              </View>
+
+            </View>
           </View>
         </View>
       </Modal>
@@ -296,12 +300,12 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#1EAFF3',
     borderRadius: 16,
-    padding: 6,
     backgroundColor: '#E6F5FF',
+    overflow: 'hidden',
   },
   innerBox: {
     backgroundColor: '#F5F5F5',
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 16,
   },
 
@@ -372,16 +376,29 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
 
+  footerDivider: {
+    height: 1,
+    backgroundColor: '#c0dff0',
+  },
   footerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingHorizontal: 12,
+    height: 52,
+    backgroundColor: '#E6F5FF',
+  },
+  footerButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  footerButtonDivider: {
+    width: 1,
+    backgroundColor: '#c0dff0',
+    marginVertical: 10,
   },
   footerCancel: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: '700',
+    color: '#474646',
   },
   footerConfirm: {
     fontSize: 15,
