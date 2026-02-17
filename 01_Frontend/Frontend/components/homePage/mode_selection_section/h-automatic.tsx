@@ -303,6 +303,7 @@ export default function HAutomaticSettings() {
               label="Zielzeit"
               value={config.boiler[selectedSeason].target_time}
               onPress={() => setShowTimePicker({ device: 'boiler' })}
+              changed={isFieldChanged('boiler', 'target_time')}
             />
             <SettingRow icon="thermometer" label="Zieltemperatur">
               <CounterControl
@@ -333,6 +334,7 @@ export default function HAutomaticSettings() {
               label="Zielzeit"
               value={config.wallbox[selectedSeason].target_time}
               onPress={() => setShowTimePicker({ device: 'wallbox' })}
+              changed={isFieldChanged('wallbox', 'target_time')}
             />
             <SettingRow icon="lightning-bolt" label="Energie">
               <CounterControl

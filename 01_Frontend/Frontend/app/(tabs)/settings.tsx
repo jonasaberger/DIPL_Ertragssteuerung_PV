@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { ScrollView, StyleSheet, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 
@@ -12,8 +12,7 @@ import { verifyAdminPW } from '@/services/setting_services/device-backend_config
 
 export default function SettingsScreen() {
   const router = useRouter()
-  const { password, authorize, deauthorize } = useAuth()// optional für Anzeige
-
+  const { password, authorize, deauthorize } = useAuth()
   const authorized = password !== null
 
   const handleCancel = () => {

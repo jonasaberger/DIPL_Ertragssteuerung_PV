@@ -5,7 +5,6 @@ import { ThemedView } from '@/components/themed-view'
 
 import HDiagram, { DiagramData } from '@/components/homePage/h-diagram'
 import HPrices from '@/components/homePage/h-prices'
-import { PriorityItem } from '@/components/homePage/h-priority'
 import HControlPanel from '@/components/homePage/mode_selection_section/h-control-panel'
 import HWallbox from '@/components/homePage/h-wallbox'
 import HBoiler from '@/components/homePage/h-boiler'
@@ -285,22 +284,11 @@ export default function HomeScreen() {
     }
   }
 
-  const handlePriorityDragEnd = (data: PriorityItem[]) => {
-    setUiState((prev) => ({ ...prev, priorities: data }))
-    console.log('Ladeprioritäten:', data.map((item) => item.id))
-  }
-
   const handleOffsetUpdate = async (newOffset: number) => {
     await updatePriceOffset(newOffset)
     if (refetchEpexData) {
       await refetchEpexData()
     }
-  }
-
-  const handleEmergencyConfigClose = () => {
-    setShowEmergencyConfig(false)
-    // Erneut Health Check durchführen
-    checkBackendHealth()
   }
 
   const showManualControls = uiState.currentMode === 'MANUAL'

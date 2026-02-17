@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8, // hier von 2 auf 8 oder kleiner anpassen, je nach Wunsch
+    gap: 8,
   },
   button: {
     width: 32,
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#000',
-    minWidth: 60, // etwas schmaler, damit die Pfeile näher rücken
+    minWidth: 60,
     textAlign: 'center',
   },
   valueChanged: {

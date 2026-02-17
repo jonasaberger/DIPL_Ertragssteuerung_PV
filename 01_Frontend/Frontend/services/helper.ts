@@ -1,4 +1,5 @@
 import { getBackendBaseURL } from "./setting_services/device-backend_configs/backend_config_service"
+import Toast from 'react-native-toast-message'
 
 // Make API_BASE async-aware
 let API_BASE: string | null = null
@@ -106,4 +107,24 @@ export function dateToTimeString (date: Date): string {
   const hours = date.getHours().toString().padStart(2, '0')
   const minutes = date.getMinutes().toString().padStart(2, '0')
   return `${hours}:${minutes}`
+}
+
+export const showToastMessage = (message: string, success: boolean) => {
+  if (success) {
+    Toast.show({
+      type: 'success',
+      text1: 'Erfolg',
+      text2: `${message}`,
+      position: 'bottom',
+      visibilityTime: 2000,
+    })
+  } else {
+    Toast.show({
+      type: 'error',
+      text1: 'Error',
+      text2: `${message}`,
+      position: 'bottom',
+      visibilityTime: 2000,
+    })
+  }
 }
