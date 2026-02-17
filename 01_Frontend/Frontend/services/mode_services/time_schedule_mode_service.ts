@@ -1,5 +1,4 @@
-// services/schedule_service.ts
-import { fetchJson, postJson, putJson } from '../helper'
+import { fetchJson, postJson, putJson } from '@/services/helper'
 
 export type Season = 'winter' | 'summer'
 

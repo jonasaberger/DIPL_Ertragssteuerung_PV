@@ -2,7 +2,7 @@ import * as Updates from 'expo-updates'
 import React, { useState, useEffect } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import SettingsCard from '@/components/settingscard'
+import SettingsCard from '@/components/settings/settingscard'
 import SIPModal from '@/components/settings/s-ipmodal'
 import { useAuth } from '@/contexts/s-authcontext'
 import {
@@ -12,12 +12,12 @@ import {
   parseDeviceUrl,
   buildDeviceUrl,
   type DevicesResponse
-} from '@/services/setting_services/backend_config_service'
+} from '@/services/setting_services/device-backend_configs/backend_config_service'
 import {
   fetchDevices,
   updateDeviceConfig,
   resetDevices
-} from '@/services/setting_services/settings_service'
+} from '@/services/setting_services/device-backend_configs/settings_service'
 import { resetAPIBase } from '@/services/helper'
 
 type ServiceConfig = {

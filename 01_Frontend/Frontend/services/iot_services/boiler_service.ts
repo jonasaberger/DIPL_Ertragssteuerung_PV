@@ -1,4 +1,4 @@
-import { fetchJson, postJson, parseInfluxTime, round1 } from '../helper'
+import { fetchJson, postJson, parseInfluxTime, round1 } from '@/services/helper'
 
 export interface BoilerData {
   date: string

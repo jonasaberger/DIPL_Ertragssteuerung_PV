@@ -1,4 +1,4 @@
-import { postJson } from '../helper'
+import { postJson } from '@/services/helper'
 import { getBackendBaseURL, type Device, type DeviceEndpoints, type DevicesResponse, type UpdateDevicePayload } from './backend_config_service'
 
 // -----------------------

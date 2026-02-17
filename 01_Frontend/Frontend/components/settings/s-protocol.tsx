@@ -6,11 +6,11 @@ import {
   Text,
   View,
 } from 'react-native'
-import SettingsCard from '@/components/settingscard'
+import SettingsCard from '@/components/settings/settingscard'
 import {
   ControlDecisionLogEntry,
   fetchControlDecisionLogs,
-} from '../../services/control_decision_service'
+} from '@/services/setting_services/logging-state-services/control_decision_service'
 
 type ProtocolItem = {
   id: string

@@ -8,8 +8,8 @@ import {
   View,
 } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import SettingsCard from '@/components/settingscard'
-import { ErrorLogEntry, fetchErrorLogs } from '../../services/error_service'
+import SettingsCard from '@/components/settings/settingscard'
+import { ErrorLogEntry, fetchErrorLogs } from '@/services/setting_services/logging-state-services/error_service'
 
 type ErrorItem = {
   id: string
