@@ -209,7 +209,7 @@ class ServiceManager:
 
         return jsonify({
             "success": True,
-            "devices": self.get_devices(),
+            "devices": self.device_manager.get_devices(),
             "reload": reload_results
         }), 200
 
