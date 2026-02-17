@@ -1,13 +1,17 @@
 import requests
-from dotenv import load_dotenv
-from db_bridge import DB_Bridge
 from datetime import datetime
-import os
+
+from device_manager import DeviceManager
+from db_bridge import DB_Bridge
+
 
 class EpexBridge: 
     def __init__(self):
-        load_dotenv()
-        self.api_url = os.getenv("URL_EPEX")
+        self.device_manager = DeviceManager("http://100.120.107.71:5050/api/devices")
+        self.api_url = self.device_manager.get_device_url(
+            "epex",
+            "price"
+        )   
 
         # Connect to the InfluxDB
         self.db = DB_Bridge()
@@ -62,9 +66,6 @@ def main():
         print(f"{datetime.now().isoformat()} : EPEX data written to InfluxDB")
     else:
         print("No EPEX data to write")
-
-    # latest_data = bridge.db.fetch_data("epex_prices", limit=10  )
-    # print(latest_data)
 
 if __name__ == "__main__":
     main()

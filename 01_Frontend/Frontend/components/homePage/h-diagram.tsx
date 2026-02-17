@@ -14,15 +14,28 @@ const CIRCLE_SIZE = 72
 
 type Point = { x: number; y: number }
 
-export type DiagramData = {
-  total: number
-  house: number               // PV -> Haus (gedeckt)
-  houseActual?: number        // echter Hausverbrauch
-  battery: number             // PV -> Batterie (Laden)
-  grid: number                // PV -> Netz (Einspeisung)
+// Farben = Ursprungskreis
+const PV_COLOR = '#FFFF2E'
+const HOUSE_COLOR = '#6CD3ED'
+const BATTERY_COLOR = '#2EFF74'
+const GRID_COLOR = '#FF702E'
 
-  gridImport?: number         // Netzbezug (positiv)
-  gridToHouse?: number        // Netz -> Haus Flow
+export type DiagramData = {
+  // PV Erzeugung
+  total: number
+
+  // Flows (alle positiv, already computed!)
+  pvToHouse: number
+  pvToBattery: number
+  pvToGrid: number
+
+  gridToHouse: number
+  batteryToHouse: number
+
+  // Zusatzinfos für Anzeige/Icons
+  houseActual: number // echter Hausverbrauch (positiv)
+  batteryPower: number // SIGNED: <0 Laden, >0 Entladen
+  gridPower: number // SIGNED: <0 Einspeisung, >0 Bezug
 }
 
 type Props = {
@@ -204,6 +217,33 @@ function ParticlesCurveGroup({
 const round1 = (v: number) => Math.round(v * 10) / 10
 const formatW = (v: number) => `${round1(v)} W`
 
+function makeCubicCurve(
+  start: Point,
+  end: Point,
+  c1: Point,
+  c2: Point,
+  steps = 20
+) {
+  const pts: Point[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const one = 1 - t
+    pts.push({
+      x:
+        one * one * one * start.x +
+        3 * one * one * t * c1.x +
+        3 * one * t * t * c2.x +
+        t * t * t * end.x,
+      y:
+        one * one * one * start.y +
+        3 * one * one * t * c1.y +
+        3 * one * t * t * c2.y +
+        t * t * t * end.y,
+    })
+  }
+  return pts
+}
+
 export default function HDiagram({ data }: Props) {
   const [diagramWidth, setDiagramWidth] = useState<number | null>(null)
 
@@ -211,71 +251,97 @@ export default function HDiagram({ data }: Props) {
     setDiagramWidth(e.nativeEvent.layout.width)
   }
 
-  let sun: Point | null = null
-  let house: Point | null = null
-  let battery: Point | null = null
-  let grid: Point | null = null
-
-  if (diagramWidth !== null) {
+  const points = useMemo(() => {
+    if (diagramWidth === null) return null
     const w = diagramWidth
     const SUN_Y = 120
     const BOTTOM_CENTER_Y = 360
     const SIDE_Y = BOTTOM_CENTER_Y - 40
 
-    sun = { x: w / 2, y: SUN_Y }
-    battery = { x: w / 2, y: BOTTOM_CENTER_Y }
-    house = { x: w * 0.23, y: SIDE_Y }
-    grid = { x: w * 0.77, y: SIDE_Y }
-  }
+    const sun: Point = { x: w / 2, y: SUN_Y }
+    const battery: Point = { x: w / 2, y: BOTTOM_CENTER_Y }
+    const house: Point = { x: w * 0.23, y: SIDE_Y }
+    const grid: Point = { x: w * 0.77, y: SIDE_Y }
 
-  const pvToHouse = Math.max(0, data.house)
-  const pvToBattery = Math.max(0, data.battery)
-  const pvToGrid = Math.max(0, data.grid)
+    return { sun, house, battery, grid }
+  }, [diagramWidth])
 
-  const gridImport = Math.max(0, data.gridImport ?? 0)
-  const gridToHouse = Math.max(0, data.gridToHouse ?? 0)
+  const pvPower = Math.max(0, Number(data.total ?? 0))
 
-  const houseActualValue = Math.max(0, data.houseActual ?? 0)
+  // Anzeige-Logik
+  const batteryAbs = Math.max(0, Math.abs(Number(data.batteryPower ?? 0)))
+  const batteryIsCharging = Number(data.batteryPower ?? 0) < 0
+  const batteryIsDischarging = Number(data.batteryPower ?? 0) > 0
 
-  const showPvHouse = data.total > 0 && pvToHouse > 0
-  const showPvBattery = data.total > 0 && pvToBattery > 0
-  const showPvGrid = data.total > 0 && pvToGrid > 0
-  const showGridHouse = gridToHouse > 0
+  const gridAbs = Math.max(0, Math.abs(Number(data.gridPower ?? 0)))
+  const gridIsImporting = Number(data.gridPower ?? 0) > 0
+  const gridIsExporting = Number(data.gridPower ?? 0) < 0
+
+  // Animationen
+  const showPvHouse = pvPower > 0 && Number(data.pvToHouse ?? 0) > 0
+  const showPvBattery = pvPower > 0 && Number(data.pvToBattery ?? 0) > 0
+
+  // FIX: Einspeisung => PV -> Netz auch dann zeigen, wenn pvToGrid gerade 0/fehlt
+  const showPvGrid =
+    pvPower > 0 && (Number(data.pvToGrid ?? 0) > 0 || gridIsExporting)
+
+  // Bezug => immer Netz -> Haus (auch wenn gridToHouse gerade 0/fehlt)
+  const showGridHouse = gridIsImporting || Number(data.gridToHouse ?? 0) > 0
+
+  const showBatteryHouse = Number(data.batteryToHouse ?? 0) > 0
 
   const gridToHousePath = useMemo(() => {
-    if (!grid || !house) return null
+    if (!points) return null
 
-    const start = grid
-    const end = house
-    const control: Point = {
-      x: (start.x + end.x) / 2,
-      y: Math.min(start.y, end.y) - 140,
+    const start = points.grid
+    const end = points.house
+
+    const dx = end.x - start.x
+    const dist = Math.max(1, Math.abs(dx))
+    const lift = Math.max(110, Math.min(190, dist * 0.55))
+
+    const topY = Math.max(points.sun.y + 30, Math.min(start.y, end.y) - lift)
+
+    const c1: Point = {
+      x: start.x + dx * 0.25,
+      y: topY,
+    }
+    const c2: Point = {
+      x: start.x + dx * 0.75,
+      y: topY,
     }
 
-    const steps = 16
-    const pts: Point[] = []
-    for (let i = 0; i <= steps; i++) {
-      const t = i / steps
-      const one = 1 - t
-      pts.push({
-        x: one * one * start.x + 2 * one * t * control.x + t * t * end.x,
-        y: one * one * start.y + 2 * one * t * control.y + t * t * end.y,
-      })
-    }
-    return pts
-  }, [grid, house])
+    return makeCubicCurve(start, end, c1, c2, 22)
+  }, [points])
+
+  const batteryToHousePath = useMemo(() => {
+    if (!points) return null
+    const start = points.battery
+    const end = points.house
+
+    const dx = end.x - start.x
+    const dist = Math.max(1, Math.abs(dx))
+    const lift = Math.max(80, Math.min(150, dist * 0.45))
+    const topY = Math.max(points.sun.y + 70, Math.min(start.y, end.y) - lift)
+
+    const c1: Point = { x: start.x + dx * 0.35, y: topY }
+    const c2: Point = { x: start.x + dx * 0.7, y: topY + 10 }
+
+    return makeCubicCurve(start, end, c1, c2, 20)
+  }, [points])
 
   return (
     <Card height={520}>
       <View style={styles.diagram} onLayout={handleDiagramLayout}>
-        {diagramWidth !== null && sun && house && battery && grid && (
+        {points && (
           <>
             <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+              {/* PV -> ... (gerade) — Farbe PV */}
               {showPvHouse && (
                 <ParticlesGroup
-                  start={sun}
-                  end={house}
-                  color="#1EAFF3"
+                  start={points.sun}
+                  end={points.house}
+                  color={PV_COLOR}
                   count={7}
                   duration={2600}
                 />
@@ -283,9 +349,9 @@ export default function HDiagram({ data }: Props) {
 
               {showPvBattery && (
                 <ParticlesGroup
-                  start={sun}
-                  end={battery}
-                  color="#16c172"
+                  start={points.sun}
+                  end={points.battery}
+                  color={PV_COLOR}
                   count={9}
                   duration={2400}
                 />
@@ -293,19 +359,30 @@ export default function HDiagram({ data }: Props) {
 
               {showPvGrid && (
                 <ParticlesGroup
-                  start={sun}
-                  end={grid}
-                  color="#ff7f3f"
+                  start={points.sun}
+                  end={points.grid}
+                  color={PV_COLOR}
                   count={6}
                   duration={2800}
                 />
               )}
 
+              {/* Netz -> Haus (Kurve) — Farbe Netz */}
               {showGridHouse && gridToHousePath && (
                 <ParticlesCurveGroup
                   path={gridToHousePath}
-                  color="#ff7f3f"
+                  color={GRID_COLOR}
                   count={6}
+                  duration={2400}
+                />
+              )}
+
+              {/* Batterie -> Haus (Kurve) — Farbe Batterie */}
+              {showBatteryHouse && batteryToHousePath && (
+                <ParticlesCurveGroup
+                  path={batteryToHousePath}
+                  color={BATTERY_COLOR}
+                  count={7}
                   duration={2400}
                 />
               )}
@@ -317,8 +394,8 @@ export default function HDiagram({ data }: Props) {
                 styles.circle,
                 styles.sunCircle,
                 {
-                  left: sun.x - CIRCLE_SIZE / 2,
-                  top: sun.y - CIRCLE_SIZE / 2,
+                  left: points.sun.x - CIRCLE_SIZE / 2,
+                  top: points.sun.y - CIRCLE_SIZE / 2,
                 },
               ]}
             >
@@ -333,13 +410,13 @@ export default function HDiagram({ data }: Props) {
                 styles.valueText,
                 {
                   position: 'absolute',
-                  top: sun.y - CIRCLE_SIZE / 2 - 28,
-                  left: sun.x - 70,
+                  top: points.sun.y - CIRCLE_SIZE / 2 - 28,
+                  left: points.sun.x - 70,
                   width: 140,
                 },
               ]}
             >
-              {formatW(Math.max(0, data.total))}
+              {formatW(pvPower)}
             </Text>
 
             {/* Haus */}
@@ -348,8 +425,8 @@ export default function HDiagram({ data }: Props) {
                 styles.circle,
                 styles.houseCircle,
                 {
-                  left: house.x - CIRCLE_SIZE / 2,
-                  top: house.y - CIRCLE_SIZE / 2,
+                  left: points.house.x - CIRCLE_SIZE / 2,
+                  top: points.house.y - CIRCLE_SIZE / 2,
                 },
               ]}
             >
@@ -360,14 +437,14 @@ export default function HDiagram({ data }: Props) {
                 styles.valueText,
                 {
                   position: 'absolute',
-                  top: house.y + CIRCLE_SIZE / 2 + 8,
-                  left: house.x - 60,
+                  top: points.house.y + CIRCLE_SIZE / 2 + 8,
+                  left: points.house.x - 60,
                   width: 120,
                   textAlign: 'center',
                 },
               ]}
             >
-              {formatW(houseActualValue)}
+              {formatW(Math.max(0, Number(data.houseActual ?? 0)))}
             </Text>
 
             {/* Batterie */}
@@ -376,30 +453,48 @@ export default function HDiagram({ data }: Props) {
                 styles.circle,
                 styles.batteryCircle,
                 {
-                  left: battery.x - CIRCLE_SIZE / 2,
-                  top: battery.y - CIRCLE_SIZE / 2,
+                  left: points.battery.x - CIRCLE_SIZE / 2,
+                  top: points.battery.y - CIRCLE_SIZE / 2,
                 },
               ]}
             >
               <MaterialCommunityIcons
-                name="battery-charging"
+                name={
+                  batteryIsDischarging
+                    ? 'battery-minus'
+                    : batteryIsCharging
+                      ? 'battery-charging'
+                      : 'battery'
+                }
                 size={42}
                 color="#474646"
               />
             </View>
-            <Text
-              style={[
-                pvToBattery > 0 ? styles.valueText : styles.valueTextMuted,
-                {
-                  position: 'absolute',
-                  top: battery.y + CIRCLE_SIZE / 2 + 8,
-                  left: battery.x - 60,
-                  width: 120,
-                },
-              ]}
+
+            <View
+              style={{
+                position: 'absolute',
+                top: points.battery.y + CIRCLE_SIZE / 2 + 8,
+                left: points.battery.x - 70,
+                width: 140,
+                alignItems: 'center',
+              }}
             >
-              {formatW(pvToBattery)}
-            </Text>
+              <Text
+                style={[
+                  batteryAbs > 0 ? styles.valueText : styles.valueTextMuted,
+                ]}
+              >
+                {formatW(batteryAbs)}
+              </Text>
+
+              {batteryIsDischarging && (
+                <Text style={styles.subValueText}>(Entladung)</Text>
+              )}
+              {batteryIsCharging && (
+                <Text style={styles.subValueText}>(Laden)</Text>
+              )}
+            </View>
 
             {/* Netz */}
             <View
@@ -407,8 +502,8 @@ export default function HDiagram({ data }: Props) {
                 styles.circle,
                 styles.gridCircle,
                 {
-                  left: grid.x - CIRCLE_SIZE / 2,
-                  top: grid.y - CIRCLE_SIZE / 2,
+                  left: points.grid.x - CIRCLE_SIZE / 2,
+                  top: points.grid.y - CIRCLE_SIZE / 2,
                 },
               ]}
             >
@@ -418,27 +513,18 @@ export default function HDiagram({ data }: Props) {
             <View
               style={{
                 position: 'absolute',
-                top: grid.y + CIRCLE_SIZE / 2 + 8,
-                left: grid.x - 70,
+                top: points.grid.y + CIRCLE_SIZE / 2 + 8,
+                left: points.grid.x - 70,
                 width: 140,
                 alignItems: 'center',
               }}
             >
-              <Text
-                style={[
-                  pvToGrid > 0 || gridImport > 0
-                    ? styles.valueText
-                    : styles.valueTextMuted,
-                ]}
-              >
-                {pvToGrid > 0 ? formatW(pvToGrid) : formatW(gridImport)}
+              <Text style={[gridAbs > 0 ? styles.valueText : styles.valueTextMuted]}>
+                {formatW(gridAbs)}
               </Text>
 
-              {gridImport > 0 && pvToGrid <= 0 && (
-                <Text style={styles.subValueText}>(Bezug)</Text>
-              )}
-
-              {pvToGrid > 0 && (
+              {gridIsImporting && <Text style={styles.subValueText}>(Bezug)</Text>}
+              {gridIsExporting && (
                 <Text style={styles.subValueText}>(Einspeisung)</Text>
               )}
             </View>
@@ -450,22 +536,6 @@ export default function HDiagram({ data }: Props) {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 8,
-  },
-  temp: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#474646',
-  },
-  icon: {
-    fontSize: 22,
-  },
-
   diagram: {
     width: '100%',
     height: '100%',
@@ -503,10 +573,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 1,
   },
-  sunCircle: { backgroundColor: '#FFFF2E' },
-  houseCircle: { backgroundColor: '#6CD3ED' },
-  batteryCircle: { backgroundColor: '#2EFF74' },
-  gridCircle: { backgroundColor: '#FF702E' },
+  sunCircle: { backgroundColor: PV_COLOR },
+  houseCircle: { backgroundColor: HOUSE_COLOR },
+  batteryCircle: { backgroundColor: BATTERY_COLOR },
+  gridCircle: { backgroundColor: GRID_COLOR },
 
   particle: {
     position: 'absolute',

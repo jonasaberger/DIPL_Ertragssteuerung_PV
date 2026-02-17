@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "devices": {
+    "pv": {
+      "baseUrl": "http://192.168.0.101",
+      "endpoints": {
+        "powerflow": "/solar_api/v1/GetPowerFlowRealtimeData.fcgi"
+      }
+    },
+    "wallbox": {
+      "baseUrl": "http://192.168.0.2:25000",
+      "endpoints": {
+        "status": "/status",
+        "api": "/api/status",
+        "mqtt": "/mqtt"
+      }
+    },
+    "epex": {
+      "baseUrl": "http://apis.smartenergy.at",
+      "endpoints": {
+        "price": "/market/v1/price"
+      },
+      "priceOffset": 0.0
+    }
+  }
+}

@@ -1,8 +1,8 @@
 import os
+import pytz
 from dotenv import load_dotenv, find_dotenv
 from influxdb_client import InfluxDBClient
-from datetime import datetime, timedelta, time
-import pytz
+from datetime import datetime, timedelta
 
 class DB_Bridge:
     def __init__(self):
@@ -28,14 +28,13 @@ class DB_Bridge:
         self.query_api = self.client.query_api()
         self.timezone = pytz.timezone("Europe/Vienna")
 
-    # -----------------------------------------
     # Helper: clean record and convert _time
-    # -----------------------------------------
     def clean_record(self, record, keep_fields=None):
         if not record:
             return {}
         if "_time" in record and hasattr(record["_time"], "astimezone"):
             record["_time"] = record["_time"].astimezone(self.timezone).isoformat()
+
         default_keep = ["_time", "pv_power", "grid_power", "load_power",
                         "battery_power", "soc", "e_day", "e_year", "e_total",
                         "rel_autonomy", "rel_selfconsumption",
@@ -43,49 +42,51 @@ class DB_Bridge:
         keep_fields = keep_fields or default_keep
         cleaned = {k: record[k] for k in keep_fields if k in record}
         return cleaned
-
-    # -------------------------------
+    
     # Check connection
-    # -------------------------------
     def check_connection(self):
         health = self.client.health()
         if health.status != "pass":
             raise RuntimeError(f"InfluxDB unhealthy: {health.status}")
 
-    # -------------------------------
     # PV Data
-    # -------------------------------
-
     def get_latest_pv_data(self):
         query = f'''
         from(bucket: "{self.bucket}")
-          |> range(start: -1h)
-          |> filter(fn: (r) => r["_measurement"] == "pv_measurements")
-          |> filter(fn: (r) =>
-              r["_field"] == "battery_power" or
-              r["_field"] == "e_total" or
-              r["_field"] == "grid_power" or
-              r["_field"] == "load_power" or
-              r["_field"] == "pv_power" or
-              r["_field"] == "rel_autonomy" or
-              r["_field"] == "rel_selfconsumption" or
-              r["_field"] == "soc"
-          )
-          |> sort(columns: ["_time"], desc: true)
-          |> limit(n:1)
-          |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
+        |> range(start: -1h)
+        |> filter(fn: (r) => r["_measurement"] == "pv_measurements")
+        |> filter(fn: (r) =>
+            r["_field"] == "battery_power" or
+            r["_field"] == "e_total" or
+            r["_field"] == "grid_power" or
+            r["_field"] == "load_power" or
+            r["_field"] == "pv_power" or
+            r["_field"] == "rel_autonomy" or
+            r["_field"] == "rel_selfconsumption" or
+            r["_field"] == "soc"
+        )
+        |> sort(columns: ["_time"], desc: true)
+        |> limit(n:1)
+        |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
         '''
         try:
             tables = self.query_api.query(query, org=self.org)
             if tables and len(tables[0].records) > 0:
                 record = tables[0].records[0].values
-                return self.clean_record(record)
+                cleaned = self.clean_record(record)
+
+                # Rename InfluxDB field names to application-level keys
+                # PVSurplusService expects: pv_power_kw, house_load_kw, battery_power_kw
+                cleaned["pv_power_kw"]      = cleaned.pop("pv_power",      0.0)
+                cleaned["house_load_kw"]    = cleaned.pop("load_power",     0.0)
+                cleaned["battery_power_kw"] = cleaned.pop("battery_power",  0.0)
+
+                return cleaned
             return None
         except Exception as e:
             print(f"Error querying latest PV data: {e}")
             return None
 
-    
     # Get daily PV data for a specific date or today
     def get_daily_pv_data(self, date: str | None = None):
         # Default: today
@@ -209,9 +210,7 @@ class DB_Bridge:
             print(f"Error querying yearly PV data (2h aggregated): {e}")
             return []
 
-    # -------------------------------
-    # Boiler Data
-    # -------------------------------
+    # Boiler
     def get_latest_boiler_data(self):
         query = f'''
         from(bucket: "{self.bucket}")
@@ -232,9 +231,7 @@ class DB_Bridge:
             print(f"Error querying latest Boiler data: {e}")
             return None
 
-    # -------------------------------
     # EPEX Data
-    # -------------------------------
     def get_latest_epex_data(self):
         query = f'''
         from(bucket: "{self.bucket}")
@@ -254,58 +251,3 @@ class DB_Bridge:
         except Exception as e:
             print(f"Error querying latest EPEX data: {e}")
             return None
-        
-
-
-# Old Code for Wallbox data querying commented out -> maybe needed later
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-# Query Wallbox data from InfluxDB                                    #
-# This Part contains methods to retrive E-Go Wallbox system data      #
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
-
-    # def get_latest_wallbox_data(self):
-    # # Flux query to retrieve the most recent Wallbox data
-
-    #     query = f'''
-    #     from(bucket: "{self.bucket}")
-    #     |> range(start: -1h)              
-    #     |> filter(fn: (r) => r["_measurement"] == "wallbox_measurements")
-    #     |> filter(fn: (r) =>
-    #         r["_field"] == "amp" or         // charging current in amperes
-    #         r["_field"] == "car" or         // car connection state (1 = connected, 0 = not connected)
-    #         r["_field"] == "eto" or         // total energy charged since installation (Wh or kWh)
-    #         r["_field"] == "wst" or         // wallbox status code (depends on manufacturer)
-    #         r["_field"] == "alw" or         // allow charging flag (1 = charging allowed)
-    #         r["_field"] == "pha_L1" or      // phase L1 active (1 = on, 0 = off)
-    #         r["_field"] == "pha_L2" or      // phase L2 active (1 = on, 0 = off)
-    #         r["_field"] == "pha_L3" or      // phase L3 active (1 = on, 0 = off)
-    #         r["_field"] == "pha_count" or   // number of active phases (1-3)
-    #         r["_field"] == "charging"       // current charging state (1 = charging, 0 = idle)
-    #     )
-    #     |> aggregateWindow(every: 1m, fn: last, createEmpty: false) 
-    #     |> last()                                                  
-    #     |> timeShift(duration: 2h)                                 
-    #     |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
-    #     '''
-
-    #     try:
-    #         tables = self.query_api.query(query, org=self.org)
-    #         if tables and len(tables[0].records) > 0:
-    #             return tables[0].records[0].values
-    #         else:
-    #             print("No wallbox data found in the last hour.")
-    #             return None
-    #     except Exception as e:
-    #         print(f"Error while querying latest wallbox data: {e}")
-    #         return None
-        
-    # def get_wallbox_history(self):
-    #     query = f'''
-    #     from(bucket: "{self.bucket}")
-    #       |> range(start: 0)  // all available data from the beginning of the bucket
-    #       |> filter(fn: (r) => r["_measurement"] == "wallbox_measurements")
-    #       |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
-    #       |> sort(columns: ["_time"], desc: false)
-    #     '''
-    #     tables = self.query_api.query(query, org=self.org)
-    #     return [r.values for t in tables for r in t.records]

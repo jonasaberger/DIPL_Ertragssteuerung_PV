@@ -32,26 +32,32 @@ class Boiler_Bridge:
                 )
             self.device_file = device_folders[0] + '/w1_slave'
 
-########### Temperature Sensor ############
+    # Temperature Sensor
 
-    def read_temp_raw(self):            # read temperatur sensor file, raw, no formatting
+    # read temperatur sensor file, raw, no formatting
+    def read_temp_raw(self):          
         if not self.device_file:
             return None
         with open(self.device_file, 'r') as f:
             lines = f.readlines()
         return lines
 
-    def read_temp(self):                # format values read in temperatur sensor file
+    # format values read in temperatur sensor file
+    def read_temp(self):              
         if not self.device_file:
             return None
         lines = self.read_temp_raw()
-        while lines[0].strip()[-3:] != 'YES':       # prepared for more than one temperature sensor, therefore array
+        # prepared for more than one temperature sensor, therefore array
+        while lines[0].strip()[-3:] != 'YES':       
             time.sleep(0.2)
             lines = self.read_temp_raw()
-        equals_pos = lines[1].find('t=')            # filter position t= as after that the next 5 values are the temperatur *1000
+        # filter position t= as after that the next 5 values are the temperatur *1000
+        equals_pos = lines[1].find('t=')            
         if equals_pos != -1:
             temp_string = lines[1][equals_pos+2:]
-            temp_c = float(temp_string) / 1000.0    # value found / 1000 = temeratur in °C
-            temp_c = int(temp_c)                    # remove comma values
+            # value found / 1000 = temeratur in °C
+            temp_c = float(temp_string) / 1000.0   
+            # remove comma values
+            temp_c = int(temp_c)                   
             return temp_c
         return None

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { fetchLatestPVData, PV_Data } from '@/services/pv_services'
-import { fetchBoilerData, BoilerData } from '@/services/boiler_service'
-import { fetchEpexData, EpexData } from '@/services/epex_service'
+import { fetchLatestPVData, PV_Data } from '@/services/iot_services/pv_services'
+import { fetchBoilerData, BoilerData } from '@/services/iot_services/boiler_service'
+import { fetchEpexData, EpexData } from '@/services/ext_services/epex_service'
 import { fetchSystemState, SystemState } from '@/services/state_service'
-import { fetchEGoData, EGoData } from '@/services/e_go_service'
+import { fetchEGoData, EGoData } from '@/services/iot_services/e_go_service'
 
 function msUntilNextQuarterHour() {
   const now = new Date()
@@ -43,7 +43,7 @@ export function useUpdateDataScheduler() {
     const fetchState = async () => {
       try {
         const state = await fetchSystemState()
-        if (!isMounted) return
+        if (!isMounted) return null
         setSystemState(state)
         return state
       } catch (err) {
@@ -73,6 +73,7 @@ export function useUpdateDataScheduler() {
         console.error('Error fetching PV/Boiler:', err)
       }
     }
+
 
     /* -------- Fetch EPEX if backend is OK -------- */
     const fetchEpex = async (state: SystemState | null) => {
@@ -151,11 +152,32 @@ export function useUpdateDataScheduler() {
     }
   }, [])
 
+
+  // Instant Update for the boilerData after toggle
+  const refetchBoilerData = async () => {
+    const data = await fetchBoilerData()
+    setBoilerData(data)
+  }
+
+  // Instant Update for the wallboxData after toggle
+  const refetchEGoData = async () => {
+      const data = await fetchEGoData()
+      setWallboxData(data)
+  }
+
+  const refetchEpexData = async () => {
+    const data = await fetchEpexData()
+    setEpexData(data)
+  }
+
   return {
     pvData,
     boilerData,
     epexData,
     wallboxData,
     systemState,
+    refetchBoilerData,
+    refetchEGoData,
+    refetchEpexData
   }
 }

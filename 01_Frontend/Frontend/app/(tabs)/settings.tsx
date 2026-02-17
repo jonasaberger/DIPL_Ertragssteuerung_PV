@@ -1,20 +1,54 @@
-import React from 'react';
-import { StyleSheet } from 'react-native';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import React, { useState } from 'react'
+import { ScrollView, StyleSheet, Alert } from 'react-native'
+import { useRouter } from 'expo-router'
+
+import SSystemSettings from '@/components/settings/s-systemsettings'
+import SProtocol from '@/components/settings/s-protocol'
+import SDeviceStates from '@/components/settings/s-devicestates'
+import SErrorLog from '@/components/settings/s-errorlog'
+import SPasswordModal from '@/components/settings/s-passwordmodal'
+import { useAuth } from '@/contexts/s-authcontext'
+import { verifyAdminPW } from '@/services/setting_services/settings_service'
 
 export default function SettingsScreen() {
+  const router = useRouter()
+  const { password, authorize, deauthorize } = useAuth()// optional für Anzeige
+
+  const authorized = password !== null
+
+  const handleCancel = () => {
+    deauthorize()
+    router.replace('/')
+  }
+
+  const handleSuccess = async (pw: string) => {
+    const valid = await verifyAdminPW(pw)
+    if (valid) authorize(pw) // Modal verschwindet automatisch
+    else Alert.alert('Falsches Passwort')
+  }
+
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title">Einstellungen</ThemedText>
-    </ThemedView>
-  );
+    <>
+      <ScrollView contentContainerStyle={styles.container}>
+        {authorized && (
+          <>
+            <SSystemSettings/>
+            <SProtocol />
+            <SDeviceStates />
+            <SErrorLog />
+          </>
+        )}
+      </ScrollView>
+
+      <SPasswordModal
+        visible={!authorized}
+        onCancel={handleCancel}
+        onSuccess={handleSuccess}
+      />
+    </>
+  )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#EDE9E9',
-  },
-});
+  container: { padding: 16, marginTop: 30, gap: 12 }
+})

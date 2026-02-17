@@ -1,12 +1,14 @@
 import requests
 from decimal import Decimal
-from dotenv import load_dotenv
-import os
+
 
 class PV_Bridge:
-    def __init__(self):
-        load_dotenv()
-        self.url = os.getenv("URL_PV")  # http://192.168.0.101/solar_api/v1/GetPowerFlowRealtimeData.fcgi
+    def __init__(self, device_manager):
+        self.device_manager = device_manager
+        self.url = self.device_manager.get_device_url(
+            "pv",
+            "powerflow"
+        ) # http://192.168.0.101/solar_api/v1/GetPowerFlowRealtimeData.fcgi
 
     # Safely convert a value to Decimal (avoids None or invalid numbers) 
     def safe_decimal(self, value):
@@ -47,53 +49,3 @@ class PV_Bridge:
         except Exception as e:
             print(f"Error parsing PV data: {e}")
             return None
-
-'''
-{
-   "Body" : {
-      "Data" : {
-         "Inverters" : {
-            "1" : {
-               "Battery_Mode" : "normal",
-               "DT" : 1,
-               "E_Day" : null,
-               "E_Total" : 20084390.948055554,
-               "E_Year" : null,
-               "P" : 425.57150268554688,
-               "SOC" : 93.900000000000006
-            }
-         },
-         "SecondaryMeters" : {},
-         "Site" : {
-            "BackupMode" : false,
-            "BatteryStandby" : true,
-            "E_Day" : null,
-            "E_Total" : 20084390.948055554,
-            "E_Year" : null,
-            "Meter_Location" : "grid",
-            "Mode" : "bidirectional",
-            "P_Akku" : -660.33734130859375,
-            "P_Grid" : -56.5,
-            "P_Load" : -375.45938110351562,
-            "P_PV" : 1147.7030258178711,
-            "rel_Autonomy" : 100.0,
-            "rel_SelfConsumption" : 86.920066452623189
-         },
-         "Smartloads" : {
-            "OhmpilotEcos" : {},
-            "Ohmpilots" : {}
-         },
-         "Version" : "13"
-      }
-   },
-   "Head" : {
-      "RequestArguments" : {},
-      "Status" : {
-         "Code" : 0,
-         "Reason" : "",
-         "UserMessage" : ""
-      },
-      "Timestamp" : "2025-09-28T16:05:31+00:00"
-   }
-}
-''' 

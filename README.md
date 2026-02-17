@@ -11,7 +11,7 @@
 - python -m venv .venv
 
 - Application für Tim: & C:\gitRepos\Diplomarbeit\DIPL_Ertragssteuerung_PV\02_Backend\Application\.venv\Scripts\Activate.ps1
-                       cd C:\gitRepos\Diplomarbeit\DIPL_Ertragssteuerung_PV\02_Backend\Application
+                      cd C:\gitRepos\Diplomarbeit\DIPL_Ertragssteuerung_PV\02_Backend\Application 
 
 - PI für Tim: & C:\gitRepos\Diplomarbeit\DIPL_Ertragssteuerung_PV\02_Backend\Raspberry_PI_Code\.venv\Scripts\Activate.ps1
               cd C:\gitRepos\Diplomarbeit\DIPL_Ertragssteuerung_PV\02_Backend\Raspberry_PI_Code
@@ -26,4 +26,9 @@
 - For first build + After changeing Code: docker compose build --no-cache
 
 - docker compose up
+
+### How to start Tests
+- venv has to be active
+- cd \DIPL_Ertragssteuerung_PV\02_Backend\Application
+-  paytest / pytest -m hardware
 

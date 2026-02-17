@@ -1,0 +1,22 @@
+{
+  "boiler": {
+    "winter": {
+      "end": "16:00",
+      "start": "08:00"
+    },
+    "summer": {
+      "start": "12:00",
+      "end": "14:00"
+    }
+  },
+  "wallbox": {
+    "winter": {
+      "start": "05:50",
+      "end": "08:00"
+    },
+    "summer": {
+      "start": "08:00",
+      "end": "18:00"
+    }
+  }
+}

@@ -1,8 +1,19 @@
-const API_BASE = 'http://100.120.107.71:5050/api'
+import { getBackendBaseURL } from "./setting_services/backend_config_service"
+
+// Make API_BASE async-aware
+let API_BASE: string | null = null
+
+async function ensureAPIBase(): Promise<string> {
+  if (!API_BASE) {
+    API_BASE = await getBackendBaseURL()
+  }
+  return API_BASE
+}
 
 // Fetch - Helper
 export async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`)
+  const baseUrl = await ensureAPIBase()
+  const response = await fetch(`${baseUrl}${path}`)
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
@@ -10,11 +21,63 @@ export async function fetchJson<T>(path: string): Promise<T> {
       `API ${path} failed: ${response.status} ${response.statusText} ${text}`
     )
   }
-
   return response.json() as Promise<T>
 }
 
-// TimeConvert - Helper
+// POST - Helper
+export async function postJson<T = any>(
+  path: string,
+  body: Record<string, any>
+): Promise<T> {
+  const baseUrl = await ensureAPIBase()
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(
+      `API POST ${path} failed: ${response.status} ${response.statusText} ${text}`
+    )
+  }
+  console.log(`API POST ${path} succeeded.`)
+  return response.json() as Promise<T>
+}
+
+// PUT - Helper
+export async function putJson<T = any>(
+  path: string,
+  body: Record<string, any>
+): Promise<T> {
+  const baseUrl = await ensureAPIBase()
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    throw new Error(
+      `API PUT ${path} failed: ${response.status} ${response.statusText} ${text}`
+    )
+  }
+  console.log(`API PUT ${path} succeeded.`)
+  return response.json() as Promise<T>
+}
+
+// Helper to reset API_BASE (useful if backend config changes)
+export function resetAPIBase(): void {
+  API_BASE = null
+}
+
+// Rest of your helpers remain the same...
 export function parseInfluxTime(rawTime: string): {
   date: string
   time: string
@@ -28,7 +91,19 @@ export function parseInfluxTime(rawTime: string): {
   }
 }
 
-// Number - Helper
 export function round1(value: number): number {
   return Number(value.toFixed(1))
+}
+
+export function timeStringToDate (timeStr: string): Date {
+  const [hours, minutes] = timeStr.split(':').map(Number)
+  const date = new Date()
+  date.setHours(hours, minutes, 0, 0)
+  return date
+}
+
+export function dateToTimeString (date: Date): string {
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  return `${hours}:${minutes}`
 }

@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+// components/diagram/d-diagram.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
@@ -13,14 +15,7 @@ import type { DateSelection } from '@/components/diagram/d-dates'
 
 import { CartesianChart, Line, Scatter } from 'victory-native'
 import { useFont } from '@shopify/react-native-skia'
-
-type PvPoint = {
-  _time: string
-  pv_power: number
-  load_power: number
-  grid_power: number
-  soc?: number
-}
+import { fetchDiagramPvPoints, diagramRequestKey, type PvPoint } from '@/services/diagram_service'
 
 type Props = {
   selection: DateSelection
@@ -36,8 +31,6 @@ const COLORS = {
 
 type Mode = 'day' | 'month' | 'year'
 
-const API_BASE_URL = 'http://100.120.107.71:5050'
-
 //kriegt eine Zahl, z.B: 5, und macht daraus '05'
 function pad2(n: number) {
   return String(n).padStart(2, '0')
@@ -50,50 +43,16 @@ function modeFromSelection(s: DateSelection): Mode {
   return 'day'
 }
 
-function apiParamsFromSelection(s: DateSelection): { path: string; query: Record<string, string> } {
-  const mode = modeFromSelection(s)
-  const y = s.year
-
-  if (mode === 'day') {
-    //Monat ist 0-basiert, daher +1, weil API 1-basiert ist
-    const m = (s.month ?? 0) + 1
-    //Tag ist 1-basiert, daher kein +1
-    const d = s.day ?? 1
-    const date = `${y}-${pad2(m)}-${pad2(d)}`
-    return { path: '/api/pv/daily', query: { date } }
-  }
-
-  if (mode === 'month') {
-    const m = (s.month ?? 0) + 1
-    const month = `${y}-${pad2(m)}`
-    return { path: '/api/pv/monthly', query: { month } }
-  }
-
-  return { path: '/api/pv/yearly', query: { year: String(y) } }
-}
-
-function buildUrl(base: string, path: string, query: Record<string, string>) {
-  const u = new URL(path, base)
-  for (const [k, v] of Object.entries(query)) u.searchParams.set(k, v)
-  return u.toString()
-}
-
 //begrent eine zahl, damit sie zwischen min und max bleibt
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
 }
 
-//Macht aus einer rohen Fehlermeldung einen lesbaren Text
-function parseErrorMessage(raw: string) {
-  const s = (raw || '').trim()
-  if (!s) return null
-  try {
-    const j = JSON.parse(s)
-    if (typeof j?.detail === 'string') return j.detail
-    if (typeof j?.message === 'string') return j.message
-  } catch {}
-  if (s.length > 140) return s.slice(0, 140) + '…'
-  return s
+// Clamp für die "gefühlte" Cursor-Position:
+// Scroll soll am echten Finger hängen (RAW), aber Auswahl soll nicht am Screen-Rand kleben.
+function clampVisibleX(xVisible: number, screenWidth: number, mode: Mode) {
+  const edge = mode === 'day' ? 40 : 55
+  return clamp(xVisible, edge, screenWidth - edge)
 }
 
 //Macht aus Zahl eine Watt angabe
@@ -301,10 +260,10 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
   //skia braucht fonts, denn Skia rendert alles selbst
   const font = useFont(require('../../assets/fonts/Inter.ttf'), 11)
 
-  const [selected, setSelected] = useState<Selected | null>(null)   //Aktuell ausgewählter Punkt
-  const [rawApiData, setRawApiData] = useState<PvPoint[] | null>(null)    //Daten vom API
-  const [isLoading, setIsLoading] = useState(false)                 //State, ob gerade eine API Request läuft
-  const [errorText, setErrorText] = useState<string | null>(null)   //Fehlermeldung, falls API Request fehlschlägt
+  const [selected, setSelected] = useState<Selected | null>(null) //Aktuell ausgewählter Punkt
+  const [rawApiData, setRawApiData] = useState<PvPoint[] | null>(null) //Daten vom API
+  const [isLoading, setIsLoading] = useState(false) //State, ob gerade eine API Request läuft
+  const [errorText, setErrorText] = useState<string | null>(null) //Fehlermeldung, falls API Request fehlschlägt
 
   const [detailMode, setDetailMode] = useState<'current' | 'sum'>('current')
 
@@ -319,12 +278,11 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
 
   //useMemo, damit die Werte nur neu berechnet werden, wenn sich die Selection ändert (und nicht bei Neu Rendering)
   const mode = useMemo(() => modeFromSelection(selection), [selection])
-  const api = useMemo(() => apiParamsFromSelection(selection), [selection])
-  const url = useMemo(() => buildUrl(API_BASE_URL, api.path, api.query), [api.path, api.query])
+  const requestKey = useMemo(() => diagramRequestKey(selection), [selection])
 
   useEffect(() => {
     setDetailMode('current')
-  }, [mode, url])
+  }, [mode, requestKey])
 
   const chartData = useMemo(() => {
     const arr = rawApiData ?? []
@@ -410,7 +368,6 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
   }, [showSoc])
 
   //Kreuzlinie X-Position
-  const crossW = 2
   const crossX = useMemo(() => {
     const idx = selected?.index ?? -1
     const xs = pointsXRef.current
@@ -505,22 +462,33 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
       onPanResponderGrant: (e) => {
-        const xVisible = e.nativeEvent.locationX
+        const xVisibleRaw = e.nativeEvent.locationX
+
+        // Scroll-Verhalten bleibt am echten Finger
+        // Auswahl/Strich wird "komfortabel" nach innen gedeckelt
+        const xVisible = clampVisibleX(xVisibleRaw, screenWidth, mode)
         const xContent = scrollXRef.current + xVisible
+
         const idx = nearestIndexFromChartX(xContent)
         if (idx >= 0) selectIndex(idx)
       },
       onPanResponderMove: (e) => {
-        const xVisible = e.nativeEvent.locationX
-        autoScrollIfNearEdges(xVisible)
+        const xVisibleRaw = e.nativeEvent.locationX
+
+        // Autoscroll am echten Finger (sonst fühlt es sich träge an)
+        autoScrollIfNearEdges(xVisibleRaw)
+
+        // Auswahl nicht am Rand kleben lassen
+        const xVisible = clampVisibleX(xVisibleRaw, screenWidth, mode)
         const xContent = scrollXRef.current + xVisible
+
         const idx = nearestIndexFromChartX(xContent)
         if (idx >= 0) selectIndex(idx)
       },
       onPanResponderRelease: () => {},
       onPanResponderTerminate: () => {},
     })
-  }, [nearestIndexFromChartX, selectIndex, autoScrollIfNearEdges])
+  }, [nearestIndexFromChartX, selectIndex, autoScrollIfNearEdges, screenWidth, mode])
 
   //x-Achsen Ticks basierend auf dem Modus und der Datenanzahl
   const xTickValues = useMemo(() => {
@@ -602,11 +570,9 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     return integrateEnergy(arr)
   }, [rawApiData])
 
-  //Effekt, der bei Änderung der URL die Daten vom API lädt
+  //Effekt, der bei Änderung der Selection die Daten vom API lädt (ausgelagert in Service)
   useEffect(() => {
     let alive = true
-    //AbortController erlaubt den Fetch abzubrechen
-    const controller = new AbortController()
 
     setIsLoading(true)
     setErrorText(null)
@@ -618,43 +584,26 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     scrollXRef.current = 0
     scrollRef.current?.scrollTo({ x: 0, animated: false })
 
-    fetch(url, {
-      method: 'GET',
-      headers: { accept: 'application/json' },
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '')
-          const msg = parseErrorMessage(txt) || `HTTP ${res.status}`
-          throw new Error(msg)
-        }
-        return res.json()
-      })
-      //Verarbeitet die erhaltenen JSON-Daten
-      .then((json) => {
+    ;(async () => {
+      try {
+        const arr = await fetchDiagramPvPoints(selection)
         if (!alive) return
-        const arr = Array.isArray(json) ? (json as PvPoint[]) : []
         setRawApiData(arr)
         setErrorText(arr.length === 0 ? 'Keine Daten für diese Auswahl.' : null)
-      })
-      //Fängt Fehler ab, die beim Fetch auftreten
-      .catch((e) => {
+      } catch (e) {
         if (!alive) return
-        if (String(e?.name) === 'AbortError') return
         setRawApiData(null)
-        setErrorText(String(e?.message || e))
-      })
-      .finally(() => {
+        setErrorText(String((e as any)?.message ?? e))
+      } finally {
         if (!alive) return
         setIsLoading(false)
-      })
+      }
+    })()
 
     return () => {
       alive = false
-      controller.abort()
     }
-  }, [url])
+  }, [requestKey, selection])
 
   useEffect(() => {
     const n = prepared.rows.length
@@ -687,7 +636,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
 
         {!showOverlayMessage && !showFontLoading && (
           <>
-            <View style={{ width: '100%', height: 260 }}>
+            <View style={{ width: '100%', height: chartHeight }}>
               <ScrollView
                 ref={scrollRef}
                 horizontal
@@ -711,7 +660,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                 }}
                 contentContainerStyle={{ width: chartWidth }}
               >
-                <View style={{ width: chartWidth, height: 260 }}>
+                <View style={{ width: chartWidth, height: chartHeight }}>
                   {crossX !== null && (
                     <View
                       pointerEvents="none"
@@ -720,7 +669,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                         {
                           left: crossX - 1,
                           top: 0,
-                          height: 260,
+                          height: chartHeight,
                           width: 2,
                         },
                       ]}
@@ -789,7 +738,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
               </ScrollView>
 
               <View
-                style={[styles.gestureViewportOverlay, { width: screenWidth, height: 260 }]}
+                style={[styles.gestureViewportOverlay, { width: screenWidth, height: chartHeight }]}
                 {...panResponder.panHandlers}
               />
             </View>
@@ -830,7 +779,9 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                   <ValueRow color={COLORS.pv} label="Erzeugung" value={fmtKWh(periodTotals?.pvKWh ?? 0)} />
                   <ValueRow color={COLORS.load} label="Hausverbrauch" value={fmtKWh(periodTotals?.loadKWh ?? 0)} />
                   <ValueRow color={COLORS.feedIn} label="Netzeinspeisung" value={fmtKWh(periodTotals?.feedInKWh ?? 0)} />
-                  {showSoc && <ValueRow color={COLORS.soc} label="Batterieladung (Ende)" value={fmtPct(periodTotals?.socEnd ?? 0)} />}
+                  {showSoc && (
+                    <ValueRow color={COLORS.soc} label="Batterieladung (Ende)" value={fmtPct(periodTotals?.socEnd ?? 0)} />
+                  )}
                 </>
               )}
             </View>
