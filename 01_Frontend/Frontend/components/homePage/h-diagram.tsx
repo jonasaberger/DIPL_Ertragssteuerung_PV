@@ -14,7 +14,7 @@ const CIRCLE_SIZE = 72
 
 type Point = { x: number; y: number }
 
-// Farben = Ursprungskreis
+// Farben = Ursprungskreise
 const PV_COLOR = '#FFFF2E'
 const HOUSE_COLOR = '#6CD3ED'
 const BATTERY_COLOR = '#2EFF74'
@@ -24,7 +24,7 @@ export type DiagramData = {
   // PV Erzeugung
   total: number
 
-  // Flows (alle positiv, already computed!)
+  // Flows 
   pvToHouse: number
   pvToBattery: number
   pvToGrid: number
@@ -33,9 +33,9 @@ export type DiagramData = {
   batteryToHouse: number
 
   // Zusatzinfos für Anzeige/Icons
-  houseActual: number // echter Hausverbrauch (positiv)
-  batteryPower: number // SIGNED: <0 Laden, >0 Entladen
-  gridPower: number // SIGNED: <0 Einspeisung, >0 Bezug
+  houseActual: number   // Hausverbrauch
+  batteryPower: number  // <0 Laden        >0 Entladen
+  gridPower: number     // <0 Einspeisung  >0 Bezug
 }
 
 type Props = {
@@ -57,11 +57,18 @@ function ParticleLine({
   color,
   duration = 2200,
 }: ParticleLineProps) {
+
+  //useRef bedeutet dass die Animationswerte nicht neu bei jedem Rendern initialisiert werden müssen
+  //current greift auf den aktuellen Wert zu
+  //moveAnim steuert die Bewegung entlang der Linie
   const moveAnim = useRef(new Animated.Value(0)).current
+  //scaleAnim steuert die Größenveränderung der Partikel
   const scaleAnim = useRef(new Animated.Value(0)).current
 
+  //minScale und maxScale legen den Bereich fest in dem die Partikel skalieren
   const minScale = useRef(0.6 + Math.random() * 0.3).current
   const maxScale = useRef(1.0 + Math.random() * 0.5).current
+  //scaleDuration legt die Dauer der Skalierungsanimation fest
   const scaleDuration = useRef(800 + Math.random() * 700).current
 
   useEffect(() => {
@@ -75,13 +82,16 @@ function ParticleLine({
     )
 
     const scaleLoop = Animated.loop(
+      // sequence führt mehrere Animationen nacheinander aus
       Animated.sequence([
+        // Skalierung von min auf max 
         Animated.timing(scaleAnim, {
-          toValue: 1,
-          duration: scaleDuration,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
+          toValue: 1,                             //Zielwert
+          duration: scaleDuration,                //Dauer der Animation
+          easing: Easing.inOut(Easing.ease),      //Easing-Funktion für sanfte Animation
+          useNativeDriver: true,                  //Verwendung des nativen Treibers für bessere Performance
         }),
+        // Skalierung von max auf min
         Animated.timing(scaleAnim, {
           toValue: 0,
           duration: scaleDuration,
@@ -94,49 +104,71 @@ function ParticleLine({
     moveLoop.start()
     scaleLoop.start()
 
+    // Aufräumen der Animationen beim Unmounten des Partikels, um Speicherlecks zu vermeiden
     return () => {
       moveLoop.stop()
       scaleLoop.stop()
     }
   }, [moveAnim, scaleAnim, duration, scaleDuration])
 
+  //Wandel die Werte der Animation in die tatsächlichen Transformationswerte für Bewegung und Skalierung um
   const scale = scaleAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [minScale, maxScale],
   })
 
+  //Animation: 0; translateX: Startpunkt
+  //Animation: 1; translateX: Endpunkt
   const translateXStraight = moveAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [start?.x ?? 0, end?.x ?? 0],
   })
 
+  //Gleich wie bei translateX, aber für die Y-Achse
   const translateYStraight = moveAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [start?.y ?? 0, end?.y ?? 0],
   })
 
+  //Ob ein Pfad vorliegt der aus mindestens 2 Punkten besteht
   const curve = path && path.length >= 2 ? path : null
 
+  //Ziel ist, Animationswerte so zu transformieren, dass sie entlang einer Kurve anstatt einer geraden Linie verlaufen
+  //useMemo berechnet nur die Werte neu, wenn sich curve ändert
   const { inputRange, xOut, yOut } = useMemo(() => {
-    if (!curve)
+    if (!curve) {
       return {
         inputRange: null as number[] | null,
         xOut: null as number[] | null,
         yOut: null as number[] | null,
       }
+    }
+
+    //Anzahl der Punkte in der Kurve
     const n = curve.length
-    const ir = Array.from({ length: n }).map((_, i) => i / (n - 1))
-    const xo = curve.map((p) => p.x)
-    const yo = curve.map((p) => p.y)
-    return { inputRange: ir, xOut: xo, yOut: yo }
+
+    //inputRange ist ein Array von Werten zwischen 0 und 1, das die Position jedes Punkts auf der Kurve repräsentiert
+    //Beispiel: Bei 5 Punkten wäre inputRange [0, 0.25, 0.5, 0.75, 1]
+    const inputRange = Array.from({ length: n }, (_, i) => i / (n - 1))
+
+    //xOut extrahiert alle x-Koordinaten
+    const xOut = curve.map(p => p.x)
+    //yOut extrahiert alle y-Koordinaten
+    const yOut = curve.map(p => p.y)
+    //Werte werden getrennt, da Animate.interpolate nur 1D-Arrays verwendet
+
+    return { inputRange, xOut, yOut }
   }, [curve])
 
+
   const translateX =
+  //Wenn eine Kurve da ist, folge dieser. Ansonsten gerade Linie
     curve && inputRange && xOut
       ? moveAnim.interpolate({ inputRange, outputRange: xOut })
       : translateXStraight
 
   const translateY =
+  //Wenn eine Kurve da ist, folge dieser. Ansonsten gerade Linie
     curve && inputRange && yOut
       ? moveAnim.interpolate({ inputRange, outputRange: yOut })
       : translateYStraight
@@ -168,23 +200,25 @@ function ParticlesGroup({
   count?: number
   duration?: number
 }) {
-  return (
-    <>
-      {Array.from({ length: count }).map((_, i) => {
-        const extra = (duration / count) * i
-        return (
-          <ParticleLine
-            key={i}
-            start={start}
-            end={end}
-            color={color}
-            duration={duration + extra}
-          />
-        )
-      })}
-    </>
-  )
+  const items = []
+
+  for (let i = 0; i < count; i++) {
+    const extra = (duration / count) * i
+    items.push(
+      <ParticleLine
+        key={i}
+        start={start}
+        end={end}
+        color={color}
+        duration={duration + extra}
+      />
+    )
+  }
+
+  //Eine Gruppe von Partikel entlang der gleichen Linie aber mit leicht unterschiedlichen Startzeiten
+  return <>{items}</>
 }
+
 
 function ParticlesCurveGroup({
   path,
