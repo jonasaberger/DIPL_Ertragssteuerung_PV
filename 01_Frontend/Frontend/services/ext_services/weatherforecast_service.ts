@@ -9,5 +9,5 @@ export interface ForecastData {
 }
 
 export async function fetchForecastData(): Promise<ForecastData | null> {
-  return fetchJson<ForecastData>('/api/forecast')
+  return fetchJson<ForecastData>('/forecast')
 }

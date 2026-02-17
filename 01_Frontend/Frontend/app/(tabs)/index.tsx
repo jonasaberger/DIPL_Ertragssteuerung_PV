@@ -5,10 +5,11 @@ import { ThemedView } from '@/components/themed-view'
 
 import HDiagram, { DiagramData } from '@/components/homePage/h-diagram'
 import HPrices from '@/components/homePage/h-prices'
-import HPriority, { PriorityItem } from '@/components/homePage/h-priority'
+import { PriorityItem } from '@/components/homePage/h-priority'
 import HControlPanel from '@/components/homePage/mode_selection_section/h-control-panel'
 import HWallbox from '@/components/homePage/h-wallbox'
 import HBoiler from '@/components/homePage/h-boiler'
+import HForecast from '@/components/homePage/h-forecast'
 
 import { useUpdateDataScheduler } from '@/hooks/useUpdateDataScheduler'
 import { toggleBoilerSetting } from '@/services/iot_services/boiler_service'
@@ -43,7 +44,7 @@ export default function HomeScreen() {
     // KEY für Screen Remount
   const [key, setKey] = useState(0)
 
-  const { pvData, boilerData, epexData, wallboxData, systemState, refetchBoilerData, refetchEGoData, refetchEpexData } = useUpdateDataScheduler()
+  const { pvData, boilerData, epexData, wallboxData, systemState, forecastData, refetchBoilerData, refetchEGoData, refetchEpexData } = useUpdateDataScheduler()
 
   const [healthCheckStatus, setHealthCheckStatus] = useState<'loading' | 'ok' | 'error'>('loading')
   const [showEmergencyConfig, setShowEmergencyConfig] = useState(false)
@@ -51,7 +52,7 @@ export default function HomeScreen() {
 
   const available = {
     influx: systemState?.influx === 'ok',
-    wallbox: systemState?.wallbox === 'ok',
+    wallbox: systemState?.wallbox === 'ok', 
     boiler: systemState?.boiler === 'ok',
     epex: systemState?.epex === 'ok',
   }
@@ -351,6 +352,8 @@ export default function HomeScreen() {
     <ThemedView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <HDiagram data={diagramData} />
+
+        <HForecast data={forecastData} />
 
         <HControlPanel
           currentMode={uiState.currentMode}
