@@ -19,7 +19,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: '#474646',
 
         tabBarButton: (props) => {
-          {/* Alle relevanten Probs müssen da sein, sonst geht es nicht. Muss man so machen wenn man so nen custom Button will */}
+          {/* Alle relevanten Probs müssen da sein, sonst geht es nicht. Muss man so machen wenn man so einen custom Button will */}
           const {
             children,
             onPress,
