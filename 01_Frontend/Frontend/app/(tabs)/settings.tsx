@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { ScrollView, StyleSheet, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 
-import SSystemSettings from '@/components/settings/s-device-configs'
+import SDeviceConfigs from '@/components/settings/s-device-configs'
 import SProtocol from '@/components/settings/s-protocol'
 import SDeviceStates from '@/components/settings/s-devicestates'
 import SErrorLog from '@/components/settings/s-errorlog'
@@ -32,7 +32,7 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         {authorized && (
           <>
-            <SSystemSettings/>
+            <SDeviceConfigs/>
             <SProtocol />
             <SDeviceStates />
             <SErrorLog />

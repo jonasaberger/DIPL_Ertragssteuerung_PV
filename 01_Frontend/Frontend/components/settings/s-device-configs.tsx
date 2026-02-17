@@ -9,14 +9,14 @@ import {
   getBackendConfig,
   setBackendConfigLocal,
   resetBackendConfigLocal,
-  parseDeviceUrl,
-  buildDeviceUrl,
-  type DevicesResponse
 } from '@/services/setting_services/device-backend_configs/backend_config_service'
 import {
   fetchDevices,
   updateDeviceConfig,
-  resetDevices
+  resetDevices,
+  buildDeviceUrl,
+  parseDeviceUrl,
+  DevicesResponse
 } from '@/services/setting_services/device-backend_configs/settings_service'
 import { resetAPIBase } from '@/services/helper'
 
@@ -26,7 +26,7 @@ type ServiceConfig = {
   path: string
 }
 
-export default function SSystemSettings() {
+export default function SDeviceConfigs() {
   const { password } = useAuth()
 
   const [openModal, setOpenModal] = useState<'backend' | 'epex' | 'pv' | 'wallbox' | null>(null)
@@ -43,7 +43,7 @@ export default function SSystemSettings() {
       setBackendConfig(backend)
       try {
         const devicesData = await fetchDevices()
-        setDevices(devicesData)
+        setDevices(devicesData ?? {})
       } catch (deviceError) {
         console.warn('Could not fetch devices:', deviceError)
         setDevices({})
@@ -126,8 +126,8 @@ export default function SSystemSettings() {
             try {
               setLoading(true)
               await resetBackendConfigLocal()
-              const success = await resetDevices()
-              if (!success) throw new Error('API Reset fehlgeschlagen')
+              const resetResult = await resetDevices()
+              if (!resetResult) throw new Error('API Reset fehlgeschlagen')
               resetAPIBase()
               await loadConfigs()
               Alert.alert('Erfolg', 'Alle Konfigurationen wurden zurückgesetzt.')

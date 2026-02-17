@@ -12,33 +12,6 @@ export interface BackendConfig {
   backend_path: string
 }
 
-export interface DeviceEndpoints {
-  [key: string]: string
-}
-
-export interface Device {
-  deviceId: string
-  baseUrl: string
-  endpoints: DeviceEndpoints
-  [key: string]: any
-}
-
-export interface DevicesResponse {
-  [deviceId: string]: {
-    baseUrl: string
-    endpoints: DeviceEndpoints
-    [key: string]: any
-  }
-}
-
-export interface UpdateDevicePayload {
-  deviceId: string
-  password: string
-  payload: {
-    baseUrl?: string
-    endpoints?: DeviceEndpoints
-  }
-}
 
 // -----------------------
 // BACKEND CONFIG (AsyncStorage)
@@ -105,26 +78,4 @@ export async function resetBackendConfigLocal(): Promise<void> {
   }
   await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(defaultConfig))
   console.log('Backend config reset to default:', defaultConfig)
-}
-
-// -----------------------
-// HELPER FUNCTIONS
-// -----------------------
-
-export function parseDeviceUrl(device: Device): { ip: string; port: string; path: string } | null {
-  try {
-    const url = new URL(device.baseUrl)
-    const ip = url.hostname
-    const port = url.port || (url.protocol === 'https:' ? '443' : '80')
-    const firstEndpoint = Object.values(device.endpoints)[0] || ''
-    return { ip, port, path: firstEndpoint }
-  } catch (error) {
-    console.error('Error parsing device URL:', error)
-    return null
-  }
-}
-
-export function buildDeviceUrl(ip: string, port: string, useHttps: boolean = false): string {
-  const protocol = useHttps ? 'https' : 'http'
-  return `${protocol}://${ip}:${port}`
 }

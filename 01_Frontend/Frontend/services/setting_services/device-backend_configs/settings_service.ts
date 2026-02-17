@@ -1,57 +1,57 @@
-import { postJson } from '@/services/helper'
-import { getBackendBaseURL, type Device, type DeviceEndpoints, type DevicesResponse, type UpdateDevicePayload } from './backend_config_service'
+import { fetchJson, postJson } from '@/services/helper'
+
+export interface DeviceEndpoints {
+  [key: string]: string
+}
+
+export interface Device {
+  deviceId: string
+  baseUrl: string
+  endpoints: DeviceEndpoints
+  [key: string]: any
+}
+
+export interface DevicesResponse {
+  [deviceId: string]: {
+    baseUrl: string
+    endpoints: DeviceEndpoints
+    [key: string]: any
+  }
+}
+
+export interface UpdateDevicePayload {
+  deviceId: string
+  password: string
+  payload: {
+    baseUrl?: string
+    endpoints?: DeviceEndpoints
+  }
+}
 
 // -----------------------
 // ADMIN
 // -----------------------
 
 export async function verifyAdminPW(password: string): Promise<boolean> {
-  try {
-    const data = await postJson<{ success: boolean }>(
-      '/devices/admin/verify_admin_pw',
-      { password }
-    )
-    return Boolean(data && data.success === true)
-  } catch (error) {
-    console.error('Failed to verify admin password:', error)
-    return false
-  }
+  const data = await postJson<{ success: boolean }>(
+    '/devices/admin/verify_admin_pw',
+    { password }
+  )
+  return Boolean(data?.success === true)
 }
 
 // -----------------------
 // DEVICES
 // -----------------------
 
-export async function fetchDevices(): Promise<DevicesResponse> {
-  try {
-    const baseUrl = await getBackendBaseURL()
-    const response = await fetch(`${baseUrl}/devices/get_devices`, {
-      method: 'GET',
-      headers: { 'accept': 'application/json' }
-    })
-    if (!response.ok) {
-      const text = await response.text().catch(() => '')
-      throw new Error(`Failed to fetch devices: ${response.status} ${response.statusText} ${text}`)
-    }
-    const devices: DevicesResponse = await response.json()
-    console.log('Fetched devices from backend:', Object.keys(devices))
-    return devices
-  } catch (error) {
-    console.error('Error fetching devices:', error)
-    throw error
-  }
+export async function fetchDevices(): Promise<DevicesResponse | null> {
+  return fetchJson<DevicesResponse>('/devices/get_devices')
 }
 
 export async function getDevice(deviceId: string): Promise<Device | null> {
-  try {
-    const devices = await fetchDevices()
-    const device = devices[deviceId]
-    if (!device) return null
-    return { deviceId, ...device }
-  } catch (error) {
-    console.error(`Error getting device ${deviceId}:`, error)
-    return null
-  }
+  const devices = await fetchDevices()
+  if (!devices?.[deviceId]) return null
+  return { deviceId, ...devices[deviceId] }
 }
 
 export async function updateDeviceConfig(
@@ -59,43 +59,17 @@ export async function updateDeviceConfig(
   password: string,
   baseUrl?: string,
   endpoints?: DeviceEndpoints
-): Promise<DevicesResponse> {
-  try {
-    const backendUrl = await getBackendBaseURL()
-    const payload: UpdateDevicePayload = { deviceId, password, payload: {} }
-    if (baseUrl) payload.payload.baseUrl = baseUrl
-    if (endpoints) payload.payload.endpoints = endpoints
+): Promise<DevicesResponse | null> {
+  const payload: UpdateDevicePayload = { deviceId, password, payload: {} }
+  if (baseUrl) payload.payload.baseUrl = baseUrl
+  if (endpoints) payload.payload.endpoints = endpoints
 
-    const response = await fetch(`${backendUrl}/devices/edit_device`, {
-      method: 'POST',
-      headers: { 'accept': 'application/json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-    if (!response.ok) {
-      const text = await response.text().catch(() => '')
-      if (response.status === 401 || response.status === 403) throw new Error('Falsches Passwort')
-      throw new Error(`Failed to update device: ${response.status} ${response.statusText} ${text}`)
-    }
-    const updatedDevices: DevicesResponse = await response.json()
-    console.log(`Device ${deviceId} updated successfully`)
-    return updatedDevices
-  } catch (error) {
-    console.error(`Error updating device ${deviceId}:`, error)
-    throw error
-  }
+  return postJson<DevicesResponse>('/devices/edit_device', payload)
 }
 
 export async function resetDevices(): Promise<boolean> {
-  try {
-    const data = await postJson<{ success: boolean }>(
-      '/devices/reset_devices',
-      {}
-    )
-    return Boolean(data && data.success === true)
-  } catch (error) {
-    console.error('Failed to reset devices:', error)
-    return false
-  }
+  const data = await postJson<{ success: boolean }>('/devices/reset_devices', {})
+  return Boolean(data?.success === true)
 }
 
 export async function getDevicesByType(): Promise<{
@@ -103,15 +77,33 @@ export async function getDevicesByType(): Promise<{
   pv?: Device
   wallbox?: Device
 }> {
-  try {
-    const devices = await fetchDevices()
-    return {
-      epex: devices['epex'] ? { deviceId: 'epex', ...devices['epex'] } : undefined,
-      pv: devices['pv'] ? { deviceId: 'pv', ...devices['pv'] } : undefined,
-      wallbox: devices['wallbox'] ? { deviceId: 'wallbox', ...devices['wallbox'] } : undefined
-    }
-  } catch (error) {
-    console.error('Error getting devices by type:', error)
-    return {}
+  const devices = await fetchDevices()
+  if (!devices) return {}
+  return {
+    epex: devices['epex'] ? { deviceId: 'epex', ...devices['epex'] } : undefined,
+    pv: devices['pv'] ? { deviceId: 'pv', ...devices['pv'] } : undefined,
+    wallbox: devices['wallbox'] ? { deviceId: 'wallbox', ...devices['wallbox'] } : undefined,
   }
+}
+
+// -----------------------
+// HELPER FUNCTIONS
+// -----------------------
+
+export function parseDeviceUrl(device: Device): { ip: string; port: string; path: string } | null {
+  try {
+    const url = new URL(device.baseUrl)
+    const ip = url.hostname
+    const port = url.port || (url.protocol === 'https:' ? '443' : '80')
+    const firstEndpoint = Object.values(device.endpoints)[0] || ''
+    return { ip, port, path: firstEndpoint }
+  } catch (error) {
+    console.error('Error parsing device URL:', error)
+    return null
+  }
+}
+
+export function buildDeviceUrl(ip: string, port: string, useHttps: boolean = false): string {
+  const protocol = useHttps ? 'https' : 'http'
+  return `${protocol}://${ip}:${port}`
 }
