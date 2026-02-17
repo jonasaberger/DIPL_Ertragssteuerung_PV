@@ -29,18 +29,22 @@ export default function AppModal({
           <View style={styles.popup}>
             {!!title && <Text style={styles.title}>{title}</Text>}
             {children}
-          </View>
 
-          <View style={styles.actions}>
-            <TouchableOpacity onPress={onCancel} activeOpacity={0.8}>
-              <Text style={styles.cancel}>{cancelText}</Text>
-            </TouchableOpacity>
+            <View style={styles.divider} />
 
-            <TouchableOpacity onPress={onConfirm} activeOpacity={0.8} disabled={confirmDisabled}>
-              <Text style={[styles.confirm, confirmDisabled && styles.confirmDisabled]}>
-                {confirmText}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.actions}>
+              <TouchableOpacity onPress={onCancel} activeOpacity={0.8} style={styles.cancelButton}>
+                <Text style={styles.cancel}>{cancelText}</Text>
+              </TouchableOpacity>
+
+              <View style={styles.buttonDivider} />
+
+              <TouchableOpacity onPress={onConfirm} activeOpacity={0.8} disabled={confirmDisabled} style={styles.confirmButton}>
+                <Text style={[styles.confirm, confirmDisabled && styles.confirmDisabled]}>
+                  {confirmText}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -65,8 +69,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 3,
     borderColor: '#1e90ff',
-    paddingVertical: 18,
+    paddingTop: 18,
     paddingHorizontal: 16,
+    paddingBottom: 0,
+    overflow: 'hidden',
   },
   title: {
     color: '#474646',
@@ -74,11 +80,30 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginBottom: 14,
   },
+  divider: {
+    height: 1,
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: -16,
+    marginTop: 18,
+  },
   actions: {
-    marginTop: 14,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 6,
+    height: 52,
+  },
+  cancelButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonDivider: {
+    width: 1,
+    backgroundColor: '#e0e0e0',
+    marginVertical: 10,
+  },
+  confirmButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancel: {
     color: '#474646',
