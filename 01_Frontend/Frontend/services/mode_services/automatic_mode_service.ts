@@ -1,4 +1,4 @@
-import { fetchJson, postJson, putJson } from '../helper'
+import { fetchJson, postJson, putJson } from '@/services/helper'
 
 export interface SeasonConfig {
   target_time: string

@@ -1,4 +1,3 @@
-// services/diagram_service.ts
 import type { DateSelection } from '@/components/diagram/d-dates'
 import { fetchJson } from './helper'
 

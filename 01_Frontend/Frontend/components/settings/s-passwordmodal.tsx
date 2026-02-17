@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { StyleSheet, Text, TextInput, View } from 'react-native'
-import { verifyAdminPW } from '@/services/setting_services/settings_service'
+import { verifyAdminPW } from '@/services/setting_services/device-backend_configs/settings_service'
 import AppModal from '@/components/modal'
 
 type Props = {

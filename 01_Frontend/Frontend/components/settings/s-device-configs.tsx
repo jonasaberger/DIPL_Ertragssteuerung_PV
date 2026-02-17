@@ -2,18 +2,22 @@ import * as Updates from 'expo-updates'
 import React, { useState, useEffect } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import SettingsCard from '@/components/settingscard'
+import SettingsCard from '@/components/settings/settingscard'
 import SIPModal from '@/components/settings/s-ipmodal'
-import SPasswordModal from '@/components/settings/s-passwordmodal'
+import { useAuth } from '@/contexts/s-authcontext'
 import {
   getBackendConfig,
   setBackendConfigLocal,
-  fetchDevices,
-  updateDeviceConfig,
+  resetBackendConfigLocal,
   parseDeviceUrl,
   buildDeviceUrl,
   type DevicesResponse
-} from '@/services/setting_services/backend_config_service'
+} from '@/services/setting_services/device-backend_configs/backend_config_service'
+import {
+  fetchDevices,
+  updateDeviceConfig,
+  resetDevices
+} from '@/services/setting_services/device-backend_configs/settings_service'
 import { resetAPIBase } from '@/services/helper'
 
 type ServiceConfig = {
@@ -23,36 +27,25 @@ type ServiceConfig = {
 }
 
 export default function SSystemSettings() {
-  const [openModal, setOpenModal] = useState<'backend' | 'epex' | 'pv' | 'wallbox' | null>(null)
-  const [passwordModal, setPasswordModal] = useState<{
-    visible: boolean
-    deviceId: string
-    config: ServiceConfig
-  } | null>(null)
-  const [loading, setLoading] = useState(false)
+  const { password } = useAuth()
 
+  const [openModal, setOpenModal] = useState<'backend' | 'epex' | 'pv' | 'wallbox' | null>(null)
+  const [loading, setLoading] = useState(false)
   const [backendConfig, setBackendConfig] = useState({ backend_ip: '', backend_port: 0, backend_path: '' })
   const [devices, setDevices] = useState<DevicesResponse>({})
 
-  useEffect(() => {
-    loadConfigs()
-  }, [])
+  useEffect(() => { loadConfigs() }, [])
 
   const loadConfigs = async () => {
     try {
       setLoading(true)
-
-      // Backend Config laden (sollte immer funktionieren, ist lokal)
       const backend = await getBackendConfig()
       setBackendConfig(backend)
-
-      // Devices laden (kann fehlschlagen wenn Backend nicht erreichbar)
       try {
         const devicesData = await fetchDevices()
         setDevices(devicesData)
       } catch (deviceError) {
         console.warn('Could not fetch devices:', deviceError)
-        // Nicht blocken, nur Devices auf leer setzen
         setDevices({})
       }
     } catch (error) {
@@ -66,36 +59,23 @@ export default function SSystemSettings() {
   const handleBackendConfirm = async (config: ServiceConfig) => {
     try {
       setLoading(true)
-      
-      // Backend-URL lokal speichern
       await setBackendConfigLocal(config.ip, Number(config.port), config.path)
-      
-      // API Base zurücksetzen
       resetAPIBase()
-      
       setOpenModal(null)
       setLoading(false)
-      
-      // Alert mit Neustart-Option
       Alert.alert(
-        'Erfolg', 
+        'Erfolg',
         'Backend-Konfiguration wurde gespeichert.\n\nDie App muss neu geladen werden, um die Änderungen zu übernehmen.',
-        [
-          {
-            text: 'Jetzt neu starten',
-            onPress: async () => {
-              try {
-                await Updates.reloadAsync()
-              } catch (error) {
-                console.warn('App konnte nicht automatisch neu geladen werden:', error)
-                Alert.alert(
-                  'Manueller Neustart nötig',
-                  'In der Entwicklungsumgebung muss die App manuell neu geladen werden (R drücken oder Reload im Expo Go).'
-                )
-              }
+        [{
+          text: 'Jetzt neu starten',
+          onPress: async () => {
+            try {
+              await Updates.reloadAsync()
+            } catch (error) {
+              Alert.alert('Manueller Neustart nötig', 'In der Entwicklungsumgebung muss die App manuell neu geladen werden.')
             }
           }
-        ],
+        }],
         { cancelable: false }
       )
     } catch (error) {
@@ -105,34 +85,21 @@ export default function SSystemSettings() {
     }
   }
 
-
   const handleDeviceConfirm = async (deviceId: string, config: ServiceConfig) => {
-    // Zeige Password Modal
-    setPasswordModal({ visible: true, deviceId, config })
+    if (!password) {
+      Alert.alert('Fehler', 'Nicht autorisiert')
+      return
+    }
     setOpenModal(null)
-  }
-
-  const handlePasswordSubmit = async (password: string) => {
-    if (!passwordModal) return
-
-    const { deviceId, config } = passwordModal
-
     try {
       setLoading(true)
       const baseUrl = buildDeviceUrl(config.ip, config.port, deviceId === 'epex')
-
-      // Get current device to preserve other endpoints
       const currentDevice = devices[deviceId]
       const endpoints = currentDevice?.endpoints || {}
-
-      // Update the first endpoint with new path
       const endpointKey = Object.keys(endpoints)[0] || 'default'
       const updatedEndpoints = { ...endpoints, [endpointKey]: config.path }
-
       await updateDeviceConfig(deviceId, password, baseUrl, updatedEndpoints)
       await loadConfigs()
-
-      setPasswordModal(null)
       Alert.alert('Erfolg', `${deviceId.toUpperCase()} Konfiguration gespeichert`)
     } catch (error: any) {
       console.error('Error updating device:', error)
@@ -146,10 +113,39 @@ export default function SSystemSettings() {
     }
   }
 
+  const handleReset = () => {
+    Alert.alert(
+      'Alles zurücksetzen?',
+      'Die Backend-Konfiguration wird auf die Standardwerte zurückgesetzt und alle Geräte werden zurückgesetzt.',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Zurücksetzen',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setLoading(true)
+              await resetBackendConfigLocal()
+              const success = await resetDevices()
+              if (!success) throw new Error('API Reset fehlgeschlagen')
+              resetAPIBase()
+              await loadConfigs()
+              Alert.alert('Erfolg', 'Alle Konfigurationen wurden zurückgesetzt.')
+            } catch (error) {
+              console.error('Error resetting configs:', error)
+              Alert.alert('Fehler', 'Reset konnte nicht durchgeführt werden')
+            } finally {
+              setLoading(false)
+            }
+          }
+        }
+      ]
+    )
+  }
+
   const getDeviceConfig = (deviceId: string): ServiceConfig => {
     const device = devices[deviceId]
     if (!device) return { ip: '', port: '', path: '' }
-
     const parsed = parseDeviceUrl({ deviceId, ...device })
     return parsed || { ip: '', port: '', path: '' }
   }
@@ -160,18 +156,12 @@ export default function SSystemSettings() {
     config: ServiceConfig,
     modalKey: 'backend' | 'epex' | 'pv' | 'wallbox'
   ) => (
-    <TouchableOpacity
-      style={styles.item}
-      activeOpacity={0.85}
-      onPress={() => setOpenModal(modalKey)}
-      disabled={loading}
-    >
+    <TouchableOpacity style={styles.item} activeOpacity={0.85} onPress={() => setOpenModal(modalKey)} disabled={loading}>
       <View style={styles.row}>
         <Text style={styles.label}>{label}</Text>
         <View style={styles.right}>
           <Text style={styles.value} numberOfLines={1}>
-            {config.ip || 'nicht konfiguriert'}
-            {config.ip && config.port ? `:${config.port}` : ''}
+            {config.ip || 'nicht konfiguriert'}{config.ip && config.port ? `:${config.port}` : ''}
           </Text>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#474646" />
         </View>
@@ -181,32 +171,20 @@ export default function SSystemSettings() {
 
   const getModalConfig = (): ServiceConfig => {
     switch (openModal) {
-      case 'backend':
-        return {
-          ip: backendConfig.backend_ip,
-          port: String(backendConfig.backend_port),
-          path: backendConfig.backend_path
-        }
-      case 'epex':
-        return getDeviceConfig('epex')
-      case 'pv':
-        return getDeviceConfig('pv')
-      case 'wallbox':
-        return getDeviceConfig('wallbox')
-      default:
-        return { ip: '', port: '', path: '' }
+      case 'backend': return { ip: backendConfig.backend_ip, port: String(backendConfig.backend_port), path: backendConfig.backend_path }
+      case 'epex': return getDeviceConfig('epex')
+      case 'pv': return getDeviceConfig('pv')
+      case 'wallbox': return getDeviceConfig('wallbox')
+      default: return { ip: '', port: '', path: '' }
     }
   }
 
   const handleModalConfirm = (config: ServiceConfig) => {
-    if (openModal === 'backend') {
-      handleBackendConfirm(config)
-    } else if (openModal) {
-      handleDeviceConfirm(openModal, config)
-    }
+    if (openModal === 'backend') handleBackendConfirm(config)
+    else if (openModal) handleDeviceConfirm(openModal, config)
   }
 
-  if (loading && !openModal && !passwordModal) {
+  if (loading && !openModal) {
     return (
       <SettingsCard title="System- & Backendeinstellungen">
         <View style={styles.loadingContainer}>
@@ -219,35 +197,24 @@ export default function SSystemSettings() {
   return (
     <>
       <SettingsCard title="System- & Backendeinstellungen">
-        {renderServiceItem(
-          'Backend API',
-          null,
-          {
-            ip: backendConfig.backend_ip,
-            port: String(backendConfig.backend_port),
-            path: backendConfig.backend_path
-          },
-          'backend'
-        )}
+        {renderServiceItem('Backend API', null, { ip: backendConfig.backend_ip, port: String(backendConfig.backend_port), path: backendConfig.backend_path }, 'backend')}
         {renderServiceItem('EPEX Spot', 'epex', getDeviceConfig('epex'), 'epex')}
         {renderServiceItem('PV Anlage', 'pv', getDeviceConfig('pv'), 'pv')}
         {renderServiceItem('Wallbox', 'wallbox', getDeviceConfig('wallbox'), 'wallbox')}
 
-        {/* Reload Button */}
-        <TouchableOpacity
-          style={[styles.item, styles.syncButton]}
-          activeOpacity={0.85}
-          onPress={loadConfigs}
-          disabled={loading}
-        >
-          <View style={styles.row}>
-            <MaterialCommunityIcons name="refresh" size={22} color="#474646" />
-            <Text style={styles.label}>Konfiguration neu laden</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={styles.actionRow}>
+          <TouchableOpacity style={[styles.actionButton, styles.syncButton]} activeOpacity={0.85} onPress={loadConfigs} disabled={loading}>
+            <MaterialCommunityIcons name="refresh" size={20} color="#474646" />
+            <Text style={styles.actionLabel}>Neu laden</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.actionButton, styles.resetButton]} activeOpacity={0.85} onPress={handleReset} disabled={loading}>
+            <MaterialCommunityIcons name="restore" size={20} color="#c0392b" />
+            <Text style={[styles.actionLabel, styles.resetLabel]}>Zurücksetzen</Text>
+          </TouchableOpacity>
+        </View>
       </SettingsCard>
 
-      {/* Config Modal */}
       {openModal && (
         <SIPModal
           visible={true}
@@ -257,59 +224,21 @@ export default function SSystemSettings() {
           onConfirm={handleModalConfirm}
         />
       )}
-
-      {/* Password Modal für Device Updates */}
-      {passwordModal && (
-        <SPasswordModal
-          visible={passwordModal.visible}
-          onCancel={() => setPasswordModal(null)}
-          onSuccess={handlePasswordSubmit}
-        />
-      )}
     </>
   )
 }
 
 const styles = StyleSheet.create({
-  item: {
-    backgroundColor: '#eeeeee',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginTop: 10
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#474646'
-  },
-  right: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    justifyContent: 'flex-end'
-  },
-  value: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-    maxWidth: 180
-  },
-  syncButton: {
-    backgroundColor: '#d4edda',
-    borderWidth: 1,
-    borderColor: '#c3e6cb'
-  },
-  loadingContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-    justifyContent: 'center'
-  }
+  item: { backgroundColor: '#eeeeee', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, marginTop: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  label: { fontSize: 18, fontWeight: '800', color: '#474646' },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, justifyContent: 'flex-end' },
+  value: { fontSize: 16, fontWeight: '600', color: '#666', maxWidth: 180 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  actionButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, gap: 8 },
+  actionLabel: { fontSize: 16, fontWeight: '800', color: '#474646' },
+  syncButton: { backgroundColor: '#d4edda', borderWidth: 1, borderColor: '#c3e6cb' },
+  resetButton: { backgroundColor: '#fde8e8', borderWidth: 1, borderColor: '#f5c6cb' },
+  resetLabel: { color: '#c0392b' },
+  loadingContainer: { paddingVertical: 40, alignItems: 'center', justifyContent: 'center' }
 })

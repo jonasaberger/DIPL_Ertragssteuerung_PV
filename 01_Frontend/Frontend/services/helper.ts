@@ -1,4 +1,4 @@
-import { getBackendBaseURL } from "./setting_services/backend_config_service"
+import { getBackendBaseURL } from "./setting_services/device-backend_configs/backend_config_service"
 
 // Make API_BASE async-aware
 let API_BASE: string | null = null

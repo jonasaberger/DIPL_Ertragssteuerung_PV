@@ -16,7 +16,7 @@ import { allowEGoPower } from '@/services/iot_services/e_go_service'
 import { fetchModeData, setModeData, ModeData, Mode } from '@/services/mode_services/mode_service'
 import { updatePriceOffset } from '@/services/ext_services/epex_service'
 import { setEGoAmpere } from '@/services/iot_services/e_go_service'
-import { getBackendBaseURL } from '@/services/setting_services/backend_config_service'
+import { getBackendBaseURL } from '@/services/setting_services/device-backend_configs/backend_config_service'
 import {EmergencyConfigModal} from "@/components/settings/s-emergency-config"
 
 

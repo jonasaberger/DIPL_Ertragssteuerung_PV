@@ -1,4 +1,4 @@
-import { fetchJson, postJson} from '../helper'
+import { fetchJson, postJson} from '@/services/helper'
 
 export enum Mode {
     MANUAL = 'MANUAL',

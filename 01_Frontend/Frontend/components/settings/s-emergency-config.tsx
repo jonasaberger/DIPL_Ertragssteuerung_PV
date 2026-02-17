@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { StyleSheet, Text, TextInput, View, TouchableOpacity, Alert } from 'react-native'
-import { getBackendConfig, setBackendConfigLocal } from '@/services/setting_services/backend_config_service'
+import { getBackendConfig, setBackendConfigLocal } from '@/services/setting_services/device-backend_configs/backend_config_service'
 import { resetAPIBase } from '@/services/helper'
 import * as Updates from 'expo-updates'
 import AppModal from '@/components/modal'

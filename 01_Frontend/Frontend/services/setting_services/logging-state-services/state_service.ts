@@ -1,4 +1,3 @@
-// services/state_service.ts
 import { fetchJson } from '@/services/helper'
 
 export type SystemState = {
