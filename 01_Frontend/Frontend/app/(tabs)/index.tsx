@@ -33,14 +33,31 @@ interface SystemHealthResponse {
   wallbox: string
 }
 
+//Wandelt v in eine Zahl um, falls möglich. Ansonsten 0 zurückgeben. Verhindert NaN Werte in Berechnungen
 const toNum = (v: any) => {
   const n = Number(v)
-  return Number.isFinite(n) ? n : 0
+  if (Number.isFinite(n)) {
+    return n
+  } else {
+    return 0
+  }
 }
-const clamp0 = (v: number) => (Number.isFinite(v) ? Math.max(0, v) : 0)
+
+// Wandelt negative und ungültige Werte in 0 um.
+const clamp0 = (v: number) => {
+  if (!Number.isFinite(v)) {
+    return 0
+  }
+
+  if (v < 0) {
+    return 0
+  }
+
+  return v
+}
 
 export default function HomeScreen() {
-    // KEY für Screen Remount
+  // KEY für Screen Remount
   const [key, setKey] = useState(0)
 
   const { pvData, boilerData, epexData, wallboxData, systemState, refetchBoilerData, refetchEGoData, refetchEpexData } = useUpdateDataScheduler()
@@ -187,28 +204,28 @@ export default function HomeScreen() {
   }, [wallboxData?.isCharging])
 
   // --- Rohwerte
-  const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))
-  const rawLoad = toNum(pvData?.load_power ?? 0)
-  const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)
-  const batteryPower = toNum(pvData?.battery_power ?? 0)
-  const gridPower = toNum(pvData?.grid_power ?? 0)
+  const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))            //PV-Leistung immer positiv, ungültige Werte zu 0
+  const rawLoad = toNum(pvData?.load_power ?? 0)                  // Load kann positiv (Verbrauch) oder negativ (Einspeisung) sein
+  const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)    // Hausbedarf immer positiv, ungültige Werte zu 0
+  const batteryPower = toNum(pvData?.battery_power ?? 0)          // Batterie-Leistung positiv = Entladung, negativ = Ladung
+  const gridPower = toNum(pvData?.grid_power ?? 0)                // Netzleistung positiv = Bezug, negativ = Einspeisung
 
-  const gridImport = gridPower > 0 ? clamp0(gridPower) : 0
-  const gridFeedIn = gridPower < 0 ? clamp0(-gridPower) : 0
-  const batteryCharge = batteryPower < 0 ? clamp0(-batteryPower) : 0
-  const batteryDischarge = batteryPower > 0 ? clamp0(batteryPower) : 0
+  const gridImport = gridPower > 0 ? clamp0(gridPower) : 0              // Netzbezug immer positiv
+  const gridFeedIn = gridPower < 0 ? clamp0(-gridPower) : 0             // Netzeinspeisung immer positiv, deswegen -gridPower
+  const batteryCharge = batteryPower < 0 ? clamp0(-batteryPower) : 0    // Barratel immer positiv, deswegen -batteryPower
+  const batteryDischarge = batteryPower > 0 ? clamp0(batteryPower) : 0  // Batterieentladung immer positiv
 
   // --- PV-Verteilung
-  const pvToHouse = Math.min(houseDemand, pvTotal)
-  const pvLeftAfterHouse = clamp0(pvTotal - pvToHouse)
-  const pvToBattery = Math.min(batteryCharge, pvLeftAfterHouse)
-  const pvLeftAfterBattery = clamp0(pvLeftAfterHouse - pvToBattery)
-  const pvToGrid = Math.min(gridFeedIn, pvLeftAfterBattery)
+  const pvToHouse = Math.min(houseDemand, pvTotal)                      //PV -> Haus; kann nicht mehr sein als Hausbedarf oder PV-Leistung, deswegen Minimum
+  const pvLeftAfterHouse = clamp0(pvTotal - pvToHouse)                  //PV nach Abzug von Hausbedarf
+  const pvToBattery = Math.min(batteryCharge, pvLeftAfterHouse)         //PV -> Batterie; kann nicht mehr sein als Batterieladerate oder PV-Leistung nach Haus, deswegen Minimum
+  const pvLeftAfterBattery = clamp0(pvLeftAfterHouse - pvToBattery)     //PV nach Abzug von Batteriebedarf
+  const pvToGrid = Math.min(gridFeedIn, pvLeftAfterBattery)             //PV -> Netz; Einspeisung passiert nur mit dem Rest 
 
-  const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)
-  const batteryToHouse = Math.min(batteryDischarge, houseDeficitAfterPv)
-  const houseDeficitAfterPvAndBattery = clamp0(houseDeficitAfterPv - batteryToHouse)
-  const gridToHouse = Math.min(gridImport, houseDeficitAfterPvAndBattery)
+  const houseDeficitAfterPv = clamp0(houseDemand - pvToHouse)                         //Wenn PV nicht genug war, bleibt Bedarf übrig
+  const batteryToHouse = Math.min(batteryDischarge, houseDeficitAfterPv)              //Batterie kann nur so viel zum Haus beitragen wie sie entlädt und wie der verbleibende Bedarf ist
+  const houseDeficitAfterPvAndBattery = clamp0(houseDeficitAfterPv - batteryToHouse)  //Restdefizit nach PV und Batterie
+  const gridToHouse = Math.min(gridImport, houseDeficitAfterPvAndBattery)             //Netz -> Haus; Netz deckt Rest ab
 
   const diagramData: DiagramData = {
     total: pvTotal,
