@@ -204,9 +204,9 @@ export default function HomeScreen() {
   }, [wallboxData?.isCharging])
 
   // --- Rohwerte
-  const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))            //PV-Leistung immer positiv, ungültige Werte zu 0
+  const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))            // PV-Leistung immer positiv, ungültige Werte zu 0
   const rawLoad = toNum(pvData?.load_power ?? 0)                  // Load kann positiv (Verbrauch) oder negativ (Einspeisung) sein
-  const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)    // Hausbedarf immer positiv, ungültige Werte zu 0
+  const houseDemand = clamp0(rawLoad < 0 ? -rawLoad : rawLoad)    // Hausbedarf immer positiv, ungültige Werte zu 0; -rawLoad, weil Einspeisung (negativ) auch Bedarf ist
   const batteryPower = toNum(pvData?.battery_power ?? 0)          // Batterie-Leistung positiv = Entladung, negativ = Ladung
   const gridPower = toNum(pvData?.grid_power ?? 0)                // Netzleistung positiv = Bezug, negativ = Einspeisung
 

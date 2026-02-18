@@ -31,19 +31,28 @@ const COLORS = {
 
 type Mode = 'day' | 'month' | 'year'
 
-//kriegt eine Zahl, z.B: 5, und macht daraus '05'
+// kriegt eine Zahl, z.B: 5, und macht daraus '05'
 function pad2(n: number) {
   return String(n).padStart(2, '0')
 }
 
-//Entscheidet, in welchem Modus wir sind (Tag/Monat/Jahr) basierend auf der DateSelection
+// ISO-Strings ohne Zeitzone kommen bei uns aus dem Backend als UTC.
+// JS würde sie sonst als lokale Zeit interpretieren -> 1h Offset-Bug.
+// Wenn bereits eine Zeitzone dabei ist (Z oder +hh:mm), wird normal geparst.
+function parseApiTime(iso: string): Date {
+  const s = String(iso)
+  if (/[zZ]$/.test(s) || /[+\-]\d{2}:\d{2}$/.test(s)) return new Date(s)
+  return new Date(s + 'Z')
+}
+
+// Entscheidet, in welchem Modus wir sind (Tag/Monat/Jahr) basierend auf der DateSelection
 function modeFromSelection(s: DateSelection): Mode {
   if (s.month === null) return 'year'
   if (s.day === null) return 'month'
   return 'day'
 }
 
-//begrent eine zahl, damit sie zwischen min und max bleibt
+// begrent eine zahl, damit sie zwischen min und max bleibt
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
 }
@@ -55,13 +64,13 @@ function clampVisibleX(xVisible: number, screenWidth: number, mode: Mode) {
   return clamp(xVisible, edge, screenWidth - edge)
 }
 
-//Macht aus Zahl eine Watt angabe
+// Macht aus Zahl eine Watt angabe
 function fmtW(v: number) {
   const n = Number.isFinite(v) ? v : 0
   return `${Math.round(n)} W`
 }
 
-//Macht aus Zahl eine Prozent angabe
+// Macht aus Zahl eine Prozent angabe
 function fmtPct(v: number) {
   const n = Number.isFinite(v) ? v : 0
   return `${Math.round(clamp(n, 0, 100))} %`
@@ -72,22 +81,51 @@ function fmtKWh(v: number) {
   return `${n.toFixed(2)} kWh`
 }
 
-//Erstellt die Beschriftung für die X-Achse basierend auf dem Modus
-function axisLabelForIso(iso: string, mode: Mode) {
-  const d = new Date(iso)
-  if (mode === 'day') return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-  if (mode === 'month') return `${pad2(d.getDate())}`
-  return new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
+function isoParts(iso: string) {
+  const s = String(iso)
+
+  // erwartet: YYYY-MM-DDTHH:MM...
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+  if (m) {
+    return {
+      y: Number(m[1]),
+      mo: Number(m[2]),
+      d: Number(m[3]),
+      h: Number(m[4]),
+      mi: Number(m[5]),
+    }
+  }
+
+  // Fallback (sollte praktisch nie passieren)
+  const dt = new Date(s)
+  return {
+    y: dt.getFullYear(),
+    mo: dt.getMonth() + 1,
+    d: dt.getDate(),
+    h: dt.getHours(),
+    mi: dt.getMinutes(),
+  }
 }
 
-//Für die genauere Anzeige der Text
+// Erstellt die Beschriftung für die X-Achse basierend auf dem Modus
+function axisLabelForIso(iso: string, mode: Mode) {
+  const p = isoParts(iso)
+  if (mode === 'day') return `${pad2(p.h)}:${pad2(p.mi)}`
+  if (mode === 'month') return `${pad2(p.d)}`
+  // Monat als Kurzname (de-AT), ohne Device-Timezone-Abhängigkeit
+  const monNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+  return monNames[clamp(p.mo, 1, 12) - 1]
+}
+
+// Für die genauere Anzeige der Text
 function tooltipLabelForIso(iso: string, mode: Mode) {
-  const d = new Date(iso)
-  const date = `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`
-  const time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+  const p = isoParts(iso)
+  const date = `${pad2(p.d)}.${pad2(p.mo)}.${p.y}`
+  const time = `${pad2(p.h)}:${pad2(p.mi)}`
   if (mode === 'day') return `${date} ${time}`
   if (mode === 'month') return `${date} ${time}`
-  const mon = new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
+  const monNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
+  const mon = monNames[clamp(p.mo, 1, 12) - 1]
   return `${mon} ${date} ${time}`
 }
 
@@ -116,12 +154,12 @@ type Selected = {
   socPct: number
 }
 
-//Da so viele Daten für das Jahr sind, wird alle 15 Tage ein Tick gemacht
+// Da so viele Daten für das Jahr sind, wird alle 15 Tage ein Tick gemacht
 function yearTickIndices(rows: ChartRow[]) {
   const ticks: number[] = []
   let lastMonth = -1
 
-  //Iteriere durch alle Datenpunkte
+  // Iteriere durch alle Datenpunkte
   for (let i = 0; i < rows.length; i++) {
     const d = new Date(rows[i].t)
     const m = d.getMonth()
@@ -129,7 +167,7 @@ function yearTickIndices(rows: ChartRow[]) {
     const h = d.getHours()
     const min = d.getMinutes()
 
-    //Überprüfe, ob es der 1. oder 15. Tag des Monats um Mitternacht ist
+    // Überprüfe, ob es der 1. oder 15. Tag des Monats um Mitternacht ist
     const isStart = day === 1 && h === 0 && min === 0
     const isMid = day === 15 && h === 0 && min === 0
 
@@ -150,7 +188,7 @@ function yearTickIndices(rows: ChartRow[]) {
 function downsampleMonth(points: PvPoint[]) {
   const out: PvPoint[] = []
   for (const p of points) {
-    const d = new Date(p._time)
+    const d = parseApiTime(p._time)
     if (d.getMinutes() === 0) out.push(p)
   }
   return out.length > 0 ? out : points.filter((_, i) => i % 4 === 0)
@@ -160,7 +198,7 @@ function aggregateYearByDay(points: PvPoint[]) {
   const map = new Map<string, PvPoint[]>()
 
   for (const p of points) {
-    const d = new Date(p._time)
+    const d = parseApiTime(p._time)
     const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
     const arr = map.get(key)
     if (arr) arr.push(p)
@@ -190,14 +228,15 @@ function aggregateYearByDay(points: PvPoint[]) {
       if (load > loadMax) loadMax = load
       if (feed > feedMax) feedMax = feed
 
-      const t = new Date(p._time).getTime()
+      const t = parseApiTime(p._time).getTime()
       if (t >= lastT) {
         lastT = t
         socLast = clamp(Number(p.soc ?? 0), 0, 100)
       }
     }
 
-    const noon = new Date(`${k}T12:00:00`)
+    // Mittags als Repräsentations-Zeitpunkt (stabiler für Labeling als "Tag")
+    const noon = parseApiTime(`${k}T12:00:00`)
     out.push({
       _time: noon.toISOString(),
       pv_power: pvMax,
@@ -215,8 +254,8 @@ function integrateEnergy(points: PvPoint[]) {
     return { pvKWh: 0, loadKWh: 0, feedInKWh: 0, socEnd: 0 }
   }
 
-  const sorted = [...points].sort((a, b) => new Date(a._time).getTime() - new Date(b._time).getTime())
-  const times = sorted.map(p => new Date(p._time).getTime())
+  const sorted = [...points].sort((a, b) => parseApiTime(a._time).getTime() - parseApiTime(b._time).getTime())
+  const times = sorted.map(p => parseApiTime(p._time).getTime())
 
   const diffs: number[] = []
   for (let i = 1; i < times.length; i++) {
@@ -257,7 +296,7 @@ function integrateEnergy(points: PvPoint[]) {
 
 export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
   const { width: screenWidth } = useWindowDimensions()
-  //skia braucht fonts, denn Skia rendert alles selbst
+  // skia braucht fonts, denn Skia rendert alles selbst
   const font = useFont(require('../../assets/fonts/Inter.ttf'), 11)
 
   const [selected, setSelected] = useState<Selected | null>(null) //Aktuell ausgewählter Punkt
@@ -301,7 +340,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
       const feedIn = gp < 0 ? Math.abs(gp) : 0
 
       const socPct = clamp(Number(p.soc ?? 0), 0, 100)
-      const t = new Date(p._time).getTime()
+      const t = parseApiTime(p._time).getTime()
 
       return {
         x: i,
