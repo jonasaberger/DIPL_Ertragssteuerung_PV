@@ -71,6 +71,7 @@ export default function HomeScreen() {
     wallbox: systemState?.wallbox === 'ok', 
     boiler: systemState?.boiler === 'ok',
     epex: systemState?.epex === 'ok',
+    forecast: systemState?.forecast === 'ok',
   }
 
   const [uiState, setUiState] = useState({
@@ -358,7 +359,7 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <HDiagram data={diagramData} />
 
-        <HForecast data={forecastData} />
+        <HForecast data={forecastData} available={available.forecast}/>
 
         <HControlPanel
           currentMode={uiState.currentMode}

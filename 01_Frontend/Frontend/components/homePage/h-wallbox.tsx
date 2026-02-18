@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native'
 import Card from '@/components/card'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import UnavailableState from '@/components/unavailable-state'
 
 type Props = {
   energyKWh: number
@@ -31,7 +32,6 @@ export default function HWallbox({
   const [showAmpereModal, setShowAmpereModal] = useState(false)
   const [tempAmpere, setTempAmpere] = useState(ampere)
 
-  // Nur erlaubte Backend-Werte
   const amperePresets = [6, 10, 12, 14, 16]
 
   const handleAmpereSubmit = () => {
@@ -45,19 +45,7 @@ export default function HWallbox({
     <Card>
       <View style={styles.wallboxCard}>
         {!available ? (
-          <View style={styles.unavailableContainer}>
-            <MaterialCommunityIcons
-              name="alert-circle-outline"
-              size={36}
-              color="#8E8E93"
-            />
-            <Text style={styles.unavailableTitle}>
-              Wallbox nicht verfügbar
-            </Text>
-            <Text style={styles.unavailableSubtitle}>
-              Verbindung zur Wallbox konnte nicht hergestellt werden
-            </Text>
-          </View>
+          <UnavailableState title="Wallbox nicht verfügbar" />
         ) : (
           <>
             {/* Header */}
@@ -67,9 +55,7 @@ export default function HWallbox({
               <View
                 style={[
                   styles.statusBadge,
-                  isCharging
-                    ? styles.statusBadgeCharging
-                    : styles.statusBadgeIdle,
+                  isCharging ? styles.statusBadgeCharging : styles.statusBadgeIdle,
                 ]}
               >
                 <MaterialCommunityIcons
@@ -80,9 +66,7 @@ export default function HWallbox({
                 <Text
                   style={[
                     styles.statusBadgeText,
-                    isCharging
-                      ? styles.statusTextCharging
-                      : styles.statusTextIdle,
+                    isCharging ? styles.statusTextCharging : styles.statusTextIdle,
                   ]}
                 >
                   {isCharging ? 'Lädt' : 'Inaktiv'}
@@ -93,9 +77,7 @@ export default function HWallbox({
             {/* Energie */}
             <View style={styles.energySection}>
               <View style={styles.energyDisplay}>
-                <Text style={styles.energyValue}>
-                  {energyKWh.toFixed(1)}
-                </Text>
+                <Text style={styles.energyValue}>{energyKWh.toFixed(1)}</Text>
                 <Text style={styles.energyUnit}>kWh</Text>
               </View>
               <Text style={styles.energyLabel}>Gesamtenergie</Text>
@@ -113,12 +95,7 @@ export default function HWallbox({
                 </View>
                 <View style={styles.statusContent}>
                   <Text style={styles.statusLabel}>Fahrzeug</Text>
-                  <Text
-                    style={[
-                      styles.statusValue,
-                      { color: carConnected ? '#16C75C' : '#8E8E93' },
-                    ]}
-                  >
+                  <Text style={[styles.statusValue, { color: carConnected ? '#16C75C' : '#8E8E93' }]}>
                     {carConnected ? 'Verbunden' : 'Getrennt'}
                   </Text>
                 </View>
@@ -127,11 +104,7 @@ export default function HWallbox({
               {isCharging && (
                 <View style={styles.statusItem}>
                   <View style={styles.statusIconContainer}>
-                    <MaterialCommunityIcons
-                      name="lightning-bolt"
-                      size={20}
-                      color="#1EAFF3"
-                    />
+                    <MaterialCommunityIcons name="lightning-bolt" size={20} color="#1EAFF3" />
                   </View>
                   <View style={styles.statusContent}>
                     <Text style={styles.statusLabel}>Leistung</Text>
@@ -149,48 +122,38 @@ export default function HWallbox({
 
                 {carConnected ? (
                   <>
-                    {/* Lademodus */}
                     <View style={styles.settingsSection}>
                       <Text style={styles.settingsTitle}>Lademodus</Text>
 
                       <View style={styles.settingsButtons}>
-                        {(['MANUAL_ON', 'MANUAL_OFF'] as const).map(
-                          (mode) => (
-                            <TouchableOpacity
-                              key={mode}
-                              activeOpacity={0.7}
-                              style={[
-                                styles.settingButton,
-                                selectedSetting === mode &&
-                                  styles.settingButtonActive,
-                              ]}
-                              onPress={() => onSelect(mode)}
-                            >
-                              <View style={styles.settingButtonContent}>
-                                <View
-                                  style={[
-                                    styles.radioButton,
-                                    selectedSetting === mode &&
-                                      styles.radioButtonActive,
-                                  ]}
-                                >
-                                  {selectedSetting === mode && (
-                                    <View style={styles.radioButtonInner} />
-                                  )}
-                                </View>
-                                <Text style={styles.settingButtonText}>
-                                  {mode === 'MANUAL_ON'
-                                    ? 'Manuell EIN'
-                                    : 'Manuell AUS'}
-                                </Text>
+                        {(['MANUAL_ON', 'MANUAL_OFF'] as const).map((mode) => (
+                          <TouchableOpacity
+                            key={mode}
+                            activeOpacity={0.7}
+                            style={[
+                              styles.settingButton,
+                              selectedSetting === mode && styles.settingButtonActive,
+                            ]}
+                            onPress={() => onSelect(mode)}
+                          >
+                            <View style={styles.settingButtonContent}>
+                              <View
+                                style={[
+                                  styles.radioButton,
+                                  selectedSetting === mode && styles.radioButtonActive,
+                                ]}
+                              >
+                                {selectedSetting === mode && <View style={styles.radioButtonInner} />}
                               </View>
-                            </TouchableOpacity>
-                          )
-                        )}
+                              <Text style={styles.settingButtonText}>
+                                {mode === 'MANUAL_ON' ? 'Manuell EIN' : 'Manuell AUS'}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
                       </View>
                     </View>
 
-                    {/* Ampere */}
                     <View style={[styles.settingsSection, { marginTop: 12 }]}>
                       <Text style={styles.settingsTitle}>Ladestrom</Text>
 
@@ -203,24 +166,12 @@ export default function HWallbox({
                         }}
                       >
                         <View style={styles.ampereControlContent}>
-                          <MaterialCommunityIcons
-                            name="speedometer"
-                            size={20}
-                            color="#1EAFF3"
-                          />
+                          <MaterialCommunityIcons name="speedometer" size={20} color="#1EAFF3" />
                           <View style={styles.ampereTextContainer}>
-                            <Text style={styles.ampereValue}>
-                              {ampere} A
-                            </Text>
-                            <Text style={styles.ampereSubtext}>
-                              Passe den Ladestrom an (6-16A)
-                            </Text>
+                            <Text style={styles.ampereValue}>{ampere} A</Text>
+                            <Text style={styles.ampereSubtext}>Passe den Ladestrom an (6-16A)</Text>
                           </View>
-                          <MaterialCommunityIcons
-                            name="chevron-right"
-                            size={20}
-                            color="#8E8E93"
-                          />
+                          <MaterialCommunityIcons name="chevron-right" size={20} color="#8E8E93" />
                         </View>
                       </TouchableOpacity>
                     </View>
@@ -251,20 +202,10 @@ export default function HWallbox({
               {amperePresets.map((preset) => (
                 <TouchableOpacity
                   key={preset}
-                  style={[
-                    styles.presetButton,
-                    tempAmpere === preset &&
-                      styles.presetButtonActive,
-                  ]}
+                  style={[styles.presetButton, tempAmpere === preset && styles.presetButtonActive]}
                   onPress={() => setTempAmpere(preset)}
                 >
-                  <Text
-                    style={[
-                      styles.presetButtonText,
-                      tempAmpere === preset &&
-                        styles.presetButtonTextActive,
-                    ]}
-                  >
+                  <Text style={[styles.presetButtonText, tempAmpere === preset && styles.presetButtonTextActive]}>
                     {preset}A
                   </Text>
                 </TouchableOpacity>
@@ -272,28 +213,16 @@ export default function HWallbox({
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalButtonSecondary}
-                onPress={() => setShowAmpereModal(false)}
-              >
-                <Text style={styles.modalButtonSecondaryText}>
-                  Abbrechen
-                </Text>
+              <TouchableOpacity style={styles.modalButtonSecondary} onPress={() => setShowAmpereModal(false)}>
+                <Text style={styles.modalButtonSecondaryText}>Abbrechen</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.modalButtonPrimary,
-                  !amperePresets.includes(tempAmpere) && {
-                    opacity: 0.5,
-                  },
-                ]}
+                style={[styles.modalButtonPrimary, !amperePresets.includes(tempAmpere) && { opacity: 0.5 }]}
                 disabled={!amperePresets.includes(tempAmpere)}
                 onPress={handleAmpereSubmit}
               >
-                <Text style={styles.modalButtonPrimaryText}>
-                  Übernehmen
-                </Text>
+                <Text style={styles.modalButtonPrimaryText}>Übernehmen</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -311,11 +240,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  wallboxTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1C1C1E',
-  },
+  wallboxTitle: { fontSize: 22, fontWeight: '700', color: '#1C1C1E' },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -337,21 +262,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   energyDisplay: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  energyValue: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1EAFF3',
-  },
-  energyUnit: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1EAFF3',
-  },
-  energyLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#1C1C1E',
-  },
+  energyValue: { fontSize: 32, fontWeight: '700', color: '#1EAFF3' },
+  energyUnit: { fontSize: 18, fontWeight: '600', color: '#1EAFF3' },
+  energyLabel: { fontSize: 12, fontWeight: '500', color: '#1C1C1E' },
   statusGrid: { flexDirection: 'row', gap: 8, marginBottom: 12 },
   statusItem: {
     flex: 1,
@@ -373,14 +286,9 @@ const styles = StyleSheet.create({
   statusContent: { flex: 1 },
   statusLabel: { fontSize: 10, color: '#1C1C1E' },
   statusValue: { fontSize: 13, fontWeight: '600' },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E5EA',
-    marginVertical: 12,
-  },
+  divider: { height: 1, backgroundColor: '#E5E5EA', marginVertical: 12 },
   settingsSection: { gap: 8 },
   settingsButtons: { gap: 8 },
-
   settingsTitle: { fontSize: 14, fontWeight: '600' },
   settingButton: {
     backgroundColor: '#F8F9FA',
@@ -388,10 +296,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'transparent',
   },
-  settingButtonActive: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#1EAFF3',
-  },
+  settingButtonActive: { backgroundColor: '#E3F2FD', borderColor: '#1EAFF3' },
   settingButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -408,39 +313,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioButtonActive: { borderColor: '#1EAFF3' },
-  radioButtonInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#1EAFF3',
-  },
-  settingButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  settingsHint: {
-    fontSize: 12,
-    color: '#8E8E93',
-    textAlign: 'center',
-  },
-  unavailableContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 32,
-  },
-  unavailableTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  unavailableSubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-    textAlign: 'center',
-  },
-  ampereControl: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: 10,
-  },
+  radioButtonInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#1EAFF3' },
+  settingButtonText: { fontSize: 15, fontWeight: '600' },
+  settingsHint: { fontSize: 12, color: '#8E8E93', textAlign: 'center' },
+  ampereControl: { backgroundColor: '#F8F9FA', borderRadius: 10 },
   ampereControlContent: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -448,14 +324,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   ampereTextContainer: { flex: 1 },
-  ampereValue: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  ampereSubtext: {
-    fontSize: 11,
-    color: '#8E8E93',
-  },
+  ampereValue: { fontSize: 15, fontWeight: '600' },
+  ampereSubtext: { fontSize: 11, color: '#8E8E93' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -470,16 +340,8 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 20,
-  },
-  presetsGrid: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-  },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 20 },
+  presetsGrid: { flexDirection: 'row', gap: 8, marginBottom: 20 },
   presetButton: {
     flex: 1,
     backgroundColor: '#F8F9FA',
@@ -487,22 +349,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  presetButtonActive: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#1EAFF3',
-    borderWidth: 2,
-  },
-  presetButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  presetButtonTextActive: {
-    color: '#1EAFF3',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  presetButtonActive: { backgroundColor: '#E3F2FD', borderColor: '#1EAFF3', borderWidth: 2 },
+  presetButtonText: { fontSize: 15, fontWeight: '600' },
+  presetButtonTextActive: { color: '#1EAFF3' },
+  modalActions: { flexDirection: 'row', gap: 8 },
   modalButtonSecondary: {
     flex: 1,
     backgroundColor: '#F8F9FA',
@@ -510,10 +360,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  modalButtonSecondaryText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  modalButtonSecondaryText: { fontSize: 15, fontWeight: '600' },
   modalButtonPrimary: {
     flex: 1,
     backgroundColor: '#1EAFF3',
@@ -521,9 +368,5 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  modalButtonPrimaryText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
+  modalButtonPrimaryText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
 })

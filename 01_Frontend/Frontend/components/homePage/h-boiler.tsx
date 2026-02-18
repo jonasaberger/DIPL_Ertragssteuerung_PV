@@ -2,6 +2,7 @@ import React from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import Card from '@/components/card'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import UnavailableState from '@/components/unavailable-state'
 
 type Props = {
   temperatureC: number
@@ -18,31 +19,20 @@ export default function HBoiler({
   selectedSetting,
   onSelect,
   available,
-  showControls = true, // Default = true
+  showControls = true,
 }: Props) {
 
-  // Dynamische Farbwahl der Temperatur
   const getTempColor = (temp: number) => {
-    if (temp < 40) return '#1EAFF3'       // Blau
-    if (temp < 55) return '#FFA500'       // Orange
-    return '#d01212'                      // Rot
+    if (temp < 40) return '#1EAFF3'
+    if (temp < 55) return '#FFA500'
+    return '#d01212'
   }
 
   return (
     <Card>
       <View style={styles.boilerCard}>
         {!available ? (
-          <View style={styles.unavailableContainer}>
-            <MaterialCommunityIcons
-              name="alert-circle-outline"
-              size={36}
-              color="#8E8E93"
-            />
-            <Text style={styles.unavailableTitle}>Boiler nicht verfügbar</Text>
-            <Text style={styles.unavailableSubtitle}>
-              Verbindung konnte nicht hergestellt werden
-            </Text>
-          </View>
+          <UnavailableState title="Boiler nicht verfügbar" />
         ) : (
           <>
             {/* Header */}
@@ -73,18 +63,13 @@ export default function HBoiler({
 
             {/* Temperatur */}
             <View style={styles.tempSection}>
-              <Text
-                style={[
-                  styles.tempValue,
-                  { color: getTempColor(temperatureC) },
-                ]}
-              >
+              <Text style={[styles.tempValue, { color: getTempColor(temperatureC) }]}>
                 {temperatureC}°C
               </Text>
               <Text style={styles.tempLabel}>Aktuelle Temperatur</Text>
             </View>
 
-            {/* Einstellungen - nur anzeigen wenn showControls true ist */}
+            {/* Einstellungen */}
             {showControls && (
               <View style={styles.settingsSection}>
                 <Text style={styles.settingsTitle}>Heizmodus</Text>
@@ -99,19 +84,12 @@ export default function HBoiler({
                     onPress={() => onSelect('MANUAL_ON')}
                   >
                     <View style={styles.settingContent}>
-                      <View
-                        style={[
-                          styles.radio,
-                          selectedSetting === 'MANUAL_ON' && styles.radioActive,
-                        ]}
-                      >
+                      <View style={[styles.radio, selectedSetting === 'MANUAL_ON' && styles.radioActive]}>
                         {selectedSetting === 'MANUAL_ON' && <View style={styles.radioInner} />}
                       </View>
                       <View>
                         <Text style={styles.settingText}>Manuell Heizen</Text>
-                        <Text style={styles.settingSubtext}>
-                          Boiler startet sofort
-                        </Text>
+                        <Text style={styles.settingSubtext}>Boiler startet sofort</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -125,19 +103,12 @@ export default function HBoiler({
                     onPress={() => onSelect('MANUAL_OFF')}
                   >
                     <View style={styles.settingContent}>
-                      <View
-                        style={[
-                          styles.radio,
-                          selectedSetting === 'MANUAL_OFF' && styles.radioActive,
-                        ]}
-                      >
+                      <View style={[styles.radio, selectedSetting === 'MANUAL_OFF' && styles.radioActive]}>
                         {selectedSetting === 'MANUAL_OFF' && <View style={styles.radioInner} />}
                       </View>
                       <View>
                         <Text style={styles.settingText}>Manuell Aus</Text>
-                        <Text style={styles.settingSubtext}>
-                          Boiler deaktiviert
-                        </Text>
+                        <Text style={styles.settingSubtext}>Boiler deaktiviert</Text>
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -231,8 +202,4 @@ const styles = StyleSheet.create({
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#1EAFF3' },
   settingText: { fontSize: 15, fontWeight: '600', color: '#1C1C1E' },
   settingSubtext: { fontSize: 11, color: '#8E8E93' },
-
-  unavailableContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 32, gap: 6 },
-  unavailableTitle: { fontSize: 16, fontWeight: '600', color: '#1C1C1E' },
-  unavailableSubtitle: { fontSize: 12, color: '#8E8E93', textAlign: 'center' },
 })

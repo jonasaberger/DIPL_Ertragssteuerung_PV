@@ -162,336 +162,11 @@ class ServiceManager:
         self.app.add_url_rule( "/api/forecast", "forecast", self.get_forecast, methods=["GET"])
 
 
-    # Edit-Device Endpoint with auto-reload of affected controllers
-    def edit_device_endpoint(self):
-        """Edit device and automatically reload affected controllers"""
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({"error": "Missing JSON body"}), 400
+    ################################
+    #### System State Endpoints ####
+    ################################
 
-        device_id = data.get("deviceId")
-        password = data.get("password")
-        payload = data.get("payload")
-
-        if not device_id or not password or not payload:
-            return jsonify({"error": "Missing required fields: deviceId, password, payload"}), 400
-
-        try:
-            # Edit the device config
-            updated_devices = self.device_manager.edit_device_logic(device_id, payload, password)
-        except KeyError as e:
-            return jsonify({"error": str(e)}), 404
-
-        if updated_devices is None:
-            return jsonify({"success": False, "message": "Invalid admin password"}), 401
-
-        # Auto-reload affected devices
-        reload_results = {"reloaded": [], "failed": []}
-        
-        # Reload based on which device was edited
-        if device_id == "wallbox":
-            try:
-                self.wallbox_controller.load_config()
-                reload_results["reloaded"].append("wallbox")
-            except Exception as e:
-                reload_results["failed"].append({"device": "wallbox", "error": str(e)})
-        
-        # Add other device-specific reloads as needed
-        # 
-        #
-        
-        # Log the change
-        self.logger.system_event(
-            level="info",
-            source="device_config",
-            message=f"Device '{device_id}' configuration updated and reloaded"
-        )
-
-        return jsonify({
-            "success": True,
-            "devices": self.device_manager.get_devices(),
-            "reload": reload_results
-        }), 200
-
-    # Route Handlers
-    def _json(self, payload, status=200):
-        """Helper for consistent JSON responses."""
-        return jsonify(payload), status
-
-    def check_connection(self):
-        try:
-            self.db_bridge.check_connection()
-            return jsonify({"status": "ok", "influx": "reachable"})
-        except Exception as e:
-            # SYSTEM ERROR LOG
-            self.logger.system_event(
-                level="error",
-                source="backend",
-                message=f"InfluxDB connection failed: {e}"
-            )
-            return jsonify({"status": "error", "message": str(e)}), 500
-
-    def get_latest(self):
-        data = self.db_bridge.get_latest_pv_data()
-        if not data:
-            return jsonify({"message": "No PV data found"}), 404
-
-        # Rename _kw keys back to original field names for frontend compatibility
-        frontend_data = {**data}
-        frontend_data["pv_power"]      = frontend_data.pop("pv_power_kw",      None)
-        frontend_data["load_power"]    = frontend_data.pop("house_load_kw",    None)
-        frontend_data["battery_power"] = frontend_data.pop("battery_power_kw", None)
-
-        frontend_data = {k: v for k, v in frontend_data.items() if v is not None}
-
-        return jsonify(frontend_data), 200
-
-    # GET /api/pv/daily?date=YYYY-MM-DD
-    def get_daily(self):
-        date = request.args.get("date")  # optional: YYYY-MM-DD
-        try:
-            data = self.db_bridge.get_daily_pv_data(date)
-        except ValueError as e:
-            # Invalid date format
-            return self._json({"error": str(e)}, 400)
-        if not data:
-            return self._json(
-                {"message": "No data collected for the selected day"},
-                404
-            )
-
-        return self._json(data, 200)
-
-     # GET /api/pv/monthly?month=YYYY-MM
-    def get_monthly(self):
-        month = request.args.get("month")  # optional: YYYY-MM
-        try:
-            data = self.db_bridge.get_monthly_pv_data(month)
-        except ValueError as e:
-            # Invalid month format
-            return self._json({"error": str(e)}, 400)
-        if not data:
-            return self._json(
-                {"message": "No data collected for the selected month"},
-                404
-            )
-
-        return self._json(data, 200)
-
-    # GET /api/pv/yearly?year=YYYY
-    def get_yearly(self):
-        year = request.args.get("year")  # optional: YYYY
-        try:
-            year = int(year) if year else None
-            data = self.db_bridge.get_yearly_pv_data(year)
-        except ValueError:
-            # Invalid year format
-            return self._json(
-                {"error": "Invalid year format. Use YYYY"},
-                400
-            )
-        if not data:
-            return self._json(
-                {"message": "No data collected for the selected year"},
-                404
-            )
-
-        return self._json(data, 200)
-
-    def get_wallbox_latest(self):
-        try:
-            data = self.wallbox_controller.fetch_data()
-            if not data:
-                return self._json({"message": "No Wallbox data found"}, 404)
-            return self._json(data, 200)
-        except Exception as e:
-            # API ERROR LOG 
-            self.logger.api_error(
-                device="wallbox",
-                endpoint="/api/wallbox/latest",
-                error=e
-            )
-            err = f"Failed to fetch wallbox data: {e}"
-            print(err)
-            return self._json({"error": err}, 502)
-    
-    # Wallbox: POST JSON: { "allow": true | false }
-    def set_wallbox_allow(self):
-        
-        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
-            return self._json(
-                {
-                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
-                },
-                403
-            )
-
-        payload = request.get_json(silent=True)
-        if not payload or "allow" not in payload:
-            return self._json({"error": "Missing 'allow' field"}, 400)
-
-        # Logging purpose: Capture the old state before attempting to change it, to log the state change if it occurs
-        old_state = self.wallbox_controller.get_allow_state()
-
-        try:
-            result = self.wallbox_controller.set_allow_charging(bool(payload["allow"]))
-
-            # Logging purpose: Capture the new state after the change, to log the state change if it differs from the old state
-            new_state = self.wallbox_controller.get_allow_state()
-
-            # CONTROL DECISION LOG 
-            self.logger.control_decision(
-                device="wallbox",
-                action="set_allow",
-                reason="manual_api_call",
-                success=True,
-                extra=result
-            )
-
-            # DEVICE STATE CHANGE 
-            if old_state != new_state:
-                self.logger.device_state_change(
-                    device="wallbox",
-                    old_state=old_state,
-                    new_state=new_state
-                )
-
-            return self._json(result, 200)
-
-        except Exception as e:
-            self.logger.api_error(
-                device="wallbox",
-                endpoint="/api/wallbox/setCharging",
-                error=e
-            )
-            return self._json({"error": str(e)}, 502)
-
-
-    def get_boiler_latest(self):
-        try:
-            db_data = self.db_bridge.get_latest_boiler_data()
-        except Exception as e:
-
-            # API ERROR LOG 
-            self.logger.api_error(
-                device="influxdb",
-                endpoint="get_latest_boiler_data",
-                error=e
-            )
-            err = f"Failed to query DB for boiler data: {e}"
-            print(err)
-            return self._json({"error": err}, 500)
-
-        if not db_data:
-            return self._json({"message": "No Boiler data found"}, 404)
-
-        return self._json(db_data, 200)
-    
-    def get_boiler_state(self):
-        try:
-            if not hasattr(self.boiler_bridge, "get_state"):
-                return self._json({"error": "Boiler control not available"}, 502)
-
-            state = self.boiler_bridge.get_state()
-            simulated = getattr(self.boiler_bridge, "relay", None) is None
-
-            return self._json(
-                {
-                    "heating": state,
-                    "simulated": simulated
-                },
-                200
-            )
-
-        except Exception as e:
-            self.logger.api_error(
-                device="boiler",
-                endpoint="/api/boiler/state",
-                error=e
-            )
-            return self._json({"error": str(e)}, 500)
-
-        
-    # POST JSON: { "action": "on" | "off" | "toggle" }
-    def control_boiler(self):
-
-        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
-            return self._json(
-                {
-                    "error": "Manual boiler control disabled in AUTOMATIC and TIME_CONTROLLED mode"
-                },
-                403
-            )
-
-        payload = request.get_json(silent=True)
-        if not payload:
-            return self._json({"error": "Missing JSON body"}, 400)
-
-        action = (payload.get("action") or "").lower()
-        if action not in ("on", "off", "toggle"):
-            return self._json({"error": "Invalid action. Use: on/off/toggle"}, 400)
-
-        old_state = self.boiler_bridge.get_state()
-
-        if action == "on" and old_state is True:
-            return self._json({"heating": True, "message": "already on"}, 200)
-
-        if action == "off" and old_state is False:
-            return self._json({"heating": False, "message": "already off"}, 200)
-
-        self.boiler_bridge.control(action)
-        new_state = self.boiler_bridge.get_state()
-
-        # CONTROL DECISION LOG
-        self.logger.control_decision(
-            device="boiler",
-            action=action,
-            reason="manual_api_call",
-            success=True
-        )
-
-        if old_state != new_state:
-            # DEVICE STATE CHANGE LOG
-            self.logger.device_state_change(
-                device="boiler",
-                old_state=old_state,
-                new_state=new_state
-            )
-
-        simulated = getattr(self.boiler_bridge, "relay", None) is None
-
-        return self._json(
-            {
-                "heating": new_state,
-                "simulated": simulated
-            },
-            200
-        )
-
-    def get_epex_latest(self):
-        try:
-            data = self.db_bridge.get_latest_epex_data()
-            
-            if not data:
-                return jsonify({"message": "No EPEX data found"}), 404
-            
-            # Add the configured price offset
-            price_offset = self.device_manager.get_epex_price_offset()
-            
-            if "price" in data:
-                data["price_raw"] = data["price"]  # Original DB price
-                data["price"] = data["price"] + price_offset  # Adjusted price
-                data["price_offset"] = price_offset  # For transparency
-            return jsonify(data), 200
-            
-        except Exception as e:
-            self.logger.api_error(
-                device="epex",
-                endpoint="/api/epex/latest",
-                error=e
-            )
-            return jsonify({"error": "EPEX data unavailable"}), 502
-    
+    # GET /api/state - Get overall system state, including device connectivity and data freshness
     def get_state(self):
         status = {
             "backend": "ok",
@@ -606,7 +281,421 @@ class ServiceManager:
                 {"error": "Failed to fetch logging data"},
                 500
             )
+
+    # Device management endpoint: Edit device configuration and AUTO-RELOAD AFFECTED CONTROLLERS 
+    def edit_device_endpoint(self):
+        """Edit device and automatically reload affected controllers"""
+        data = request.get_json(silent=True)
+        if not data:
+            return jsonify({"error": "Missing JSON body"}), 400
+
+        device_id = data.get("deviceId")
+        password = data.get("password")
+        payload = data.get("payload")
+
+        if not device_id or not password or not payload:
+            return jsonify({"error": "Missing required fields: deviceId, password, payload"}), 400
+
+        try:
+            # Edit the device config
+            updated_devices = self.device_manager.edit_device_logic(device_id, payload, password)
+        except KeyError as e:
+            return jsonify({"error": str(e)}), 404
+
+        if updated_devices is None:
+            return jsonify({"success": False, "message": "Invalid admin password"}), 401
+
+        # Auto-reload affected devices
+        reload_results = {"reloaded": [], "failed": []}
         
+        # Reload based on which device was edited
+        if device_id == "wallbox":
+            try:
+                self.wallbox_controller.load_config()
+                reload_results["reloaded"].append("wallbox")
+            except Exception as e:
+                reload_results["failed"].append({"device": "wallbox", "error": str(e)})
+        
+        # Add other device-specific reloads as needed
+        # 
+        #
+        
+        # Log the change
+        self.logger.system_event(
+            level="info",
+            source="device_config",
+            message=f"Device '{device_id}' configuration updated and reloaded"
+        )
+
+        return jsonify({
+            "success": True,
+            "devices": self.device_manager.get_devices(),
+            "reload": reload_results
+        }), 200
+
+    # Route Handlers
+    def _json(self, payload, status=200):
+        """Helper for consistent JSON responses."""
+        return jsonify(payload), status
+
+    def check_connection(self):
+        try:
+            self.db_bridge.check_connection()
+            return jsonify({"status": "ok", "influx": "reachable"})
+        except Exception as e:
+            # SYSTEM ERROR LOG
+            self.logger.system_event(
+                level="error",
+                source="backend",
+                message=f"InfluxDB connection failed: {e}"
+            )
+            return jsonify({"status": "error", "message": str(e)}), 500
+
+    #########################
+    ### PV Data Endpoints ###
+    #########################
+
+    # GET /api/pv/latest - Get the latest PV measurement
+    def get_latest(self):
+        data = self.db_bridge.get_latest_pv_data()
+        if not data:
+            return jsonify({"message": "No PV data found"}), 404
+
+        # Rename _kw keys back to original field names for frontend compatibility
+        frontend_data = {**data}
+        frontend_data["pv_power"]      = frontend_data.pop("pv_power_kw",      None)
+        frontend_data["load_power"]    = frontend_data.pop("house_load_kw",    None)
+        frontend_data["battery_power"] = frontend_data.pop("battery_power_kw", None)
+
+        frontend_data = {k: v for k, v in frontend_data.items() if v is not None}
+
+        return jsonify(frontend_data), 200
+
+    # GET /api/pv/daily?date=YYYY-MM-DD
+    def get_daily(self):
+        date = request.args.get("date")  # optional: YYYY-MM-DD
+        try:
+            data = self.db_bridge.get_daily_pv_data(date)
+        except ValueError as e:
+            # Invalid date format
+            return self._json({"error": str(e)}, 400)
+        if not data:
+            return self._json(
+                {"message": "No data collected for the selected day"},
+                404
+            )
+
+        return self._json(data, 200)
+
+     # GET /api/pv/monthly?month=YYYY-MM
+    def get_monthly(self):
+        month = request.args.get("month")  # optional: YYYY-MM
+        try:
+            data = self.db_bridge.get_monthly_pv_data(month)
+        except ValueError as e:
+            # Invalid month format
+            return self._json({"error": str(e)}, 400)
+        if not data:
+            return self._json(
+                {"message": "No data collected for the selected month"},
+                404
+            )
+
+        return self._json(data, 200)
+
+    # GET /api/pv/yearly?year=YYYY
+    def get_yearly(self):
+        year = request.args.get("year")  # optional: YYYY
+        try:
+            year = int(year) if year else None
+            data = self.db_bridge.get_yearly_pv_data(year)
+        except ValueError:
+            # Invalid year format
+            return self._json(
+                {"error": "Invalid year format. Use YYYY"},
+                400
+            )
+        if not data:
+            return self._json(
+                {"message": "No data collected for the selected year"},
+                404
+            )
+
+        return self._json(data, 200)
+    
+
+    #########################
+    ### Wallbox Endpoints ###
+    #########################
+
+    def get_wallbox_latest(self):
+        try:
+            data = self.wallbox_controller.fetch_data()
+            if not data:
+                return self._json({"message": "No Wallbox data found"}, 404)
+            return self._json(data, 200)
+        except Exception as e:
+            # API ERROR LOG 
+            self.logger.api_error(
+                device="wallbox",
+                endpoint="/api/wallbox/latest",
+                error=e
+            )
+            err = f"Failed to fetch wallbox data: {e}"
+            print(err)
+            return self._json({"error": err}, 502)
+    
+    # Wallbox: POST JSON: { "allow": true | false }
+    def set_wallbox_allow(self):
+        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
+            return self._json(
+                {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                },
+                403
+            )
+
+        payload = request.get_json(silent=True)
+        if not payload or "allow" not in payload:
+            return self._json({"error": "Missing 'allow' field"}, 400)
+
+        # Logging purpose: Capture the old state before attempting to change it, to log the state change if it occurs
+        old_state = self.wallbox_controller.get_allow_state()
+
+        try:
+            result = self.wallbox_controller.set_allow_charging(bool(payload["allow"]))
+
+            # Logging purpose: Capture the new state after the change, to log the state change if it differs from the old state
+            new_state = self.wallbox_controller.get_allow_state()
+
+            # CONTROL DECISION LOG 
+            self.logger.control_decision(
+                device="wallbox",
+                action="set_allow",
+                reason="manual_api_call",
+                success=True,
+                extra=result
+            )
+
+            # DEVICE STATE CHANGE 
+            if old_state != new_state:
+                self.logger.device_state_change(
+                    device="wallbox",
+                    old_state=old_state,
+                    new_state=new_state
+                )
+
+            return self._json(result, 200)
+
+        except Exception as e:
+            self.logger.api_error(
+                device="wallbox",
+                endpoint="/api/wallbox/setCharging",
+                error=e
+            )
+            return self._json({"error": str(e)}, 502)
+    
+     # POST JSON: { "amp": 6 | 10 | 12 | 14 | 16 }
+    def set_wallbox_current(self):
+        # Manual control disabled in automatic modes
+        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
+            return self._json(
+                {
+                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                },
+                403
+            )
+
+        payload = request.get_json(silent=True)
+
+        if not payload or "amp" not in payload:
+            return self._json({"error": "Missing 'amp' field"}, 400)
+
+        try:
+            amp = int(payload["amp"])
+
+            # Old value for state-change logging
+            old_data = self.wallbox_controller.fetch_data()
+            old_amp = old_data.get("amp")
+
+            result = self.wallbox_controller.set_charging_ampere(amp)
+
+            # New value for state-change logging
+            new_data = self.wallbox_controller.fetch_data()
+            new_amp = new_data.get("amp")
+
+            # CONTROL DECISION LOG
+            self.logger.control_decision(
+                device="wallbox",
+                action="set_ampere",
+                reason="manual_api_call",
+                success=True,
+                extra=result
+            )
+
+            # DEVICE STATE CHANGE LOG
+            if old_amp != new_amp:
+                self.logger.device_state_change(
+                    device="wallbox_ampere",
+                    old_state=old_amp,
+                    new_state=new_amp
+                )
+
+            return self._json(result, 200)
+
+        except ValueError as e:
+            return self._json({"error": str(e)}, 400)
+
+        except Exception as e:
+            # API ERROR LOG
+            self.logger.api_error(
+                device="wallbox",
+                endpoint="/api/wallbox/setCurrent",
+                error=e
+            )
+            return self._json({"error": str(e)}, 502)
+
+    ############################
+    ##### Boiler Endpoints #####
+    ############################
+
+    # GET /api/boiler/latest - Get the latest boiler measurement
+    def get_boiler_latest(self):
+        try:
+            db_data = self.db_bridge.get_latest_boiler_data()
+        except Exception as e:
+
+            # API ERROR LOG 
+            self.logger.api_error(
+                device="influxdb",
+                endpoint="get_latest_boiler_data",
+                error=e
+            )
+            err = f"Failed to query DB for boiler data: {e}"
+            print(err)
+            return self._json({"error": err}, 500)
+
+        if not db_data:
+            return self._json({"message": "No Boiler data found"}, 404)
+
+        return self._json(db_data, 200)
+    
+    # GET /api/boiler/state - Get current boiler state (heating on/off + simulated or real)
+    def get_boiler_state(self):
+        try:
+            if not hasattr(self.boiler_bridge, "get_state"):
+                return self._json({"error": "Boiler control not available"}, 502)
+
+            state = self.boiler_bridge.get_state()
+            simulated = getattr(self.boiler_bridge, "relay", None) is None
+
+            return self._json(
+                {
+                    "heating": state,
+                    "simulated": simulated
+                },
+                200
+            )
+
+        except Exception as e:
+            self.logger.api_error(
+                device="boiler",
+                endpoint="/api/boiler/state",
+                error=e
+            )
+            return self._json({"error": str(e)}, 500)
+
+        
+    # POST JSON: { "action": "on" | "off" | "toggle" }
+    def control_boiler(self):
+
+        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
+            return self._json(
+                {
+                    "error": "Manual boiler control disabled in AUTOMATIC and TIME_CONTROLLED mode"
+                },
+                403
+            )
+
+        payload = request.get_json(silent=True)
+        if not payload:
+            return self._json({"error": "Missing JSON body"}, 400)
+
+        action = (payload.get("action") or "").lower()
+        if action not in ("on", "off", "toggle"):
+            return self._json({"error": "Invalid action. Use: on/off/toggle"}, 400)
+
+        old_state = self.boiler_bridge.get_state()
+
+        if action == "on" and old_state is True:
+            return self._json({"heating": True, "message": "already on"}, 200)
+
+        if action == "off" and old_state is False:
+            return self._json({"heating": False, "message": "already off"}, 200)
+
+        self.boiler_bridge.control(action)
+        new_state = self.boiler_bridge.get_state()
+
+        # CONTROL DECISION LOG
+        self.logger.control_decision(
+            device="boiler",
+            action=action,
+            reason="manual_api_call",
+            success=True
+        )
+
+        if old_state != new_state:
+            # DEVICE STATE CHANGE LOG
+            self.logger.device_state_change(
+                device="boiler",
+                old_state=old_state,
+                new_state=new_state
+            )
+
+        simulated = getattr(self.boiler_bridge, "relay", None) is None
+
+        return self._json(
+            {
+                "heating": new_state,
+                "simulated": simulated
+            },
+            200
+        )
+    
+
+    ########################
+    #### EPEX Endpoints ####
+    ########################
+
+    # GET /api/epex/latest - Get the latest EPEX price data with applied offset
+    def get_epex_latest(self):
+        try:
+            data = self.db_bridge.get_latest_epex_data()
+            
+            if not data:
+                return jsonify({"message": "No EPEX data found"}), 404
+            
+            # Add the configured price offset
+            price_offset = self.device_manager.get_epex_price_offset()
+            
+            if "price" in data:
+                data["price_raw"] = data["price"]  # Original DB price
+                data["price"] = data["price"] + price_offset  # Adjusted price
+                data["price_offset"] = price_offset  # For transparency
+            return jsonify(data), 200
+            
+        except Exception as e:
+            self.logger.api_error(
+                device="epex",
+                endpoint="/api/epex/latest",
+                error=e
+            )
+            return jsonify({"error": "EPEX data unavailable"}), 502
+        
+    ########################
+    #### Mode Endpoints ####
+    ########################
+
     # GET / POST system mode
     def mode_endpoint(self):
         # Get: current mode
@@ -743,63 +832,3 @@ class ServiceManager:
                 {"error": "Forecast service unavailable"},
                 502
             )
-    
-    # POST JSON: { "amp": 6 | 10 | 12 | 14 | 16 }
-    def set_wallbox_current(self):
-        # Manual control disabled in automatic modes
-        if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
-            return self._json(
-                {
-                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
-                },
-                403
-            )
-
-        payload = request.get_json(silent=True)
-
-        if not payload or "amp" not in payload:
-            return self._json({"error": "Missing 'amp' field"}, 400)
-
-        try:
-            amp = int(payload["amp"])
-
-            # Old value for state-change logging
-            old_data = self.wallbox_controller.fetch_data()
-            old_amp = old_data.get("amp")
-
-            result = self.wallbox_controller.set_charging_ampere(amp)
-
-            # New value for state-change logging
-            new_data = self.wallbox_controller.fetch_data()
-            new_amp = new_data.get("amp")
-
-            # CONTROL DECISION LOG
-            self.logger.control_decision(
-                device="wallbox",
-                action="set_ampere",
-                reason="manual_api_call",
-                success=True,
-                extra=result
-            )
-
-            # DEVICE STATE CHANGE LOG
-            if old_amp != new_amp:
-                self.logger.device_state_change(
-                    device="wallbox_ampere",
-                    old_state=old_amp,
-                    new_state=new_amp
-                )
-
-            return self._json(result, 200)
-
-        except ValueError as e:
-            return self._json({"error": str(e)}, 400)
-
-        except Exception as e:
-            # API ERROR LOG
-            self.logger.api_error(
-                device="wallbox",
-                endpoint="/api/wallbox/setCurrent",
-                error=e
-            )
-            return self._json({"error": str(e)}, 502)

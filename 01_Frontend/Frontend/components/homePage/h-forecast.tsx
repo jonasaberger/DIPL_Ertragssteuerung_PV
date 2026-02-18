@@ -1,9 +1,11 @@
 import React from 'react'
 import { View, Text, StyleSheet } from 'react-native'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { ForecastData } from '@/services/ext_services/weatherforecast_service'
 
 interface HForecastProps {
   data: ForecastData | null
+  available?: boolean
 }
 
 const SunIcon = ({ size = 18, active }: { size?: number; active: boolean }) => (
@@ -114,31 +116,28 @@ const badge = StyleSheet.create({
   },
 })
 
-export default function HForecast({ data }: HForecastProps) {
-  if (!data) return null
-
-  const hasSunToday = data.pv_today
-  const hasSunTomorrow = data.pv_tomorrow
-
+export default function HForecast({ data, available = true }: HForecastProps) {
   return (
     <View style={styles.card}>
-      {/* Header row */}
+      {/* Header row - immer anzeigen */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>Solar Prognose</Text>
-          <View style={styles.sourcePill}>
-            <View
-              style={[
-                styles.sourceDot,
-                { backgroundColor: hasSunToday ? '#4CAF50' : '#999' },
-              ]}
-            />
-            <Text style={styles.sourceText}>{data.source}</Text>
-          </View>
+          {available && data && (
+            <View style={styles.sourcePill}>
+              <View
+                style={[
+                  styles.sourceDot,
+                  { backgroundColor: data.pv_today ? '#4CAF50' : '#999' },
+                ]}
+              />
+              <Text style={styles.sourceText}>{data.source}</Text>
+            </View>
+          )}
         </View>
 
-        {/* Peak hour */}
-        {hasSunToday && (
+        {/* Peak hour - nur wenn verfügbar und Daten vorhanden */}
+        {available && data?.pv_today && (
           <View style={styles.peakRow}>
             <Text style={styles.peakLabel}>Beste Stunde</Text>
             <View style={styles.peakTimeChip}>
@@ -151,25 +150,40 @@ export default function HForecast({ data }: HForecastProps) {
       {/* Divider */}
       <View style={styles.divider} />
 
-      {/* Day badges */}
-      <View style={styles.badgeRow}>
-        <DayBadge
-          label="Heute"
-          active={hasSunToday}
-          sub={
-            hasSunToday
-              ? data.pv_hours_today > 0
-                ? `${data.pv_hours_today} Std. Ertrag`
-                : 'Ertrag möglich'
-              : 'Kein Ertrag'
-          }
-        />
-        <DayBadge
-          label="Morgen"
-          active={hasSunTomorrow}
-          sub={hasSunTomorrow ? 'Ertrag erwartet' : 'Kein Ertrag'}
-        />
-      </View>
+      {/* Unavailable State */}
+      {!available ? (
+        <View style={styles.unavailableContainer}>
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={28}
+            color="#8E8E93"
+          />
+          <Text style={styles.unavailableTitle}>Prognose nicht verfügbar</Text>
+          <Text style={styles.unavailableSubtitle}>
+            Verbindung konnte nicht hergestellt werden
+          </Text>
+        </View>
+      ) : !data ? null : (
+        /* Day badges */
+        <View style={styles.badgeRow}>
+          <DayBadge
+            label="Heute"
+            active={data.pv_today}
+            sub={
+              data.pv_today
+                ? data.pv_hours_today > 0
+                  ? `${data.pv_hours_today} Std. Ertrag`
+                  : 'Ertrag möglich'
+                : 'Kein Ertrag'
+            }
+          />
+          <DayBadge
+            label="Morgen"
+            active={data.pv_tomorrow}
+            sub={data.pv_tomorrow ? 'Ertrag erwartet' : 'Kein Ertrag'}
+          />
+        </View>
+      )}
     </View>
   )
 }
@@ -257,5 +271,22 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     gap: 8,
+  },
+  unavailableContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 4,
+  },
+  unavailableTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1C1C1E',
+    marginTop: 2,
+  },
+  unavailableSubtitle: {
+    fontSize: 12,
+    color: '#8E8E93',
+    textAlign: 'center',
   },
 })

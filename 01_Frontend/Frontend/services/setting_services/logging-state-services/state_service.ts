@@ -6,6 +6,7 @@ export type SystemState = {
   influx: 'ok' | 'timeout' | 'error'
   wallbox: 'ok' | 'timeout' | 'error'
   epex: 'ok' | 'timeout' | 'error'
+  forecast: 'ok' | 'timeout' | 'error'
   timestamp: string
 }
 

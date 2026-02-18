@@ -1,6 +1,6 @@
 import Card from '@/components/card'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Animated,
   Easing,
@@ -40,6 +40,7 @@ export type DiagramData = {
 
 type Props = {
   data: DiagramData
+  available?: boolean  // NEU
 }
 
 type ParticleLineProps = {
@@ -299,7 +300,7 @@ function makeCubicCurve(
   return pts
 }
 
-export default function HDiagram({ data }: Props) {
+export default function HDiagram({ data, available = true }: Props) {
   const [diagramWidth, setDiagramWidth] = useState<number | null>(null)
 
   const handleDiagramLayout = (e: LayoutChangeEvent) => {
@@ -332,12 +333,12 @@ export default function HDiagram({ data }: Props) {
   const gridIsImporting = Number(data.gridPower ?? 0) > 0                   // Netzbezug, wenn Leistung positiv ist   
   const gridIsExporting = Number(data.gridPower ?? 0) < 0                   // Netzeinspeisung, wenn Leistung negativ ist
 
-  // Animationen
-  const showPvHouse = pvPower > 0 && Number(data.pvToHouse ?? 0) > 0                    // PV -> Haus; nur anzeigen wenn PV-Leistung da ist und PV auch zum Haus geht
-  const showPvBattery = pvPower > 0 && Number(data.pvToBattery ?? 0) > 0                // PV -> Batterie; nur anzeigen wenn PV-Leistung da ist und PV auch zur Batterie geht
-  const showPvGrid = pvPower > 0 && (Number(data.pvToGrid ?? 0) > 0 || gridIsExporting) // PV -> Netz; anzeigen wenn PV-Leistung da ist und PV zum Netz geht ODER wenn eingespeist wird (auch wenn pvToGrid gerade 0 ist, weil z.B. Batterie zuerst gefüllt wird)
-  const showGridHouse = gridIsImporting || Number(data.gridToHouse ?? 0) > 0            // Netz -> Haus; anzeigen wenn Netzbezug da ist oder wenn Strom vom Netz zum Haus fließt
-  const showBatteryHouse = Number(data.batteryToHouse ?? 0) > 0                         // Batterie -> Haus; anzeigen wenn  Strom von der Batterie zum Haus fließt
+  // Animationen — available && verhindert Partikel wenn keine Daten vorhanden
+  const showPvHouse = available && pvPower > 0 && Number(data.pvToHouse ?? 0) > 0
+  const showPvBattery = available && pvPower > 0 && Number(data.pvToBattery ?? 0) > 0
+  const showPvGrid = available && pvPower > 0 && (Number(data.pvToGrid ?? 0) > 0 || gridIsExporting)
+  const showGridHouse = available && (gridIsImporting || Number(data.gridToHouse ?? 0) > 0)
+  const showBatteryHouse = available && Number(data.batteryToHouse ?? 0) > 0
 
   // Gibt eine Liste von Punkten zurück, für die Kurvenanimation von Grid auf Haus
   const gridToHousePath = useMemo(() => {
@@ -395,6 +396,13 @@ export default function HDiagram({ data }: Props) {
 
   return (
     <Card height={520}>
+      {!available && (
+        <View style={styles.noDataBadge}>
+          <MaterialCommunityIcons name="wifi-off" size={13} color="#8E8E93" />
+          <Text style={styles.noDataText}>Keine Daten</Text>
+        </View>
+      )}
+
       <View style={styles.diagram} onLayout={handleDiagramLayout}>
         {points && (
           <>
@@ -603,6 +611,25 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     position: 'relative',
+  },
+
+  noDataBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    zIndex: 10,
+  },
+  noDataText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8E8E93',
   },
 
   valueText: {
