@@ -7,18 +7,19 @@ from db_bridge import DB_Bridge
 
 class EpexBridge: 
     def __init__(self):
-        self.device_manager = DeviceManager("http://100.120.107.71:5050/api/devices")
-        self.api_url = self.device_manager.get_device_url(
-            "epex",
-            "price"
-        )   
-
         # Connect to the InfluxDB
         self.db = DB_Bridge()
         try: 
             self.db.check_connection()
         except Exception as e:
             print(f"No connection to InfluxDB: {e}") 
+
+        self.device_manager = DeviceManager("http://100.120.107.71:5050/api/devices")
+        self.api_url = self.device_manager.get_device_url(
+            "epex",
+            "price"
+        )   
+
 
     # Fetches the raw EPEX data from the external API
     def fetch_data(self):
