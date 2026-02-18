@@ -251,3 +251,40 @@ class DB_Bridge:
         except Exception as e:
             print(f"Error querying latest EPEX data: {e}")
             return None
+    
+    # Get the most recent EPEX price (current hour)
+    def get_current_epex_price(self):
+        try:
+            data = self.get_latest_epex_data()
+            if data and "price" in data:
+                return float(data["price"])
+            return None
+        except Exception as e:
+            print(f"Error getting current EPEX price: {e}")
+            return None
+        
+    # Get EPEX prices for a specific time range
+    def query_epex_prices(self, start_time, end_time):
+        query = f'''
+        from(bucket: "{self.bucket}")
+        |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
+        |> filter(fn: (r) => r["_measurement"] == "epex_prices")
+        |> filter(fn: (r) => r["_field"] == "price")
+        |> sort(columns: ["_time"], desc: false)
+        '''
+        
+        try:
+            tables = self.query_api.query(query, org=self.org)
+            prices = []
+            
+            for table in tables:
+                for record in table.records:
+                    price = record.get_value()
+                    if price is not None:
+                        prices.append(float(price))
+            
+            return prices
+            
+        except Exception as e:
+            print(f"Error querying EPEX prices: {e}")
+            return []

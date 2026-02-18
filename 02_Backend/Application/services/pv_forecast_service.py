@@ -2,17 +2,17 @@ import requests
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# Simple PV forecast using Open-Meteo, determines whether PV generation is likely today or tomorrow
 class PVForecastService:
+
     # Bruck an der Großglocknerstraße
     LAT = 47.2849
     LON = 12.8231
     
-
     def __init__(self, cloud_threshold=40):
         self.cloud_threshold = cloud_threshold
         self.tz = ZoneInfo("Europe/Vienna")
 
+    # Public method to get PV forecast for today and tomorrow
     def get_forecast(self) -> dict:
         try:
             data = self._fetch()
@@ -91,6 +91,7 @@ class PVForecastService:
     def _pv_details(self, start, end, times, clouds):
         pv_hours = 0
         best_hour = None
+        
         # Highest possible cloud cover in the forecast is 100
         lowest_cloud = 101  
 

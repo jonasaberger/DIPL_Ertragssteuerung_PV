@@ -23,7 +23,6 @@ from stores.automatic_config_store import AutomaticConfigStore
 from services.scheduler_service import SchedulerService
 from services.pv_forecast_service import PVForecastService
 
-
 SWAGGER_URL = '/swagger'
 API_URL = '/static/swagger.json'  
 
@@ -130,12 +129,7 @@ class ServiceManager:
 
         # EPEX endpoints
         self.app.add_url_rule('/api/epex/latest', 'epex_latest', self.get_epex_latest, methods=['GET'])
-        self.app.add_url_rule(
-            '/api/epex/price-offset',
-            'epex_price_offset',
-            self.device_manager.epex_price_offset_endpoint,
-            methods=['PUT']
-        )
+        self.app.add_url_rule('/api/epex/price-offset','epex_price_offset',self.device_manager.epex_price_offset_endpoint,methods=['PUT'] )
 
         # Monitoring-/State Enpoint
         self.app.add_url_rule('/api/state', 'state', self.get_state, methods=['GET'])
@@ -164,7 +158,6 @@ class ServiceManager:
 
     # Edit-Device Endpoint with auto-reload of affected controllers
     def edit_device_endpoint(self):
-        """Edit device and automatically reload affected controllers"""
         data = request.get_json(silent=True)
         if not data:
             return jsonify({"error": "Missing JSON body"}), 400
@@ -196,10 +189,6 @@ class ServiceManager:
             except Exception as e:
                 reload_results["failed"].append({"device": "wallbox", "error": str(e)})
         
-        # Add other device-specific reloads as needed
-        # 
-        #
-        
         # Log the change
         self.logger.system_event(
             level="info",
@@ -215,9 +204,9 @@ class ServiceManager:
 
     # Route Handlers
     def _json(self, payload, status=200):
-        """Helper for consistent JSON responses."""
         return jsonify(payload), status
 
+    # GET /connection - Check DB connection and basic API responsiveness
     def check_connection(self):
         try:
             self.db_bridge.check_connection()
@@ -231,6 +220,7 @@ class ServiceManager:
             )
             return jsonify({"status": "error", "message": str(e)}), 500
 
+    # GET /api/pv/latest - Get the latest PV data point
     def get_latest(self):
         data = self.db_bridge.get_latest_pv_data()
         if not data:
@@ -238,17 +228,17 @@ class ServiceManager:
 
         # Rename _kw keys back to original field names for frontend compatibility
         frontend_data = {**data}
-        frontend_data["pv_power"]      = frontend_data.pop("pv_power_kw",      None)
-        frontend_data["load_power"]    = frontend_data.pop("house_load_kw",    None)
+        frontend_data["pv_power"] = frontend_data.pop("pv_power_kw", None)
+        frontend_data["load_power"] = frontend_data.pop("house_load_kw", None)
         frontend_data["battery_power"] = frontend_data.pop("battery_power_kw", None)
 
         frontend_data = {k: v for k, v in frontend_data.items() if v is not None}
 
         return jsonify(frontend_data), 200
 
-    # GET /api/pv/daily?date=YYYY-MM-DD
+    # GET /api/pv/daily?date=YYYY-MM-DD - Get daily aggregated PV data
     def get_daily(self):
-        date = request.args.get("date")  # optional: YYYY-MM-DD
+        date = request.args.get("date") 
         try:
             data = self.db_bridge.get_daily_pv_data(date)
         except ValueError as e:
@@ -262,9 +252,9 @@ class ServiceManager:
 
         return self._json(data, 200)
 
-     # GET /api/pv/monthly?month=YYYY-MM
+    # GET /api/pv/monthly?month=YYYY-MM - Get monthly aggregated PV data
     def get_monthly(self):
-        month = request.args.get("month")  # optional: YYYY-MM
+        month = request.args.get("month")
         try:
             data = self.db_bridge.get_monthly_pv_data(month)
         except ValueError as e:
@@ -278,9 +268,9 @@ class ServiceManager:
 
         return self._json(data, 200)
 
-    # GET /api/pv/yearly?year=YYYY
+    # GET /api/pv/yearly?year=YYYY - Get yearly aggregated PV data
     def get_yearly(self):
-        year = request.args.get("year")  # optional: YYYY
+        year = request.args.get("year") 
         try:
             year = int(year) if year else None
             data = self.db_bridge.get_yearly_pv_data(year)
@@ -298,6 +288,7 @@ class ServiceManager:
 
         return self._json(data, 200)
 
+    # GET /api/wallbox/latest - Get latest wallbox data
     def get_wallbox_latest(self):
         try:
             data = self.wallbox_controller.fetch_data()
@@ -315,7 +306,7 @@ class ServiceManager:
             print(err)
             return self._json({"error": err}, 502)
     
-    # Wallbox: POST JSON: { "allow": true | false }
+    # POST /api/wallbox/setCharging - Enable or disable wallbox charging
     def set_wallbox_allow(self):
         
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
@@ -366,7 +357,7 @@ class ServiceManager:
             )
             return self._json({"error": str(e)}, 502)
 
-
+    # GET /api/boiler/latest - Get latest boiler data
     def get_boiler_latest(self):
         try:
             db_data = self.db_bridge.get_latest_boiler_data()
@@ -387,6 +378,7 @@ class ServiceManager:
 
         return self._json(db_data, 200)
     
+    # GET /api/boiler/state - Get current boiler state (heating on/off + simulated or real)
     def get_boiler_state(self):
         try:
             if not hasattr(self.boiler_bridge, "get_state"):
@@ -412,7 +404,7 @@ class ServiceManager:
             return self._json({"error": str(e)}, 500)
 
         
-    # POST JSON: { "action": "on" | "off" | "toggle" }
+    # POST /api/boiler/control - Control the boiler (on/off/toggle)
     def control_boiler(self):
 
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
@@ -468,6 +460,7 @@ class ServiceManager:
             200
         )
 
+    # GET /api/epex/latest - Get latest EPEX price data with applied offset
     def get_epex_latest(self):
         try:
             data = self.db_bridge.get_latest_epex_data()
@@ -607,7 +600,8 @@ class ServiceManager:
                 500
             )
         
-    # GET / POST system mode
+    # GET /api/mode - Get current system mode
+    # POST /api/mode - Set system mode (AUTOMATIC | MANUAL | TIME_CONTROLLED)
     def mode_endpoint(self):
         # Get: current mode
         if request.method == 'GET':
@@ -624,6 +618,7 @@ class ServiceManager:
             mode = SystemMode(payload["mode"])
             self.mode_store.set(mode)
 
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="info",
                 source="mode",
@@ -635,9 +630,9 @@ class ServiceManager:
         except ValueError:
             return self._json({"error": "Invalid mode. Use AUTOMATIC | MANUAL | TIME_CONTROLLED"},400)
         
-    # GET / PUT / POST schedule configuration
+    # GET /api/schedule - Get current schedule configuration
     def schedule_endpoint(self):
-        # GET: actual effective schedule configuration (after applying overrides)
+        # GET: current schedule
         if request.method == "GET":
             return self._json(self.schedule_store.get_effective())
 
@@ -674,7 +669,7 @@ class ServiceManager:
                 "message": "Schedule reset to default"
             })
     
-    # POST: Reset schedule to default
+    # POST /api/schedule/reset - Reset schedule to default configuration
     def schedule_reset_endpoint(self):
         self.schedule_store.reset_to_default()
 
@@ -689,8 +684,9 @@ class ServiceManager:
             "message": "Schedule reset to default"
         })
     
+    # GET /api/automatic-config - Get current AUTOMATIC mode configuration
     def automatic_config_endpoint(self):
-        # GET: actual effective AUTOMATIC mode configuration
+        # GET: AUTOMATIC mode configuration
         if request.method == "GET":
             return self._json(self.automatic_config_store.get())
 
@@ -744,7 +740,7 @@ class ServiceManager:
                 502
             )
     
-    # POST JSON: { "amp": 6 | 10 | 12 | 14 | 16 }
+    # POST /api/wallbox/setCurrent - Set wallbox charging current (ampere)
     def set_wallbox_current(self):
         # Manual control disabled in automatic modes
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
