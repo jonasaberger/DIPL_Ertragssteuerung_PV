@@ -28,10 +28,7 @@ export interface UpdateDevicePayload {
   }
 }
 
-// -----------------------
-// ADMIN
-// -----------------------
-
+// Admin Password verifizieren
 export async function verifyAdminPW(password: string): Promise<boolean> {
   const data = await postJson<{ success: boolean }>(
     '/devices/admin/verify_admin_pw',
@@ -40,20 +37,19 @@ export async function verifyAdminPW(password: string): Promise<boolean> {
   return Boolean(data?.success === true)
 }
 
-// -----------------------
-// DEVICES
-// -----------------------
-
+// Alle Geräte abrufen
 export async function fetchDevices(): Promise<DevicesResponse | null> {
   return fetchJson<DevicesResponse>('/devices/get_devices')
 }
 
+// Einzelnes Gerät abrufen
 export async function getDevice(deviceId: string): Promise<Device | null> {
   const devices = await fetchDevices()
   if (!devices?.[deviceId]) return null
   return { deviceId, ...devices[deviceId] }
 }
 
+// Gerät aktualisieren (baseUrl und/oder Endpoints)
 export async function updateDeviceConfig(
   deviceId: string,
   password: string,
@@ -67,11 +63,13 @@ export async function updateDeviceConfig(
   return postJson<DevicesResponse>('/devices/edit_device', payload)
 }
 
+// Alle Geräte zurücksetzen (z.B. nach Fehlern oder zum Testen)
 export async function resetDevices(): Promise<boolean> {
   const data = await postJson<{ success: boolean }>('/devices/reset_devices', {})
   return Boolean(data?.success === true)
 }
 
+// Geräte nach Typ abrufen (z.B. epex, pv, wallbox)
 export async function getDevicesByType(): Promise<{
   epex?: Device
   pv?: Device
@@ -86,10 +84,7 @@ export async function getDevicesByType(): Promise<{
   }
 }
 
-// -----------------------
-// HELPER FUNCTIONS
-// -----------------------
-
+// Hilfsfunktion, um IP, Port und Pfad aus der baseUrl eines Geräts zu extrahieren
 export function parseDeviceUrl(device: Device): { ip: string; port: string; path: string } | null {
   try {
     const url = new URL(device.baseUrl)

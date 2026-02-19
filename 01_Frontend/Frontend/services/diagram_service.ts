@@ -23,12 +23,7 @@ function modeFromSelection(s: DateSelection): Mode {
   return 'day'
 }
 
-/**
- * WICHTIG:
- * helper.ts hat API_BASE = 'http://...:5050/api'
- * => hier dürfen wir NICHT nochmal '/api/...' davor setzen.
- * Also nur '/pv/daily', '/pv/monthly', '/pv/yearly'
- */
+
 function apiParamsFromSelection(s: DateSelection): { path: string; query: Record<string, string> } {
   const mode = modeFromSelection(s)
   const y = s.year

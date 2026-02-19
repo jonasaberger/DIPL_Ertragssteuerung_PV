@@ -22,6 +22,7 @@ type ProtocolItem = {
   extra?: string
 }
 
+// Funktion, um harte Trennzeichen in einem String durch weiche Trennzeichen zu ersetzen
 function softBreak(s: string): string {
   return s.replace(/([,;:{}\[\]\(\)])/g, '$1\u200B')
 }

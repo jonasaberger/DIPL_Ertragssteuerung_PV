@@ -1,5 +1,4 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-// components/diagram/d-diagram.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   View,
@@ -31,67 +30,137 @@ const COLORS = {
 
 type Mode = 'day' | 'month' | 'year'
 
-//kriegt eine Zahl, z.B: 5, und macht daraus '05'
+// kriegt eine Zahl, z.B: 5, und macht daraus '05'
 function pad2(n: number) {
   return String(n).padStart(2, '0')
 }
 
-//Entscheidet, in welchem Modus wir sind (Tag/Monat/Jahr) basierend auf der DateSelection
+// Zeitstring aus Backend wird zu Date-Objekt
+function parseApiTime(iso: string): Date {
+  const s = String(iso)
+
+  // Endet der String mit Z oder z? --> UTC-Zeit
+  if (/[zZ]$/.test(s)) {
+    return new Date(s)
+  }
+
+  // Hat der String einen Offset wie z.b +01:00 
+  if (/[+\-]\d{2}:\d{2}$/.test(s)) {
+    return new Date(s)
+  }
+
+  // Lokale Zeit verwenden
+  return new Date(s + 'Z')
+}
+
+// Entscheidet, in welchem Modus wir sind (Tag/Monat/Jahr) basierend auf der DateSelection
 function modeFromSelection(s: DateSelection): Mode {
   if (s.month === null) return 'year'
   if (s.day === null) return 'month'
   return 'day'
 }
 
-//begrent eine zahl, damit sie zwischen min und max bleibt
+// begrent eine zahl, damit sie zwischen min und max bleibt
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n))
 }
 
-// Clamp für die "gefühlte" Cursor-Position:
-// Scroll soll am echten Finger hängen (RAW), aber Auswahl soll nicht am Screen-Rand kleben.
+// Sorgt dafür, dass ein X-Wert nicht zu nah am Bildschirmrand liegt
 function clampVisibleX(xVisible: number, screenWidth: number, mode: Mode) {
+  // Im Modus day ist der Rand 40 Pixel weg, in anderen Modi 55 Pixel
   const edge = mode === 'day' ? 40 : 55
+  // Element bleibt edge Pixel vom Rand entfernt
   return clamp(xVisible, edge, screenWidth - edge)
 }
 
-//Macht aus Zahl eine Watt angabe
+// Macht aus Zahl eine Watt angabe
 function fmtW(v: number) {
   const n = Number.isFinite(v) ? v : 0
   return `${Math.round(n)} W`
 }
 
-//Macht aus Zahl eine Prozent angabe
+// Macht aus Zahl eine Prozent angabe
 function fmtPct(v: number) {
   const n = Number.isFinite(v) ? v : 0
   return `${Math.round(clamp(n, 0, 100))} %`
 }
 
+// Macht aus Zahl eine Kilowattstunde Angabe
 function fmtKWh(v: number) {
   const n = Number.isFinite(v) ? v : 0
   return `${n.toFixed(2)} kWh`
 }
 
-//Erstellt die Beschriftung für die X-Achse basierend auf dem Modus
-function axisLabelForIso(iso: string, mode: Mode) {
-  const d = new Date(iso)
-  if (mode === 'day') return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-  if (mode === 'month') return `${pad2(d.getDate())}`
-  return new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
+function isoParts(iso: string) {
+  const s = String(iso)
+
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
+  if (m) {
+    // Braucht man so für die Zeitzone 
+    return {
+      y: Number(m[1]),
+      mo: Number(m[2]),
+      d: Number(m[3]),
+      h: Number(m[4]),
+      mi: Number(m[5]),
+    }
+  }
+
+  // Falls anderes Format kommt
+  const dt = new Date(s)
+  return {
+    y: dt.getFullYear(),
+    mo: dt.getMonth() + 1,
+    d: dt.getDate(),
+    h: dt.getHours(),
+    mi: dt.getMinutes(),
+  }
 }
 
-//Für die genauere Anzeige der Text
-function tooltipLabelForIso(iso: string, mode: Mode) {
-  const d = new Date(iso)
-  const date = `${pad2(d.getDate())}.${pad2(d.getMonth() + 1)}.${d.getFullYear()}`
-  const time = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
-  if (mode === 'day') return `${date} ${time}`
-  if (mode === 'month') return `${date} ${time}`
-  const mon = new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
-  return `${mon} ${date} ${time}`
+// Text für x-Achsen Label basierend auf Modus
+function axisLabelForIso(iso: string, mode: Mode) {
+  const p = isoParts(iso)
+
+
+  if (mode === 'day') {
+    return pad2(p.h) + ':' + pad2(p.mi)
+  }
+
+  if (mode === 'month') {
+    return pad2(p.d)
+  }
+
+  const monthNames = [ 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',]
+
+  const idx = clamp(p.mo, 1, 12) - 1
+  return monthNames[idx]
 }
+
+
+function tooltipLabelForIso(iso: string, mode: Mode) {
+  const p = isoParts(iso)
+
+  // Datum DD.MM.YYYY, Zeit HH:MM
+  const date = pad2(p.d) + '.' + pad2(p.mo) + '.' + p.y
+  const time = pad2(p.h) + ':' + pad2(p.mi)
+
+  // Monatsname für Jahresansicht
+  if (mode === 'year') {
+    const monthNames = [ 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez', ]
+
+    // Monat aus Datum extrahieren und Namen zuordnen, clamp damit monat zwischen 1 und 12 und -1 weil Array 0-basiert ist
+    const idx = clamp(p.mo, 1, 12) - 1
+    const mon = monthNames[idx]
+
+    return mon + ' ' + date + ' ' + time
+  }
+
+  return date + ' ' + time
+}
+
 
 function getDaysInMonth(year: number, month0Based: number) {
+  // +1 bei Monat und 0 bei Tag, damit man den letzten Tag des Vormonats bekommt
   return new Date(year, month0Based + 1, 0).getDate()
 }
 
@@ -116,12 +185,12 @@ type Selected = {
   socPct: number
 }
 
-//Da so viele Daten für das Jahr sind, wird alle 15 Tage ein Tick gemacht
+// An welchen Datenpunkten auf der X-Achse ein Label hin kommt
 function yearTickIndices(rows: ChartRow[]) {
   const ticks: number[] = []
   let lastMonth = -1
 
-  //Iteriere durch alle Datenpunkte
+  // Jeder Datenpunkt wird durchgeschaut
   for (let i = 0; i < rows.length; i++) {
     const d = new Date(rows[i].t)
     const m = d.getMonth()
@@ -129,16 +198,19 @@ function yearTickIndices(rows: ChartRow[]) {
     const h = d.getHours()
     const min = d.getMinutes()
 
-    //Überprüfe, ob es der 1. oder 15. Tag des Monats um Mitternacht ist
+    // Ist Datenpunkt der erste des Monats?
     const isStart = day === 1 && h === 0 && min === 0
+    // Ist der Datenpunkt der 15. des Monats?
     const isMid = day === 15 && h === 0 && min === 0
 
+    // Neuer Monat und der 1. um 00:00
     if (m !== lastMonth && isStart) {
       ticks.push(i)
       lastMonth = m
       continue
     }
 
+    //Noch im gleichen Monat und es ist der 15.
     if (m === lastMonth && isMid) {
       ticks.push(i)
     }
@@ -147,57 +219,97 @@ function yearTickIndices(rows: ChartRow[]) {
   return ticks
 }
 
+// Extrem viele Daten --> Daten reduzieren, damit Diagramm nicht überfordert wird
 function downsampleMonth(points: PvPoint[]) {
   const out: PvPoint[] = []
-  for (const p of points) {
-    const d = new Date(p._time)
-    if (d.getMinutes() === 0) out.push(p)
+
+  // Alle Datenpunkte durchgehen
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]
+    //Zeit des Datenpunkts parsen
+    const d = parseApiTime(p._time)
+
+    // Nur die Punkte behalten, die auf einer genauen Stunde liefen. (13:00, 14:400)
+    if (d.getMinutes() === 0) {
+      out.push(p)
+    }
   }
-  return out.length > 0 ? out : points.filter((_, i) => i % 4 === 0)
+
+  if (out.length > 0) {
+    return out
+  }
+
+  // Zur Sicherheit, falls kein Datenpunkt auf voller Stunde liegt --> Nimm jeden 4. Wert
+  return points.filter((_, i) => i % 4 === 0)
 }
 
-function aggregateYearByDay(points: PvPoint[]) {
+// Aus vielen Datenpunkten im Jahr werden pro Tag 1 Datenpunkt
+// Wird mit den Max der Werte des Tages gemacht
+function downsampleYear(points: PvPoint[]) {
+  // Map für einfacheres Handling
   const map = new Map<string, PvPoint[]>()
 
-  for (const p of points) {
-    const d = new Date(p._time)
-    const key = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+  // Schleife über alle Messpunkte
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]
+    // Zeit des Datenpunkts parsen
+    const d = parseApiTime(p._time)
+    // Tagesschlüssel erstellen, z.B: "2024-06-014"
+    const key =
+      d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate())
+
+    // Punkt in die Map einfügen (entweder neue erstellen oder hinzufügen)
     const arr = map.get(key)
-    if (arr) arr.push(p)
-    else map.set(key, [p])
+    if (arr) {
+      arr.push(p)
+    } else {
+      map.set(key, [p])
+    }
   }
 
+  // Tage sortieren
   const keys = Array.from(map.keys()).sort()
   const out: PvPoint[] = []
 
-  for (const k of keys) {
-    const arr = map.get(k) ?? []
-    if (arr.length === 0) continue
+  // Durch alle Tage gehen
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i]
+    const arr = map.get(k)
+    // Falls kein Datenpunkt für den Tag, einfach überspringen
+    if (!arr || arr.length === 0) continue
 
-    let pvMax = 0
-    let loadMax = 0
-    let feedMax = 0
-    let socLast = 0
-    let lastT = -Infinity
+    let pvMax = 0       // Höchster PV-Wert des Tages
+    let loadMax = 0     // Höchster Load-Wert des Tages (positiver Wert --> Verbrauch)
+    let feedMax = 0     // Höchster Feed-In Wert des Tages (positiver Wert --> Einspeisung)
 
-    for (const p of arr) {
+    let socLast = 0          // SoC-Wert des letzten Datenpunkts des Tages
+    let lastT = -Infinity    // Zeit des letzten Datenpunkts; -infinity damit jeder Punkt am Anfang höher ist
+
+    // Alle Messpunkte des tages durchgehen
+    for (let j = 0; j < arr.length; j++) {
+      const p = arr[j]
+
       const pv = Math.max(0, Number(p.pv_power ?? 0))
       const load = Math.max(0, Math.abs(Number(p.load_power ?? 0)))
-      const gp = Number(p.grid_power ?? 0)
-      const feed = gp < 0 ? Math.abs(gp) : 0
 
+      const gp = Number(p.grid_power ?? 0)
+      const feed = gp < 0 ? -gp : 0
+
+      // Maximale Werte des Tages aktualisieren
       if (pv > pvMax) pvMax = pv
       if (load > loadMax) loadMax = load
       if (feed > feedMax) feedMax = feed
 
-      const t = new Date(p._time).getTime()
+      // Letzter SoC-Wert des Tages aktualisieren (der mit der höchsten Zeit)
+      const t = parseApiTime(p._time).getTime()
       if (t >= lastT) {
         lastT = t
         socLast = clamp(Number(p.soc ?? 0), 0, 100)
       }
     }
 
-    const noon = new Date(`${k}T12:00:00`)
+    // Zeitstempel auf 12:00 Uhr setzen
+    const noon = parseApiTime(k + 'T12:00:00')
     out.push({
       _time: noon.toISOString(),
       pv_power: pvMax,
@@ -210,32 +322,64 @@ function aggregateYearByDay(points: PvPoint[]) {
   return out
 }
 
+// Energie aus Leistung-Messpunkten berechnen; Energie = Leistung * Zeit; Leistung ist Ableitung von Energie
 function integrateEnergy(points: PvPoint[]) {
+  // Sicherheit ob Daten da sind
   if (!points || points.length === 0) {
     return { pvKWh: 0, loadKWh: 0, feedInKWh: 0, socEnd: 0 }
   }
 
-  const sorted = [...points].sort((a, b) => new Date(a._time).getTime() - new Date(b._time).getTime())
-  const times = sorted.map(p => new Date(p._time).getTime())
+  // Nach Zeit sortieren, damit die Integration Sinn macht
+  const sorted = [...points].sort((a, b) => {
+    const ta = parseApiTime(a._time).getTime()
+    const tb = parseApiTime(b._time).getTime()
+    return ta - tb
+  })
 
+  // Zeitstempel Array bauen (damit man nicht immer neu parsen muss)
+  const times: number[] = []
+  for (let i = 0; i < sorted.length; i++) {
+    times.push(parseApiTime(sorted[i]._time).getTime())
+  }
+
+  // Für jeden Punkt den Abstand zum nächsten Punkt berechnen
   const diffs: number[] = []
   for (let i = 1; i < times.length; i++) {
     const dt = times[i] - times[i - 1]
-    if (dt > 0 && dt < 12 * 60 * 60 * 1000) diffs.push(dt)
+    // dt > 0: negative Zeiten weg
+    // dt < 12h: riesige Datenlücken skippen (z.b Nacht oder Server down)
+    if (dt > 0 && dt < 12 * 60 * 60 * 1000) {
+      diffs.push(dt)
+    }
   }
-  const defaultDt = diffs.length ? diffs.sort((a, b) => a - b)[Math.floor(diffs.length / 2)] : 15 * 60 * 1000
+
+  // Typischer Zeitabstand zwischen den Punkten
+  let defaultDt = 15 * 60 * 1000
+  if (diffs.length > 0) {
+    diffs.sort((a, b) => a - b)
+    // Median, weil stabil
+    defaultDt = diffs[Math.floor(diffs.length / 2)]
+  }
 
   let pvWh = 0
   let loadWh = 0
   let feedWh = 0
 
+  // Für jedes Segment integrieren
   for (let i = 0; i < sorted.length; i++) {
     const cur = sorted[i]
-    const nextT = i < sorted.length - 1 ? times[i + 1] : times[i] + defaultDt
+
+    // Nächstes Zeitende bestimmen
+    let nextT = times[i] + defaultDt
+    if (i < sorted.length - 1) {
+      nextT = times[i + 1]
+    }
+
     const dtH = clamp((nextT - times[i]) / (1000 * 60 * 60), 0, 12)
 
     const pv = Math.max(0, Number(cur.pv_power ?? 0))
     const load = Math.max(0, Math.abs(Number(cur.load_power ?? 0)))
+
     const gp = Number(cur.grid_power ?? 0)
     const feed = gp < 0 ? Math.abs(gp) : 0
 
@@ -244,6 +388,7 @@ function integrateEnergy(points: PvPoint[]) {
     feedWh += feed * dtH
   }
 
+  // Letzer SoC-Wert des letzten Datenpunkts
   const last = sorted[sorted.length - 1]
   const socEnd = clamp(Number(last.soc ?? 0), 0, 100)
 
@@ -255,15 +400,16 @@ function integrateEnergy(points: PvPoint[]) {
   }
 }
 
+
 export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
   const { width: screenWidth } = useWindowDimensions()
-  //skia braucht fonts, denn Skia rendert alles selbst
+  // skia braucht fonts, denn Skia rendert alles selbst
   const font = useFont(require('../../assets/fonts/Inter.ttf'), 11)
 
-  const [selected, setSelected] = useState<Selected | null>(null) //Aktuell ausgewählter Punkt
-  const [rawApiData, setRawApiData] = useState<PvPoint[] | null>(null) //Daten vom API
-  const [isLoading, setIsLoading] = useState(false) //State, ob gerade eine API Request läuft
-  const [errorText, setErrorText] = useState<string | null>(null) //Fehlermeldung, falls API Request fehlschlägt
+  const [selected, setSelected] = useState<Selected | null>(null)         // Aktuell ausgewählter Punkt
+  const [rawApiData, setRawApiData] = useState<PvPoint[] | null>(null)    // Daten vom API
+  const [isLoading, setIsLoading] = useState(false)                       // State, ob gerade eine API Request läuft
+  const [errorText, setErrorText] = useState<string | null>(null)         // Fehlermeldung, falls API Request fehlschlägt
 
   const [detailMode, setDetailMode] = useState<'current' | 'sum'>('current')
 
@@ -288,11 +434,10 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     const arr = rawApiData ?? []
     if (mode === 'day') return arr
     if (mode === 'month') return downsampleMonth(arr)
-    return aggregateYearByDay(arr)
+    return downsampleYear(arr)
   }, [rawApiData, mode])
 
   const baseRows = useMemo(() => {
-    //Verarbeitet die rohen API-Daten in ein Format, das für das Diagramm geeignet ist
     return (chartData ?? []).map((p, i) => {
       const pv = Math.max(0, Number(p.pv_power ?? 0))
       const load = Math.max(0, Math.abs(Number(p.load_power ?? 0)))
@@ -301,7 +446,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
       const feedIn = gp < 0 ? Math.abs(gp) : 0
 
       const socPct = clamp(Number(p.soc ?? 0), 0, 100)
-      const t = new Date(p._time).getTime()
+      const t = parseApiTime(p._time).getTime()
 
       return {
         x: i,
@@ -367,24 +512,47 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     return showSoc ? (['pv', 'load', 'feedIn', 'socScaled'] as const) : (['pv', 'load', 'feedIn'] as const)
   }, [showSoc])
 
-  //Kreuzlinie X-Position
+  //Graue Kreuzlinie X-Position
   const crossX = useMemo(() => {
+    // Index des ausgewählten Punkts, oder -1 (=ungültig) wenn keiner ausgewählt ist
     const idx = selected?.index ?? -1
+    // X-Position des ausgewählten Punkts
     const xs = pointsXRef.current
+    // Wenn kein gültiger Index, z.B weil keine Daten oder Auswahl gelöscht, dann null zurückgeben (keine Linie)
     if (idx < 0 || idx >= xs.length) return null
     const x = xs[idx]
     return Number.isFinite(x) ? x : null
   }, [selected?.index, prepared.rows.length])
 
-  //Wählt einen Datenpunkt basierend auf dem Index aus
+  // Wählt einen Datenpunkt im Diagramm aus
+  // Usecallback, damit sich die Funktion nur neu erzeugt wenn prepared.rows sich ändert
   const selectIndex = useCallback(
-    (idxRaw: number) => {
+    (idxRaw: number) => 
+    {
+      // Anzahl der Datenpunkte
       const n = prepared.rows.length
-      if (n <= 0) return
+
+      // Falls keine Punkte existieren
+      if (n <= 0) 
+      {
+        return
+      }
+
+      // Index deckeln, damit er nicht außerhalb der Daten liegt
       const idx = clamp(idxRaw, 0, n - 1)
+      // Datenpunkt für den Index holen
       const row = prepared.rows[idx]
-      if (!row) return
+
+      // Sicherhet falls sich prepared.rows geändert hat 
+      if (!row)
+      {
+        return
+      } 
+
+      // Letzen Index speichern
       lastIdxRef.current = idx
+
+      // UI State setzen
       setSelected({
         index: idx,
         label: row.tipLabel,
@@ -397,57 +565,102 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     [prepared.rows],
   )
 
-  //Findet den Index des Datenpunkts, der der gegebenen X-Position am nächsten ist
+  // Index des Datenpunktes finden, dessen X-Position am nächsten zu xInContent liegt
+  // xInContent = X-Position des Fingers des Users bzw Kreuzlinie im Diagramm
   const nearestIndexFromChartX = useCallback((xInContent: number) => {
-    const xs = pointsXRef.current
-    const n = xs.length
-    if (n === 0) return -1
+    // xArray ist ein Array mit der X-Position jedes Datenpunktes (sortiert)
+    const xArray = pointsXRef.current
+    const n = xArray.length
 
-    let lo = 0
-    let hi = n - 1
-    while (hi - lo > 3) {
-      const mid = (lo + hi) >> 1
-      if (xs[mid] < xInContent) lo = mid
-      else hi = mid
+    // Sicherheit falls es keine Punkte gibt
+    // -1 --> Kein Treffer
+    if (n === 0) {
+      return -1
     }
 
-    let best = lo
-    let bestDist = Math.abs(xs[lo] - xInContent)
-    for (let i = lo + 1; i <= hi; i++) {
-      const d = Math.abs(xs[i] - xInContent)
-      if (d < bestDist) {
-        bestDist = d
+    // Binäre Suche
+    let lowerBorder = 0         // Untere Grenze für binäre Suche
+    let higherBorder = n - 1    // Obere Grenze für binäre Suche
+
+    // Solange der Suchbereich größer als 3 Elemente ist wird halbiert
+    while (higherBorder - lowerBorder > 3) {
+      // Mitte zwischen Ober- und Untergrenze berechnen
+      const mid = Math.floor((lowerBorder + higherBorder) / 2)
+
+      // Bereich halbieren
+      // Wenn x-Wert kleiner als gesuchte x-Position --> Rechts suchen
+      // Sonst --> Links suchen
+      if (xArray[mid] < xInContent) {
+        lowerBorder = mid
+      } else {
+        higherBorder = mid
+      }
+    }
+
+    // lineare Suche im kleinen Restbereich
+    let best = lowerBorder                                          // Aktuell bester index
+    let bestDist = Math.abs(xArray[lowerBorder] - xInContent)       // Abstand zur gesuchten X-Position
+
+    // Durch alle Kandidaten gehen und besten Index finden
+    for (let i = lowerBorder + 1; i <= higherBorder; i++) {
+      // Abstand berechnen
+      const dist = Math.abs(xArray[i] - xInContent)
+
+      // Wenn Abstand besser als bisher bester Abstand, dann besten Index aktualisieren
+      if (dist < bestDist) {
+        bestDist = dist
         best = i
       }
     }
+
     return best
   }, [])
 
+
   //Scrollt zu einer bestimmten X-Position im Diagramm wenn nötig
   const scrollToX = useCallback((x: number) => {
+    // Maximale Scrollposition
     const max = maxScrollRef.current
+    // Zielwert begrenzen, damit man nicht bis außerhalb vom Diagramm scrollen kann
     const next = clamp(x, 0, max)
-    if (next === scrollXRef.current) return
+
+    // Nur scrollen falls nötig
+    if (next === scrollXRef.current) 
+    {
+      return
+    }
+
+    // Scrollposition aktualisieren
     scrollXRef.current = next
+    // ScrollView scrollen
     scrollRef.current?.scrollTo({ x: next, animated: false })
   }, [])
 
+  // Wenn der Finger des Users nahe am Rand ist scrollt das Diagramm weiter
+  // Durchgängiges ziehen --> ohne die Funktion muss man immer neu ansetzen mit dem Finger
   const autoScrollIfNearEdges = useCallback(
+    // xVisible = X-Position im sichtbaren Bereich
     (xVisible: number) => {
+      // Maximaler Scrollwert
       const max = maxScrollRef.current
       if (max <= 0) return
 
-      const edge = mode === 'day' ? 280 : 320
-      const mult = mode === 'day' ? 3.9 : 1.4
-      const cap = mode === 'day' ? 260 : 140
+      // Bei Modus Tag sind die Werte anders (weil Month / Year liegen näher beieinander --> weniger aggresives scrollen)
+      const edge = mode === 'day' ? 280 : 320     // Randbereich, wann gescrollt wird
+      const mult = mode === 'day' ? 2 : 1.4     // Verstärkung, wie stark gescrollt wird, je näher am Rand
+      const cap = mode === 'day' ? 50 : 20      // Maximale Scrollgeschwindigkeit pro Aufruf
 
+      // Linke Seite prüfen
       if (xVisible < edge) {
+        // delta = Wie viel gescrollt werden soll
         const delta = Math.min(cap, (edge - xVisible) * mult)
         scrollToX(scrollXRef.current - delta)
         return
       }
 
+      // Rechte Seite prüfen
       if (xVisible > screenWidth - edge) {
+        // delta = Wie viel gescrollt werden soll
         const delta = Math.min(cap, (xVisible - (screenWidth - edge)) * mult)
         scrollToX(scrollXRef.current + delta)
       }
@@ -455,102 +668,154 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     [mode, screenWidth, scrollToX],
   )
 
-  //PanResponder für Touch-Dinge im Diagramm
-  //Ermöglicht das Auswählen von Datenpunkten durch Berühren und Ziehen
+
+  // Ermöglicht das Auswählen von Datenpunkten durch Berühren und Ziehen
+  // PanResponder ist von React-Native und zuständig für Touch-Handling
   const panResponder = useMemo(() => {
+
+    const handleSelectAtEventX = (xVisibleRaw: number) => 
+    {
+      // Sorgt dafür dass die Auswahl nicht am Rand klebt
+      const xVisible = clampVisibleX(xVisibleRaw, screenWidth, mode)
+      // Absolute Position im ganzen Chart = Wie weit nach rechts gescrollt + aktuelle Screen Koordinate
+      const xContent = scrollXRef.current + xVisible
+
+      // Nächsten Datenpunkt finden
+      const idx = nearestIndexFromChartX(xContent)
+      // Auswahl setzen
+      if (idx >= 0) selectIndex(idx)
+    }
+
     return PanResponder.create({
+      // Dieser PanResponder ist zuständig von Start über Move bis Ende
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+
+      // Finger setzt auf
       onPanResponderGrant: (e) => {
         const xVisibleRaw = e.nativeEvent.locationX
-
-        // Scroll-Verhalten bleibt am echten Finger
-        // Auswahl/Strich wird "komfortabel" nach innen gedeckelt
-        const xVisible = clampVisibleX(xVisibleRaw, screenWidth, mode)
-        const xContent = scrollXRef.current + xVisible
-
-        const idx = nearestIndexFromChartX(xContent)
-        if (idx >= 0) selectIndex(idx)
+        handleSelectAtEventX(xVisibleRaw)
       },
+      // Finger zieht
       onPanResponderMove: (e) => {
         const xVisibleRaw = e.nativeEvent.locationX
 
-        // Autoscroll am echten Finger (sonst fühlt es sich träge an)
+        // Autoscroll am echten Finger 
         autoScrollIfNearEdges(xVisibleRaw)
 
         // Auswahl nicht am Rand kleben lassen
-        const xVisible = clampVisibleX(xVisibleRaw, screenWidth, mode)
-        const xContent = scrollXRef.current + xVisible
-
-        const idx = nearestIndexFromChartX(xContent)
-        if (idx >= 0) selectIndex(idx)
+        handleSelectAtEventX(xVisibleRaw)
       },
+      // Finger loslassen --> Auswahl soll bleiben
       onPanResponderRelease: () => {},
       onPanResponderTerminate: () => {},
     })
   }, [nearestIndexFromChartX, selectIndex, autoScrollIfNearEdges, screenWidth, mode])
 
-  //x-Achsen Ticks basierend auf dem Modus und der Datenanzahl
+
+  // Liste von Indices für die X-Achse
+  // Victory Native XL will wissen bei welchem Datenpunkt ein Labek hin soll
   const xTickValues = useMemo(() => {
     const n = prepared.rows.length
-    if (n === 0) return []
+    if (n === 0) {
+      return []
+    }
 
+    // TAG
     if (mode === 'day') {
       const desiredPx = 45
+      // desiredPx / pxPerPoint berechnet wie viele Punkte man braucht, um ungefähr desiredPx Pixel Abstand zu haben
       const step = Math.max(1, Math.round(desiredPx / pxPerPoint))
+
       const ticks: number[] = []
-      for (let i = 0; i < n; i += step) ticks.push(i)
-      if (ticks[ticks.length - 1] !== n - 1) ticks.push(n - 1)
+      for (let i = 0; i < n; i += step) {
+        ticks.push(i)
+      }
+
+      // Letzter Tick wird erzwungen, damit das Ende auch ein Label bekommt
+      if (ticks[ticks.length - 1] !== n - 1) {
+        ticks.push(n - 1)
+      }
+
       return ticks
     }
 
+    // MONAT
     if (mode === 'month') {
       const y = selection.year
       const m0 = selection.month ?? 0
       const dim = getDaysInMonth(y, m0)
 
       const ticks: number[] = []
+      // seen speichert welche Tage schon als Tick existieren (Set für schnelle Überprüfung)
       const seen = new Set<number>()
 
       for (let i = 0; i < n; i++) {
         const d = new Date(prepared.rows[i].t)
         const day = d.getDate()
+
+        if (seen.has(day)) {
+          continue
+        }
+
+        // Mitternacht prüfen
         const h = d.getHours()
         const min = d.getMinutes()
-        if (h === 0 && min === 0 && !seen.has(day)) {
+
+        if (h === 0 && min === 0) {
           ticks.push(i)
           seen.add(day)
-          if (seen.size >= dim) break
+
+          if (seen.size >= dim) {
+            break
+          }
         }
       }
 
-      if (ticks.length === 0) {
-        const step = Math.max(1, Math.round(35 / pxPerPoint))
-        for (let i = 0; i < n; i += step) ticks.push(i)
+      if (ticks.length > 0) {
+        return ticks
+      }
+
+      // Zur Sicherheit falls keine Mitternachtsdaten existieren
+      const step = Math.max(1, Math.round(35 / pxPerPoint))
+      for (let i = 0; i < n; i += step) {
+        ticks.push(i)
       }
 
       return ticks
     }
 
-    const ticks = yearTickIndices(prepared.rows)
-    if (ticks.length > 0) return ticks
+    // Jahr
+    // Wenn yearTickIndices funktioniert, dann benutz dessen Werte
+    const yearTicks = yearTickIndices(prepared.rows)
+    if (yearTicks.length > 0) {
+      return yearTicks
+    }
 
+    // Sicherheit, falls yearTickIndices keine Werte um 00:00 findet
     const step = Math.max(1, Math.round(70 / pxPerPoint))
     const fallback: number[] = []
-    for (let i = 0; i < n; i += step) fallback.push(i)
+    for (let i = 0; i < n; i += step) {
+      fallback.push(i)
+    }
     return fallback
   }, [prepared.rows, mode, selection.year, selection.month, pxPerPoint])
 
+  // Wandelt x-Wert in Text um welcher angezeigt wird
   const formatXLabel = useCallback(
     (xIndex: number) => {
       const idx = Math.round(Number(xIndex))
+      // Wenn Index ungültig ist, leeres Label zurückgeben
       const r = prepared.rows[idx]
       if (!r) return ''
 
+      // Im Jahresmodus andere Darstellung
       if (mode === 'year') {
         const d = new Date(r.t)
         const day = d.getDate()
+        // Kurzen Monatsnamen holen
         const mon = new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
+        // Wenn erster des Monats, dann Monatsname, sonst Tag anzeigen
         if (day === 1) return mon
         return `${day}.`
       }
@@ -560,30 +825,35 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     [prepared.rows, mode],
   )
 
-  const selectedIndex = selected?.index ?? -1
-  const showOverlayMessage = !isLoading && (!!errorText || prepared.rows.length === 0)
-  const showFontLoading = !font
+  const selectedIndex = selected?.index ?? -1       // Index des ausgewählten Punkts, oder -1 wenn keiner ausgewählt ist
+  const showOverlayMessage = !isLoading && (!!errorText || prepared.rows.length === 0)  // Doppeltes !! ist eine Typ-Umwandlung zu Boolean, damit es true/false ist
+  const showFontLoading = !font   
 
+  // Gesamtenergie für den aktuellen Zeitraum berechnen
   const periodTotals = useMemo(() => {
+    // Falls rawApiData null ist, nimm leeres Array (sonst Fehler)
     const arr = rawApiData ?? []
     if (arr.length === 0) return null
     return integrateEnergy(arr)
   }, [rawApiData])
 
-  //Effekt, der bei Änderung der Selection die Daten vom API lädt (ausgelagert in Service)
+  // Wenn sich Selektion ändert, Resete alles und hole Daten
   useEffect(() => {
     let alive = true
 
+    // Alle States zurücksetzen
     setIsLoading(true)
     setErrorText(null)
     setSelected(null)
     setRawApiData(null)
 
+    // Scrolls und Refs zurücksetzen
     pointsXRef.current = []
     lastIdxRef.current = -1
     scrollXRef.current = 0
     scrollRef.current?.scrollTo({ x: 0, animated: false })
 
+    // Selbst aufrufende Async-Funktion
     ;(async () => {
       try {
         const arr = await fetchDiagramPvPoints(selection)
@@ -605,9 +875,11 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     }
   }, [requestKey, selection])
 
+  // Sobald neue Daten da sind, wird automatisch ein Punkt ausgewählz
   useEffect(() => {
     const n = prepared.rows.length
     if (n <= 0) return
+    // Gibt es einen gespeicherten index?
     if (lastIdxRef.current !== -1) {
       selectIndex(lastIdxRef.current)
       return
@@ -677,10 +949,13 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                   )}
 
                   <CartesianChart
+                    // Jede Row enthält: x (Index), axisLabel (für X-Achse), tipLabel (für Tooltip), pv, load, feedIn, socPct, t (Zeitstempel)
                     data={prepared.rows}
+                    // xKey ist "x", also der Index der Datenpunkte
                     xKey="x"
                     yKeys={yKeys as any}
                     padding={padding}
+                    // x-Werte von 0 bis Anzahl der Datenpunkte, y-Werte von 0 bis yMax (automatisch berechnet)
                     domain={{ x: [0, Math.max(1, prepared.rows.length - 1)], y: [0, prepared.yMax] }}
                     xAxis={{
                       font,
@@ -698,22 +973,26 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                     ]}
                   >
                     {({ points }) => {
+                      // Victory rechnet aus Daten echte Chart-Koordinaten aus
                       const pvPts = points.pv ?? []
                       if (pvPts.length > 0) {
                         const xs: number[] = []
+                        // X-Koordinaten der PV-Punkte extrahieren
                         for (let i = 0; i < pvPts.length; i++) {
                           const x = pvPts[i]?.x
+                          // Sicherheitshalber prüfen, ob x eine endliche Zahl ist, sonst NaN speichern
                           xs.push(typeof x === 'number' && Number.isFinite(x) ? x : NaN)
                         }
+                        // Wenn alle X-Koordinaten gültige Zahlen sind, dann in Ref speichern
                         if (xs.every(v => Number.isFinite(v))) pointsXRef.current = xs
                       }
 
                       const n = pvPts.length
-                      const idxOk = selectedIndex >= 0 && selectedIndex < n
-                      const pvP = idxOk ? pvPts[selectedIndex] : undefined
-                      const loadP = idxOk ? points.load?.[selectedIndex] : undefined
-                      const feedP = idxOk ? points.feedIn?.[selectedIndex] : undefined
-                      const socP = idxOk ? points.socScaled?.[selectedIndex] : undefined
+                      const idxOk = selectedIndex >= 0 && selectedIndex < n                     // Ist Index gültig?
+                      const pvP = idxOk ? pvPts[selectedIndex] : undefined                      // Datenpunkt bei Index holen
+                      const loadP = idxOk ? points.load?.[selectedIndex] : undefined            // Datenpunkt bei Index holen
+                      const feedP = idxOk ? points.feedIn?.[selectedIndex] : undefined          // Datenpunkt bei Index holen
+                      const socP = idxOk ? points.socScaled?.[selectedIndex] : undefined        // Datenpunkt bei Index holen
 
                       return (
                         <>
@@ -722,6 +1001,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                           <Line points={points.feedIn} color={COLORS.feedIn} strokeWidth={3} />
                           {showSoc && <Line points={points.socScaled} color={COLORS.soc} strokeWidth={3} />}
 
+                          {/* Punkt auf Linie bei aktueller Markerposition setzen */}
                           {idxOk && (
                             <>
                               {pvP && <Scatter points={[pvP]} color={COLORS.pv} radius={5} />}

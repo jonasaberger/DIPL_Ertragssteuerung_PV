@@ -337,7 +337,6 @@ const styles = StyleSheet.create({
   monthPill: {
     paddingHorizontal: 18,
     paddingVertical: 8,
-    borderRadius: 999,
   },
   monthText: {
     fontSize: 17,
@@ -362,7 +361,6 @@ const styles = StyleSheet.create({
   dayPill: {
     paddingVertical: 8,
     paddingHorizontal: 10,
-    borderRadius: 999,
   },
   dayText: {
     fontSize: 16,
