@@ -513,7 +513,6 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
   }, [showSoc])
 
   //Graue Kreuzlinie X-Position
-  // HIER HIER HIER HIER HIER HIER HIER HIER HIER HIER HIER HIER 
   const crossX = useMemo(() => {
     // Index des ausgewählten Punkts, oder -1 (=ungültig) wenn keiner ausgewählt ist
     const idx = selected?.index ?? -1
@@ -525,15 +524,35 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     return Number.isFinite(x) ? x : null
   }, [selected?.index, prepared.rows.length])
 
-  //Wählt einen Datenpunkt basierend auf dem Index aus
+  // Wählt einen Datenpunkt im Diagramm aus
+  // Usecallback, damit sich die Funktion nur neu erzeugt wenn prepared.rows sich ändert
   const selectIndex = useCallback(
-    (idxRaw: number) => {
+    (idxRaw: number) => 
+    {
+      // Anzahl der Datenpunkte
       const n = prepared.rows.length
-      if (n <= 0) return
+
+      // Falls keine Punkte existieren
+      if (n <= 0) 
+      {
+        return
+      }
+
+      // Index deckeln, damit er nicht außerhalb der Daten liegt
       const idx = clamp(idxRaw, 0, n - 1)
+      // Datenpunkt für den Index holen
       const row = prepared.rows[idx]
-      if (!row) return
+
+      // Sicherhet falls sich prepared.rows geändert hat 
+      if (!row)
+      {
+        return
+      } 
+
+      // Letzen Index speichern
       lastIdxRef.current = idx
+
+      // UI State setzen
       setSelected({
         index: idx,
         label: row.tipLabel,
@@ -546,57 +565,102 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     [prepared.rows],
   )
 
-  //Findet den Index des Datenpunkts, der der gegebenen X-Position am nächsten ist
+  // Index des Datenpunktes finden, dessen X-Position am nächsten zu xInContent liegt
+  // xInContent = X-Position des Fingers des Users bzw Kreuzlinie im Diagramm
   const nearestIndexFromChartX = useCallback((xInContent: number) => {
-    const xs = pointsXRef.current
-    const n = xs.length
-    if (n === 0) return -1
+    // xArray ist ein Array mit der X-Position jedes Datenpunktes (sortiert)
+    const xArray = pointsXRef.current
+    const n = xArray.length
 
-    let lo = 0
-    let hi = n - 1
-    while (hi - lo > 3) {
-      const mid = (lo + hi) >> 1
-      if (xs[mid] < xInContent) lo = mid
-      else hi = mid
+    // Sicherheit falls es keine Punkte gibt
+    // -1 --> Kein Treffer
+    if (n === 0) {
+      return -1
     }
 
-    let best = lo
-    let bestDist = Math.abs(xs[lo] - xInContent)
-    for (let i = lo + 1; i <= hi; i++) {
-      const d = Math.abs(xs[i] - xInContent)
-      if (d < bestDist) {
-        bestDist = d
+    // Binäre Suche
+    let lowerBorder = 0         // Untere Grenze für binäre Suche
+    let higherBorder = n - 1    // Obere Grenze für binäre Suche
+
+    // Solange der Suchbereich größer als 3 Elemente ist wird halbiert
+    while (higherBorder - lowerBorder > 3) {
+      // Mitte zwischen Ober- und Untergrenze berechnen
+      const mid = Math.floor((lowerBorder + higherBorder) / 2)
+
+      // Bereich halbieren
+      // Wenn x-Wert kleiner als gesuchte x-Position --> Rechts suchen
+      // Sonst --> Links suchen
+      if (xArray[mid] < xInContent) {
+        lowerBorder = mid
+      } else {
+        higherBorder = mid
+      }
+    }
+
+    // lineare Suche im kleinen Restbereich
+    let best = lowerBorder                                          // Aktuell bester index
+    let bestDist = Math.abs(xArray[lowerBorder] - xInContent)       // Abstand zur gesuchten X-Position
+
+    // Durch alle Kandidaten gehen und besten Index finden
+    for (let i = lowerBorder + 1; i <= higherBorder; i++) {
+      // Abstand berechnen
+      const dist = Math.abs(xArray[i] - xInContent)
+
+      // Wenn Abstand besser als bisher bester Abstand, dann besten Index aktualisieren
+      if (dist < bestDist) {
+        bestDist = dist
         best = i
       }
     }
+
     return best
   }, [])
 
+
   //Scrollt zu einer bestimmten X-Position im Diagramm wenn nötig
   const scrollToX = useCallback((x: number) => {
+    // Maximale Scrollposition
     const max = maxScrollRef.current
+    // Zielwert begrenzen, damit man nicht bis außerhalb vom Diagramm scrollen kann
     const next = clamp(x, 0, max)
-    if (next === scrollXRef.current) return
+
+    // Nur scrollen falls nötig
+    if (next === scrollXRef.current) 
+    {
+      return
+    }
+
+    // Scrollposition aktualisieren
     scrollXRef.current = next
+    // ScrollView scrollen
     scrollRef.current?.scrollTo({ x: next, animated: false })
   }, [])
 
+  // Wenn der Finger des Users nahe am Rand ist scrollt das Diagramm weiter
+  // Durchgängiges ziehen --> ohne die Funktion muss man immer neu ansetzen mit dem Finger
   const autoScrollIfNearEdges = useCallback(
+    // xVisible = X-Position im sichtbaren Bereich
     (xVisible: number) => {
+      // Maximaler Scrollwert
       const max = maxScrollRef.current
       if (max <= 0) return
 
-      const edge = mode === 'day' ? 280 : 320
-      const mult = mode === 'day' ? 3.9 : 1.4
-      const cap = mode === 'day' ? 260 : 140
+      // Bei Modus Tag sind die Werte anders (weil Month / Year liegen näher beieinander --> weniger aggresives scrollen)
+      const edge = mode === 'day' ? 280 : 320     // Randbereich, wann gescrollt wird
+      const mult = mode === 'day' ? 2 : 1.4     // Verstärkung, wie stark gescrollt wird, je näher am Rand
+      const cap = mode === 'day' ? 50 : 20      // Maximale Scrollgeschwindigkeit pro Aufruf
 
+      // Linke Seite prüfen
       if (xVisible < edge) {
+        // delta = Wie viel gescrollt werden soll
         const delta = Math.min(cap, (edge - xVisible) * mult)
         scrollToX(scrollXRef.current - delta)
         return
       }
 
+      // Rechte Seite prüfen
       if (xVisible > screenWidth - edge) {
+        // delta = Wie viel gescrollt werden soll
         const delta = Math.min(cap, (xVisible - (screenWidth - edge)) * mult)
         scrollToX(scrollXRef.current + delta)
       }
@@ -604,102 +668,154 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     [mode, screenWidth, scrollToX],
   )
 
-  //PanResponder für Touch-Dinge im Diagramm
-  //Ermöglicht das Auswählen von Datenpunkten durch Berühren und Ziehen
+
+  // Ermöglicht das Auswählen von Datenpunkten durch Berühren und Ziehen
+  // PanResponder ist von React-Native und zuständig für Touch-Handling
   const panResponder = useMemo(() => {
+
+    const handleSelectAtEventX = (xVisibleRaw: number) => 
+    {
+      // Sorgt dafür dass die Auswahl nicht am Rand klebt
+      const xVisible = clampVisibleX(xVisibleRaw, screenWidth, mode)
+      // Absolute Position im ganzen Chart = Wie weit nach rechts gescrollt + aktuelle Screen Koordinate
+      const xContent = scrollXRef.current + xVisible
+
+      // Nächsten Datenpunkt finden
+      const idx = nearestIndexFromChartX(xContent)
+      // Auswahl setzen
+      if (idx >= 0) selectIndex(idx)
+    }
+
     return PanResponder.create({
+      // Dieser PanResponder ist zuständig von Start über Move bis Ende
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+
+      // Finger setzt auf
       onPanResponderGrant: (e) => {
         const xVisibleRaw = e.nativeEvent.locationX
-
-        // Scroll-Verhalten bleibt am echten Finger
-        // Auswahl/Strich wird "komfortabel" nach innen gedeckelt
-        const xVisible = clampVisibleX(xVisibleRaw, screenWidth, mode)
-        const xContent = scrollXRef.current + xVisible
-
-        const idx = nearestIndexFromChartX(xContent)
-        if (idx >= 0) selectIndex(idx)
+        handleSelectAtEventX(xVisibleRaw)
       },
+      // Finger zieht
       onPanResponderMove: (e) => {
         const xVisibleRaw = e.nativeEvent.locationX
 
-        // Autoscroll am echten Finger (sonst fühlt es sich träge an)
+        // Autoscroll am echten Finger 
         autoScrollIfNearEdges(xVisibleRaw)
 
         // Auswahl nicht am Rand kleben lassen
-        const xVisible = clampVisibleX(xVisibleRaw, screenWidth, mode)
-        const xContent = scrollXRef.current + xVisible
-
-        const idx = nearestIndexFromChartX(xContent)
-        if (idx >= 0) selectIndex(idx)
+        handleSelectAtEventX(xVisibleRaw)
       },
+      // Finger loslassen --> Auswahl soll bleiben
       onPanResponderRelease: () => {},
       onPanResponderTerminate: () => {},
     })
   }, [nearestIndexFromChartX, selectIndex, autoScrollIfNearEdges, screenWidth, mode])
 
-  //x-Achsen Ticks basierend auf dem Modus und der Datenanzahl
+
+  // Liste von Indices für die X-Achse
+  // Victory Native XL will wissen bei welchem Datenpunkt ein Labek hin soll
   const xTickValues = useMemo(() => {
     const n = prepared.rows.length
-    if (n === 0) return []
+    if (n === 0) {
+      return []
+    }
 
+    // TAG
     if (mode === 'day') {
       const desiredPx = 45
+      // desiredPx / pxPerPoint berechnet wie viele Punkte man braucht, um ungefähr desiredPx Pixel Abstand zu haben
       const step = Math.max(1, Math.round(desiredPx / pxPerPoint))
+
       const ticks: number[] = []
-      for (let i = 0; i < n; i += step) ticks.push(i)
-      if (ticks[ticks.length - 1] !== n - 1) ticks.push(n - 1)
+      for (let i = 0; i < n; i += step) {
+        ticks.push(i)
+      }
+
+      // Letzter Tick wird erzwungen, damit das Ende auch ein Label bekommt
+      if (ticks[ticks.length - 1] !== n - 1) {
+        ticks.push(n - 1)
+      }
+
       return ticks
     }
 
+    // MONAT
     if (mode === 'month') {
       const y = selection.year
       const m0 = selection.month ?? 0
       const dim = getDaysInMonth(y, m0)
 
       const ticks: number[] = []
+      // seen speichert welche Tage schon als Tick existieren (Set für schnelle Überprüfung)
       const seen = new Set<number>()
 
       for (let i = 0; i < n; i++) {
         const d = new Date(prepared.rows[i].t)
         const day = d.getDate()
+
+        if (seen.has(day)) {
+          continue
+        }
+
+        // Mitternacht prüfen
         const h = d.getHours()
         const min = d.getMinutes()
-        if (h === 0 && min === 0 && !seen.has(day)) {
+
+        if (h === 0 && min === 0) {
           ticks.push(i)
           seen.add(day)
-          if (seen.size >= dim) break
+
+          if (seen.size >= dim) {
+            break
+          }
         }
       }
 
-      if (ticks.length === 0) {
-        const step = Math.max(1, Math.round(35 / pxPerPoint))
-        for (let i = 0; i < n; i += step) ticks.push(i)
+      if (ticks.length > 0) {
+        return ticks
+      }
+
+      // Zur Sicherheit falls keine Mitternachtsdaten existieren
+      const step = Math.max(1, Math.round(35 / pxPerPoint))
+      for (let i = 0; i < n; i += step) {
+        ticks.push(i)
       }
 
       return ticks
     }
 
-    const ticks = yearTickIndices(prepared.rows)
-    if (ticks.length > 0) return ticks
+    // Jahr
+    // Wenn yearTickIndices funktioniert, dann benutz dessen Werte
+    const yearTicks = yearTickIndices(prepared.rows)
+    if (yearTicks.length > 0) {
+      return yearTicks
+    }
 
+    // Sicherheit, falls yearTickIndices keine Werte um 00:00 findet
     const step = Math.max(1, Math.round(70 / pxPerPoint))
     const fallback: number[] = []
-    for (let i = 0; i < n; i += step) fallback.push(i)
+    for (let i = 0; i < n; i += step) {
+      fallback.push(i)
+    }
     return fallback
   }, [prepared.rows, mode, selection.year, selection.month, pxPerPoint])
 
+  // Wandelt x-Wert in Text um welcher angezeigt wird
   const formatXLabel = useCallback(
     (xIndex: number) => {
       const idx = Math.round(Number(xIndex))
+      // Wenn Index ungültig ist, leeres Label zurückgeben
       const r = prepared.rows[idx]
       if (!r) return ''
 
+      // Im Jahresmodus andere Darstellung
       if (mode === 'year') {
         const d = new Date(r.t)
         const day = d.getDate()
+        // Kurzen Monatsnamen holen
         const mon = new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
+        // Wenn erster des Monats, dann Monatsname, sonst Tag anzeigen
         if (day === 1) return mon
         return `${day}.`
       }
@@ -709,30 +825,35 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     [prepared.rows, mode],
   )
 
-  const selectedIndex = selected?.index ?? -1
-  const showOverlayMessage = !isLoading && (!!errorText || prepared.rows.length === 0)
-  const showFontLoading = !font
+  const selectedIndex = selected?.index ?? -1       // Index des ausgewählten Punkts, oder -1 wenn keiner ausgewählt ist
+  const showOverlayMessage = !isLoading && (!!errorText || prepared.rows.length === 0)  // Doppeltes !! ist eine Typ-Umwandlung zu Boolean, damit es true/false ist
+  const showFontLoading = !font   
 
+  // Gesamtenergie für den aktuellen Zeitraum berechnen
   const periodTotals = useMemo(() => {
+    // Falls rawApiData null ist, nimm leeres Array (sonst Fehler)
     const arr = rawApiData ?? []
     if (arr.length === 0) return null
     return integrateEnergy(arr)
   }, [rawApiData])
 
-  //Effekt, der bei Änderung der Selection die Daten vom API lädt (ausgelagert in Service)
+  // Wenn sich Selektion ändert, Resete alles und hole Daten
   useEffect(() => {
     let alive = true
 
+    // Alle States zurücksetzen
     setIsLoading(true)
     setErrorText(null)
     setSelected(null)
     setRawApiData(null)
 
+    // Scrolls und Refs zurücksetzen
     pointsXRef.current = []
     lastIdxRef.current = -1
     scrollXRef.current = 0
     scrollRef.current?.scrollTo({ x: 0, animated: false })
 
+    // Selbst aufrufende Async-Funktion
     ;(async () => {
       try {
         const arr = await fetchDiagramPvPoints(selection)
@@ -754,9 +875,11 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     }
   }, [requestKey, selection])
 
+  // Sobald neue Daten da sind, wird automatisch ein Punkt ausgewählz
   useEffect(() => {
     const n = prepared.rows.length
     if (n <= 0) return
+    // Gibt es einen gespeicherten index?
     if (lastIdxRef.current !== -1) {
       selectIndex(lastIdxRef.current)
       return
@@ -826,10 +949,13 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                   )}
 
                   <CartesianChart
+                    // Jede Row enthält: x (Index), axisLabel (für X-Achse), tipLabel (für Tooltip), pv, load, feedIn, socPct, t (Zeitstempel)
                     data={prepared.rows}
+                    // xKey ist "x", also der Index der Datenpunkte
                     xKey="x"
                     yKeys={yKeys as any}
                     padding={padding}
+                    // x-Werte von 0 bis Anzahl der Datenpunkte, y-Werte von 0 bis yMax (automatisch berechnet)
                     domain={{ x: [0, Math.max(1, prepared.rows.length - 1)], y: [0, prepared.yMax] }}
                     xAxis={{
                       font,
@@ -847,22 +973,26 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                     ]}
                   >
                     {({ points }) => {
+                      // Victory rechnet aus Daten echte Chart-Koordinaten aus
                       const pvPts = points.pv ?? []
                       if (pvPts.length > 0) {
                         const xs: number[] = []
+                        // X-Koordinaten der PV-Punkte extrahieren
                         for (let i = 0; i < pvPts.length; i++) {
                           const x = pvPts[i]?.x
+                          // Sicherheitshalber prüfen, ob x eine endliche Zahl ist, sonst NaN speichern
                           xs.push(typeof x === 'number' && Number.isFinite(x) ? x : NaN)
                         }
+                        // Wenn alle X-Koordinaten gültige Zahlen sind, dann in Ref speichern
                         if (xs.every(v => Number.isFinite(v))) pointsXRef.current = xs
                       }
 
                       const n = pvPts.length
-                      const idxOk = selectedIndex >= 0 && selectedIndex < n
-                      const pvP = idxOk ? pvPts[selectedIndex] : undefined
-                      const loadP = idxOk ? points.load?.[selectedIndex] : undefined
-                      const feedP = idxOk ? points.feedIn?.[selectedIndex] : undefined
-                      const socP = idxOk ? points.socScaled?.[selectedIndex] : undefined
+                      const idxOk = selectedIndex >= 0 && selectedIndex < n                     // Ist Index gültig?
+                      const pvP = idxOk ? pvPts[selectedIndex] : undefined                      // Datenpunkt bei Index holen
+                      const loadP = idxOk ? points.load?.[selectedIndex] : undefined            // Datenpunkt bei Index holen
+                      const feedP = idxOk ? points.feedIn?.[selectedIndex] : undefined          // Datenpunkt bei Index holen
+                      const socP = idxOk ? points.socScaled?.[selectedIndex] : undefined        // Datenpunkt bei Index holen
 
                       return (
                         <>
@@ -871,6 +1001,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                           <Line points={points.feedIn} color={COLORS.feedIn} strokeWidth={3} />
                           {showSoc && <Line points={points.socScaled} color={COLORS.soc} strokeWidth={3} />}
 
+                          {/* Punkt auf Linie bei aktueller Markerposition setzen */}
                           {idxOk && (
                             <>
                               {pvP && <Scatter points={[pvP]} color={COLORS.pv} radius={5} />}
