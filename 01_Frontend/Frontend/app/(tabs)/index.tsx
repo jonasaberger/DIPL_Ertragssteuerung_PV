@@ -19,7 +19,6 @@ import { setEGoAmpere } from '@/services/iot_services/e_go_service'
 import { getBackendBaseURL } from '@/services/setting_services/device-backend_configs/backend_config_service'
 import {EmergencyConfigModal} from "@/components/settings/s-emergency-config"
 
-
 type EGoWallboxSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 type BoilerSetting = 'MANUAL_OFF' | 'MANUAL_ON'
 
@@ -146,18 +145,6 @@ export default function HomeScreen() {
     }
   }
 
-  // Sync ampere from backend data
-  useEffect(() => {
-    if (wallboxData?.ampere !== undefined) {
-      setUiState((prev) => {
-        if (prev.ampere !== wallboxData.ampere) {
-          return { ...prev, ampere: wallboxData.ampere }
-        }
-        return prev
-      })
-    }
-  }, [wallboxData?.ampere])
-
   // Fetch current mode on component mount
   useEffect(() => {
     if (healthCheckStatus !== 'ok') return
@@ -203,6 +190,19 @@ export default function HomeScreen() {
       })
     }
   }, [wallboxData?.isCharging])
+
+    // Sync ampere from backend data
+  useEffect(() => {
+    if (wallboxData?.ampere !== undefined) {
+      setUiState((prev) => {
+        if (prev.ampere !== wallboxData.ampere) {
+          return { ...prev, ampere: wallboxData.ampere }
+        }
+        return prev
+      })
+    }
+  }, [wallboxData?.ampere])
+
 
   // --- Rohwerte
   const pvTotal = clamp0(toNum(pvData?.pv_power ?? 0))            //PV-Leistung immer positiv, ungültige Werte zu 0
