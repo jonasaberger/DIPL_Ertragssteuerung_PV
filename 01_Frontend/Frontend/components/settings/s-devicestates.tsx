@@ -66,6 +66,7 @@ export default function SDeviceStates() {
 
   const items = useMemo<RowItem[]>(() => {
     return data
+      // Nur Einträge mit gültigen device, from, to, date und time berücksichtigen
       .filter(
         e =>
           e.device != null &&
@@ -74,6 +75,7 @@ export default function SDeviceStates() {
           e.date != null &&
           e.time != null
       )
+      // In RowItem umwandeln, id aus rawTime und Index generieren, damit auch gleiche Zeiten möglich sind
       .map((e, idx) => ({
         id: `${e.rawTime}-${idx}`,
         date: e.date,
