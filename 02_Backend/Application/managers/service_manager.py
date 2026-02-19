@@ -71,8 +71,11 @@ class ServiceManager:
         # Initialize forecast service
         self.pv_forecast_service = PVForecastService()
 
+        # Initialize the IP-/Device-Manager
+        self.device_manager = DeviceManager()
+
         self.scheduler = SchedulerService(
-             mode_store=self.mode_store,
+            mode_store=self.mode_store,
             schedule_manager=self.schedule_manager,
             boiler=self.boiler_bridge,
             wallbox=self.wallbox_controller,
@@ -86,9 +89,6 @@ class ServiceManager:
             source="backend",
             message="PV Backend Service started"
         )
-
-        # Initialize the IP-/Device-Manager
-        self.device_manager = DeviceManager()
 
         # Simple startup logs: platform + boiler control availability
         print(f"[{datetime.now().isoformat()}] Service starting on platform: {platform.system()}")

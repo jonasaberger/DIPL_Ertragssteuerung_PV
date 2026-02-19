@@ -2,9 +2,7 @@ import json
 import copy
 from pathlib import Path
 
-
 #  Handles AUTOMATIC mode configuration
-#  Supports default fallback and runtime updates via API
 class AutomaticConfigStore:
     def __init__(self, path="data/automatic_config.json", default_path="data/automatic_config_default.json"):
         self.path = Path(path)

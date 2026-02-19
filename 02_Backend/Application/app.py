@@ -1,6 +1,5 @@
 from managers.service_manager import ServiceManager
 
-
 # Initialize service manager
 service_manager = ServiceManager()
 
