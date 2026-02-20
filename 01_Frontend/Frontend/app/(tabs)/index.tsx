@@ -213,7 +213,7 @@ export default function HomeScreen() {
 
   const gridImport = gridPower > 0 ? clamp0(gridPower) : 0              // Netzbezug immer positiv
   const gridFeedIn = gridPower < 0 ? clamp0(-gridPower) : 0             // Netzeinspeisung immer positiv, deswegen -gridPower
-  const batteryCharge = batteryPower < 0 ? clamp0(-batteryPower) : 0    // Barratel immer positiv, deswegen -batteryPower
+  const batteryCharge = batteryPower < 0 ? clamp0(-batteryPower) : 0    // Batterieladung immer positiv, deswegen -batteryPower
   const batteryDischarge = batteryPower > 0 ? clamp0(batteryPower) : 0  // Batterieentladung immer positiv
 
   // --- PV-Verteilung

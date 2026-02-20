@@ -91,6 +91,9 @@ class ServiceManager:
         # Initialize the IP-/Device-Manager
         self.device_manager = DeviceManager()
 
+        # Register reload callbacks
+        self.device_manager.register_reload_callback("wallbox", self.wallbox_controller.load_config)
+
         # Simple startup logs: platform + boiler control availability
         print(f"[{datetime.now().isoformat()}] Service starting on platform: {platform.system()}")
         if self.boiler_bridge and hasattr(self.boiler_bridge, "get_state"):
@@ -147,7 +150,7 @@ class ServiceManager:
         self.app.add_url_rule('/api/devices/get_devices', 'get_devices', self.device_manager.get_devices, methods=['GET'])
         self.app.add_url_rule('/api/devices/get_device', 'get_device', self.device_manager.get_device, methods=['GET'])
         self.app.add_url_rule('/api/devices/admin/verify_admin_pw', 'verify_admin_pw', self.device_manager.verify_admin_pw, methods=['POST'])
-        self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.edit_device_endpoint, methods=['POST'])
+        self.app.add_url_rule('/api/devices/edit_device', 'edit_device', self.device_manager.edit_device_endpoint, methods=['POST'])
         self.app.add_url_rule('/api/devices/reset_devices', 'reset_devices', self.device_manager.reset_devices_endpoint, methods=["POST"])
 
         # Mode Management endpoints
@@ -281,57 +284,6 @@ class ServiceManager:
                 {"error": "Failed to fetch logging data"},
                 500
             )
-
-    # Device management endpoint: Edit device configuration and AUTO-RELOAD AFFECTED CONTROLLERS 
-    def edit_device_endpoint(self):
-        """Edit device and automatically reload affected controllers"""
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({"error": "Missing JSON body"}), 400
-
-        device_id = data.get("deviceId")
-        password = data.get("password")
-        payload = data.get("payload")
-
-        if not device_id or not password or not payload:
-            return jsonify({"error": "Missing required fields: deviceId, password, payload"}), 400
-
-        try:
-            # Edit the device config
-            updated_devices = self.device_manager.edit_device_logic(device_id, payload, password)
-        except KeyError as e:
-            return jsonify({"error": str(e)}), 404
-
-        if updated_devices is None:
-            return jsonify({"success": False, "message": "Invalid admin password"}), 401
-
-        # Auto-reload affected devices
-        reload_results = {"reloaded": [], "failed": []}
-        
-        # Reload based on which device was edited
-        if device_id == "wallbox":
-            try:
-                self.wallbox_controller.load_config()
-                reload_results["reloaded"].append("wallbox")
-            except Exception as e:
-                reload_results["failed"].append({"device": "wallbox", "error": str(e)})
-        
-        # Add other device-specific reloads as needed
-        # 
-        #
-        
-        # Log the change
-        self.logger.system_event(
-            level="info",
-            source="device_config",
-            message=f"Device '{device_id}' configuration updated and reloaded"
-        )
-
-        return jsonify({
-            "success": True,
-            "devices": self.device_manager.get_devices(),
-            "reload": reload_results
-        }), 200
 
     # Route Handlers
     def _json(self, payload, status=200):

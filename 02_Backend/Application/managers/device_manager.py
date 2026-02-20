@@ -8,6 +8,7 @@ class DeviceManager:
         self.config_path = config_path
         self.default_path = default_path
         self.admin_pw = os.getenv("ADMIN_PW")
+        self._reload_callbacks: dict[str, callable] = {}
 
         if not self.admin_pw:
             raise RuntimeError("ADMIN_PW not set in environment")
@@ -46,6 +47,19 @@ class DeviceManager:
                 "success": False,
                 "error": str(e)
             }), 500
+        
+    def register_reload_callback(self, device_id: str, callback: callable):
+        self._reload_callbacks[device_id] = callback
+
+    def run_reload_callback(self, device_id: str) -> dict:
+        results = {"reloaded": [], "failed": []}
+        if device_id in self._reload_callbacks:
+            try:
+                self._reload_callbacks[device_id]()
+                results["reloaded"].append(device_id)
+            except Exception as e:
+                results["failed"].append({"device": device_id, "error": str(e)})
+        return results
 
     # -------- READ METHODS --------
     def get_devices(self) -> dict:
@@ -119,29 +133,34 @@ class DeviceManager:
 
         return jsonify({"success": False}), 401
 
-    ## DEVICE-EDITS
+
     def edit_device_logic(self, device_id: str, payload: dict, password: str):
+        # Validate admin password
         if not self.check_password(password):
             return None
 
+        # Validate device exists
         device = self._config["devices"].get(device_id)
         if not device:
             raise KeyError(f"Device '{device_id}' not found")
 
+        # Update device config with provided payload
         device.update(payload)
-        self.save()
+        self.save() # Save updated config to file
 
-        return self._config["devices"]
+        return self._config["devices"] # Return updated devices for response
 
     def edit_device_endpoint(self):
         data = request.get_json(silent=True)
         if not data:
             return jsonify({"error": "Missing JSON body"}), 400
 
+        # Extract required fields
         device_id = data.get("deviceId")
         password = data.get("password")
         payload = data.get("payload")
 
+        # Validate required fields
         if not device_id or not password or not payload:
             return jsonify({"error": "Missing required fields: deviceId, password, payload"}), 400
 
@@ -153,5 +172,11 @@ class DeviceManager:
         if updated_devices is None:
             return jsonify({"success": False, "message": "Invalid admin password"}), 401
 
-        # Return all devices
-        return jsonify({"success": True, "devices": self.get_devices()}), 200
+        # After successful edit - run reload callback if registered for this device
+        reload_results = self.run_reload_callback(device_id)
+
+        return jsonify({
+            "success": True,
+            "devices": self.get_devices(),
+            "reload": reload_results
+        }), 200
