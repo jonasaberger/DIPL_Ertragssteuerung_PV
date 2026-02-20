@@ -18,7 +18,7 @@ if platform.system() == "Linux":
 
 class Boiler_Bridge:
     def __init__(self):
-        # Define basedir + folder of temperator sensor(s); Sensor connected to GPIO17 (defined in /boot/firmware/config.txt)
+        # Define basedir + folder of temperator sensor(s); Sensor connected to GPIO28 (defined in /boot/firmware/config.txt)
         # initialize sensor only on Raspberry Pi
         if platform.system() != "Linux":
             # no 1-wire sensor on non-Linux systems
