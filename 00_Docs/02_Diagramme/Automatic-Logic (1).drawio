@@ -1,0 +1,537 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.0 Chrome/140.0.7339.249 Electron/38.7.2 Safari/537.36" version="29.3.0">
+  <diagram name="Seite-1" id="gUVK3oWYtmrEZGqbZk0d">
+    <mxGraphModel dx="2481" dy="1011" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-183" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="1770" width="610" x="610" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-90" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="2340" width="580" x="-220" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-27" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="" vertex="1">
+          <mxGeometry height="180" width="180" x="30.010000000000005" y="670" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-11" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="" vertex="1">
+          <mxGeometry height="180" width="180" x="30" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-1" parent="1" style="points=[[0.145,0.145,0],[0.5,0,0],[0.855,0.145,0],[1,0.5,0],[0.855,0.855,0],[0.5,1,0],[0.145,0.855,0],[0,0.5,0]];shape=mxgraph.bpmn.event;html=1;verticalLabelPosition=bottom;labelBackgroundColor=#ffffff;verticalAlign=top;align=center;perimeter=ellipsePerimeter;outlineConnect=0;aspect=fixed;outline=standard;symbol=timer;" value="Scheduler Tick (alle 60 Sekunden)" vertex="1">
+          <mxGeometry height="40" width="40" x="394" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;h2 data-start=&quot;0&quot; data-end=&quot;40&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;Automatic Mode – Entscheidungslogik&lt;/font&gt;&lt;/h2&gt;&lt;p data-start=&quot;42&quot; data-end=&quot;159&quot;&gt;&lt;font style=&quot;font-size: 10px;&quot;&gt;Im Automatic Mode wird alle 60 Sekunden überprüft, ob Boiler oder Wallbox aktiviert oder deaktiviert werden sollen.&lt;/font&gt;&lt;span style=&quot;font-size: 10px; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;Dabei werden der aktuelle Gerätezustand, der PV-Überschuss, die PV-Prognose für heute und morgen, der aktuelle EPEX-Strompreis sowie definierte Zielwerte und Deadlines berücksichtigt.Das folgende Diagramm zeigt den vollständigen Entscheidungsablauf des Automatic Mode.&lt;/span&gt;&lt;/p&gt;" vertex="1">
+          <mxGeometry height="100" width="470" x="179" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-5" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;entryX=1;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-8" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="410" y="250" as="sourcePoint" />
+            <mxPoint x="180" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="Aktuelle Boiler-Temperatur lesen" vertex="1">
+          <mxGeometry height="60" width="120" x="60" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-9" parent="1" style="rhombus;whiteSpace=wrap;html=1;" value="Entscheidung: Ziel erreicht?" vertex="1">
+          <mxGeometry height="120" width="127.5" x="56.25" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-10" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-8" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-11" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="280" y="580" as="sourcePoint" />
+            <mxPoint x="120" y="380" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-12" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;Temperatur ≥ Zieltemperatur&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="170" x="35" y="400" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-13" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;b&gt;Automatic-config&lt;br&gt;(boiler)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="-150" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-14" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-9" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-20" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="280" y="580" as="sourcePoint" />
+            <mxPoint x="-90" y="490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-15" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-14" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Ja" vertex="1">
+          <mxGeometry relative="1" x="-0.0252" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-17" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-14" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ziel erreicht&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.0696" as="geometry">
+            <mxPoint x="-12" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-20" parent="1" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;b&gt;BOILER AUS&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="110" x="-210" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-21" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-9" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="280" y="660" as="sourcePoint" />
+            <mxPoint x="120" y="670" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-22" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-21" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Ziel nicht&lt;div&gt;erreicht&lt;/div&gt;" vertex="1">
+          <mxGeometry relative="1" x="0.0889" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-25" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-13" style="endArrow=classic;html=1;rounded=0;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-11" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="280" y="410" as="sourcePoint" />
+            <mxPoint x="330" y="360" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-26" parent="1" style="rhombus;whiteSpace=wrap;html=1;" value="Entscheidung: Unter Sollbereich?" vertex="1">
+          <mxGeometry height="120" width="143.75" x="49.369999999999976" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-28" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;Heizbedarf prüfen (Hysterese)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="130" x="56.25" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-29" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-26" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="280" y="740" as="sourcePoint" />
+            <mxPoint x="-90" y="780" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-31" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-29" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Nein&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.0547" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-30" parent="1" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;Hysterese-Bereich&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Status beibehalten&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="-210" y="745" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-32" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-26" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="280" y="830" as="sourcePoint" />
+            <mxPoint x="120" y="950" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-33" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-32" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Ja,&amp;nbsp;&lt;div&gt;&amp;nbsp;Heizbedarf besteht:&amp;nbsp;&lt;/div&gt;&lt;div&gt;&amp;nbsp;weiter&lt;/div&gt;" vertex="1">
+          <mxGeometry relative="1" x="-0.0936" y="1" as="geometry">
+            <mxPoint y="5" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-34" parent="1" style="swimlane;whiteSpace=wrap;html=1;" value="PRIORISIERTE ENTSCHEIDUNGSLOGIK" vertex="1">
+          <mxGeometry height="1580" width="470" x="-140" y="950" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-36" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rounded=1;whiteSpace=wrap;html=1;" value="PV-Überschuss messen" vertex="1">
+          <mxGeometry height="60" width="120" x="195.63" y="60" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-37" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 1 – PV-SURPLUS&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="171.25" x="170" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-38" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rhombus;whiteSpace=wrap;html=1;" value="PV-Überschuss &amp;gt; 0.5 kW" vertex="1">
+          <mxGeometry height="110" width="150.64" x="180.3" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-39" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-36" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-38" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="415.63" y="130" as="sourcePoint" />
+            <mxPoint x="465.63" y="80" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-40" parent="bY-R1fXAZtOmmpZO5mQn-34" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;BOILER EIN&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Reason: pv_surplus&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="10" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-41" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-38" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-40" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="420" y="210" as="sourcePoint" />
+            <mxPoint x="470" y="160" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-42" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-41" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.2326" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-43" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;strong data-start=&quot;1105&quot; data-end=&quot;1131&quot;&gt;EPEX-Preis analysieren&lt;/strong&gt;&lt;br&gt;(14-Tage-Minimum + 20% Spanne)" vertex="1">
+          <mxGeometry height="60" width="120" x="195.47" y="380" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-44" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-38" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="420" y="380" as="sourcePoint" />
+            <mxPoint x="256" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-45" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-44" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-47" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 2 – EPEX EMERGENCY CHEAP&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="171.55" x="169.7" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-48" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rhombus;whiteSpace=wrap;html=1;" value="Preis ≤ Emergency-Schwelle?" vertex="1">
+          <mxGeometry height="110" width="150.64" x="180.31" y="480" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-49" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-43" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-48" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="420" y="380" as="sourcePoint" />
+            <mxPoint x="470" y="330" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-50" parent="bY-R1fXAZtOmmpZO5mQn-34" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;BOILER EIN&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="20" y="500" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-51" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="60" x="40" y="460" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-52" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;div&gt;Reason: epex_emergency_cheap&lt;/div&gt;&lt;div&gt;Forecast wird ignoriert&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="160" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-53" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-48" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-50" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="420" y="460" as="sourcePoint" />
+            <mxPoint x="470" y="410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-54" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-53" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.0006" y="-2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-57" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 3 – FORECAST BLOCK&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="171.55" x="169.7" y="670" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-59" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rhombus;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;&quot;&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;&lt;br&gt;PV-Forecast heute oder morgen vorhanden&lt;/font&gt;&lt;br&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="110" width="150.64" x="180.31" y="710" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-60" parent="bY-R1fXAZtOmmpZO5mQn-34" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;WARTEN&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Reason: forecast_wait&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="20" y="730" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-61" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-59" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-60" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="420" y="710" as="sourcePoint" />
+            <mxPoint x="470" y="660" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-62" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-61" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.2487" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-65" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 4 – EPEX REGULAR CHEAP&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="171.55" x="170" y="910" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-66" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rounded=1;whiteSpace=wrap;html=1;" value="&#xa;Regular-Schwelle = Unteres Drittel (33%) der 14-Tage-Spanne&#xa;&#xa;" vertex="1">
+          <mxGeometry height="60" width="120" x="195.77" y="950" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-67" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rhombus;whiteSpace=wrap;html=1;" value="Preis ≤ Regular-Schwelle" vertex="1">
+          <mxGeometry height="110" width="150.64" x="180.14999999999998" y="1060" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-68" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-66" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-67" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="410" y="1040" as="sourcePoint" />
+            <mxPoint x="460" y="990" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-69" parent="bY-R1fXAZtOmmpZO5mQn-34" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;BOILER EIN&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="20" y="1090" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-71" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-67" style="endArrow=classic;html=1;rounded=0;entryX=1.008;entryY=0.386;entryDx=0;entryDy=0;entryPerimeter=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="bY-R1fXAZtOmmpZO5mQn-69" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="160" y="1080" as="sourcePoint" />
+            <mxPoint x="150" y="1110" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-72" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-71" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.2487" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-73" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Reason: epex_cheap" vertex="1">
+          <mxGeometry height="30" width="160" y="1170" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-76" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 5 – DEADLINE FAILSAFE&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="171.55" x="170" y="1260" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-77" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rhombus;whiteSpace=wrap;html=1;" value="Verbleibende Zeit ≤ Mindestlaufzeit" vertex="1">
+          <mxGeometry height="110" width="150.64" x="180.45" y="1300" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-78" parent="bY-R1fXAZtOmmpZO5mQn-34" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;BOILER EIN&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="20" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-81" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-77" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" target="bY-R1fXAZtOmmpZO5mQn-78" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="410" y="1290" as="sourcePoint" />
+            <mxPoint x="460" y="1240" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-82" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-81" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.3679" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-83" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Reason: deadline_failsafe" vertex="1">
+          <mxGeometry height="30" width="160" x="9.700000000000003" y="1400" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-84" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="255.36" y="1410" as="sourcePoint" />
+            <mxPoint x="255.36" y="1490" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-85" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-84" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-86" parent="bY-R1fXAZtOmmpZO5mQn-34" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;WARTEN&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Reason: wait&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="195.77" y="1500" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-55" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-48" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="120" y="1580" as="sourcePoint" />
+            <mxPoint x="116" y="1610" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-56" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-55" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-63" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-59" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="140" y="1810" as="sourcePoint" />
+            <mxPoint x="116" y="1850" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-64" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-63" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-74" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-67" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="110" y="2150" as="sourcePoint" />
+            <mxPoint x="115" y="2200" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-75" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-74" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-91" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 20px;&quot;&gt;&lt;b&gt;Boiler-Logik&lt;/b&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="123.75" x="-11.87" y="240" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-92" edge="1" parent="1" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-135" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="410" y="250" as="sourcePoint" />
+            <mxPoint x="660" y="300" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-135" parent="1" style="swimlane;whiteSpace=wrap;html=1;startSize=23;" value="PRIORISIERTE ENTSCHEIDUNGSLOGIK" vertex="1">
+          <mxGeometry height="1680" width="550" x="640" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-136" parent="bY-R1fXAZtOmmpZO5mQn-135" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 1 – PV-SURPLUS&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="171.25" x="164.38" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-137" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rounded=1;whiteSpace=wrap;html=1;" value="PV-Überschuss messen" vertex="1">
+          <mxGeometry height="60" width="120" x="190" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-138" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rhombus;whiteSpace=wrap;html=1;" value="PV-Überschuss &amp;gt; 0.5 kW" vertex="1">
+          <mxGeometry height="110" width="150.64" x="174.68000000000006" y="190" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-139" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-135" source="bY-R1fXAZtOmmpZO5mQn-137" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-138" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="290" y="150" as="sourcePoint" />
+            <mxPoint x="290" y="190" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-140" parent="bY-R1fXAZtOmmpZO5mQn-135" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;b&gt;Wallbox ein&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="110" x="380" y="215" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-141" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-135" source="bY-R1fXAZtOmmpZO5mQn-138" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="bY-R1fXAZtOmmpZO5mQn-140" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="-280" y="370" as="sourcePoint" />
+            <mxPoint x="-230" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-142" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-141" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.1984" y="4" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-145" parent="bY-R1fXAZtOmmpZO5mQn-135" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 2 – EPEX EMERGENCY CHEAP&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="171.55" x="167" y="390" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-146" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;strong data-start=&quot;1105&quot; data-end=&quot;1131&quot;&gt;EPEX-Preis analysieren&lt;/strong&gt;&lt;br&gt;(14-Tage-Minimum + 20% Spanne)" vertex="1">
+          <mxGeometry height="60" width="120" x="190" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-147" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rhombus;whiteSpace=wrap;html=1;" value="Preis ≤ Emergency-Schwelle?" vertex="1">
+          <mxGeometry height="110" width="150.64" x="174.69000000000005" y="530" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-148" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-135" source="bY-R1fXAZtOmmpZO5mQn-146" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-147" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="160" y="540" as="sourcePoint" />
+            <mxPoint x="161" y="580" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-149" parent="bY-R1fXAZtOmmpZO5mQn-135" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;b&gt;Wallbox ein&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="110" x="380" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-150" parent="bY-R1fXAZtOmmpZO5mQn-135" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;div&gt;Reason: epex_emergency_cheap&lt;/div&gt;&lt;div&gt;Forecast wird ignoriert&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="160" x="355" y="630" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-151" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-135" source="bY-R1fXAZtOmmpZO5mQn-147" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="bY-R1fXAZtOmmpZO5mQn-149" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="360" y="550" as="sourcePoint" />
+            <mxPoint x="415" y="550" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-152" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-151" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.1984" y="4" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-155" parent="bY-R1fXAZtOmmpZO5mQn-135" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 3 – FORECAST BLOCK&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="171.55" x="167" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-156" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rhombus;whiteSpace=wrap;html=1;" value="&lt;font style=&quot;&quot;&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;&lt;br&gt;PV-Forecast heute oder morgen vorhanden&lt;/font&gt;&lt;br&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="110" width="150.64" x="177.45000000000005" y="750" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-157" parent="bY-R1fXAZtOmmpZO5mQn-135" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;WARTEN&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;b&gt;Reason: forecast_wait&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="120" x="375" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-158" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-135" source="bY-R1fXAZtOmmpZO5mQn-156" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="bY-R1fXAZtOmmpZO5mQn-157" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="350" y="820" as="sourcePoint" />
+            <mxPoint x="405" y="820" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-159" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-158" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.1984" y="4" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-163" parent="bY-R1fXAZtOmmpZO5mQn-135" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 4 – EPEX REGULAR CHEAP&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="171.55" x="166.99" y="960" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-164" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rounded=1;whiteSpace=wrap;html=1;" value="&#xa;Regular-Schwelle = Unteres Drittel (33%) der 14-Tage-Spanne&#xa;&#xa;" vertex="1">
+          <mxGeometry height="60" width="120" x="192.76" y="990" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-166" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rhombus;whiteSpace=wrap;html=1;" value="Preis ≤ Regular-Schwelle" vertex="1">
+          <mxGeometry height="110" width="150.64" x="177.45000000000005" y="1110" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-167" parent="bY-R1fXAZtOmmpZO5mQn-135" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;b&gt;Wallbox ein&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="110" x="380" y="1135" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-168" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-135" source="bY-R1fXAZtOmmpZO5mQn-166" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="bY-R1fXAZtOmmpZO5mQn-167" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="340" y="1140" as="sourcePoint" />
+            <mxPoint x="395" y="1140" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-169" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-168" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.1984" y="4" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-172" parent="bY-R1fXAZtOmmpZO5mQn-135" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;p data-start=&quot;1061&quot; data-end=&quot;1093&quot;&gt;&lt;b&gt;PRIORITY 5 – NIGHT FAILSAFE&lt;/b&gt;&lt;/p&gt;&lt;br/&gt;&lt;p data-start=&quot;1095&quot; data-end=&quot;1113&quot;&gt;&lt;/p&gt;" vertex="1">
+          <mxGeometry height="30" width="171.55" x="167" y="1320" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-173" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rhombus;whiteSpace=wrap;html=1;" value="Verbleibende Zeit ≤ 2h&lt;br data-start=&quot;1137&quot; data-end=&quot;1140&quot;&gt;&lt;br/&gt;UND allow_night = true" vertex="1">
+          <mxGeometry height="104" width="198.09" x="153.71" y="1340" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-174" parent="bY-R1fXAZtOmmpZO5mQn-135" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;b&gt;Wallbox ein&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="110" x="385" y="1362" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-175" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-135" source="bY-R1fXAZtOmmpZO5mQn-173" style="endArrow=classic;html=1;rounded=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" target="bY-R1fXAZtOmmpZO5mQn-174" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="360" y="1340" as="sourcePoint" />
+            <mxPoint x="412" y="1340" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-176" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-175" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp;Ja&amp;nbsp;" vertex="1">
+          <mxGeometry relative="1" x="-0.1984" y="4" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-177" parent="bY-R1fXAZtOmmpZO5mQn-135" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Reason: automatic_night_grid_failsafe" vertex="1">
+          <mxGeometry height="30" width="160" x="360" y="1430" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-180" parent="bY-R1fXAZtOmmpZO5mQn-135" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;b&gt;Wallbox aus&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="110" x="197.76" y="1540" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-181" parent="bY-R1fXAZtOmmpZO5mQn-135" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Reason: automatic_no_pv_no_forecast" vertex="1">
+          <mxGeometry height="30" width="160" x="178.54999999999995" y="1610" as="geometry" />
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-143" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-138" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="900" y="680" as="sourcePoint" />
+            <mxPoint x="890" y="700" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-144" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-143" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-153" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-147" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="870" y="1020" as="sourcePoint" />
+            <mxPoint x="890" y="1030" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-154" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-153" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-160" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-156" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="910" y="1240" as="sourcePoint" />
+            <mxPoint x="893" y="1270" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-161" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-160" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-165" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-164" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="891" y="1430" as="sourcePoint" />
+            <mxPoint x="893" y="1430" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-170" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-166" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="880" y="1570" as="sourcePoint" />
+            <mxPoint x="893" y="1620" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-171" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-170" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-178" edge="1" parent="1" source="bY-R1fXAZtOmmpZO5mQn-173" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="900" y="1830" as="sourcePoint" />
+            <mxPoint x="893" y="1850" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-179" connectable="0" parent="bY-R1fXAZtOmmpZO5mQn-178" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="&amp;nbsp; &amp;nbsp; Nein -&amp;gt; weiter" vertex="1">
+          <mxGeometry relative="1" x="-0.3169" y="-1" as="geometry">
+            <mxPoint x="1" y="9" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-184" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;font style=&quot;font-size: 20px;&quot;&gt;&lt;b&gt;Wallbox-Logik&lt;/b&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="30" width="141.87" x="844.07" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="mZoX7cUqemjuVZUBK4Q6-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;b&gt;Automatic-config&lt;br&gt;(boiler)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="120" x="1270" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="mZoX7cUqemjuVZUBK4Q6-2" edge="1" parent="1" source="mZoX7cUqemjuVZUBK4Q6-1" style="endArrow=classic;html=1;rounded=0;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1.002;entryY=0.039;entryDx=0;entryDy=0;entryPerimeter=0;" target="bY-R1fXAZtOmmpZO5mQn-183" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <mxPoint x="1300" y="360" as="sourcePoint" />
+            <mxPoint x="1360" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
