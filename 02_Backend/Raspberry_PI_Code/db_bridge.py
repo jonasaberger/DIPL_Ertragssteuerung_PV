@@ -20,6 +20,8 @@ class DB_Bridge:
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
         self.query_api = self.client.query_api()
     
+    # Checks the connection to InfluxDB by calling the health endpoint and printing the status; 
+    # returns True if successful, False if an exception occurs
     def check_connection(self):
         try:
             health = self.client.health()
@@ -29,6 +31,7 @@ class DB_Bridge:
             print(f"Connection error: {e}")
             return False
     
+    # Writes a data point to InfluxDB with the specified measurement name, fields, and optional timestamp;
     def write_data(self, measurement: str, fields: dict, timestamp=None):
         try:
             point = Point(measurement)
@@ -44,6 +47,9 @@ class DB_Bridge:
             print(f"Failed to write {measurement} data: {e}")
             return False
 
+    # Fetches the latest PV data from InfluxDB by querying for the most recent record in the "pv_data" measurement,
+    # and returns a dictionary with the pv_power value converted to pv_power_kw and the timestamp in ISO format;
+    # if any error occurs during the query, it returns None
     def fetch_data(self, measurement: str, limit: int = 5):
         try:
             query = f'''

@@ -1,5 +1,5 @@
-# Tests for the logging bridge. 
-# This test will simply check if the LoggingBridge can be instantiated without errors.
+# Tests for the logging bridge
+# This test will simply check if the LoggingBridge can be instantiated without errors
 
 from bridges.logging_bridge import LoggingBridge
 

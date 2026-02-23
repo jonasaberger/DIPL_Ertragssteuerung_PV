@@ -1,5 +1,5 @@
-# Tests for API validation.
-# These tests will check if the API correctly handles invalid requests and returns appropriate error codes.
+# Tests for API validation
+# These tests will check if the API correctly handles invalid requests and returns appropriate error codes
 
 def test_wallbox_api_missing_payload(client):
     # Check if the wallbox API endpoint correctly handles a request with missing payload

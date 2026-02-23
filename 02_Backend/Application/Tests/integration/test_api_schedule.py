@@ -1,5 +1,5 @@
-# Integration tests for the schedule API endpoint.
-# These tests will check if the API correctly handles requests to get and update the schedule.
+# Integration tests for the schedule API endpoint
+# These tests will check if the API correctly handles requests to get and update the schedule
 
 def test_get_schedule(client):
     resp = client.get("/api/schedule")

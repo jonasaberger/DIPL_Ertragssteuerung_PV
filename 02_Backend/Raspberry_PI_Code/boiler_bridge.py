@@ -3,8 +3,7 @@ import glob
 import time
 import platform
 
-# import only for Linux system (sensor does not require gpiozero)
-# keep try/except in case file reused elsewhere
+# import only for Linux system (sensor does not require gpiozero), keep try/except in case file reused elsewhere
 try:
     # no gpio usage here for sensor-only file
     pass
@@ -24,16 +23,18 @@ class Boiler_Bridge:
             # no 1-wire sensor on non-Linux systems
             self.device_file = None
         else:
+            # On Linux, look for the 1-wire sensor device file in the standard location
+            # This assumes that the sensor is properly connected and recognized by the system
             base_dir = '/sys/bus/w1/devices/'
             device_folders = glob.glob(base_dir + '28*')
             if not device_folders:
                 raise FileNotFoundError(
                     "No DS18B20 temperature sensor found under /sys/bus/w1/devices/"
                 )
+            # For simplicity, take the first sensor found. If multiple sensors are connected, this could be extended to handle multiple device files
             self.device_file = device_folders[0] + '/w1_slave'
 
     # Temperature Sensor
-
     # read temperatur sensor file, raw, no formatting
     def read_temp_raw(self):          
         if not self.device_file:
@@ -48,10 +49,15 @@ class Boiler_Bridge:
             return None
         lines = self.read_temp_raw()
         # prepared for more than one temperature sensor, therefore array
+        # wait until sensor is ready, indicated by YES at the end of the first line in the sensor file;
+        # if not ready, wait and read again until ready
         while lines[0].strip()[-3:] != 'YES':       
             time.sleep(0.2)
             lines = self.read_temp_raw()
+
         # filter position t= as after that the next 5 values are the temperatur *1000
+        # if t= is not found, return None; otherwise, extract the temperature value, convert it to °C by dividing by 1000,
+        # and return it as an integer (removing any decimal values)
         equals_pos = lines[1].find('t=')            
         if equals_pos != -1:
             temp_string = lines[1][equals_pos+2:]

@@ -23,7 +23,6 @@ from stores.automatic_config_store import AutomaticConfigStore
 from services.scheduler_service import SchedulerService
 from services.pv_forecast_service import PVForecastService
 
-
 SWAGGER_URL = '/swagger'
 API_URL = '/static/swagger.json'  
 
@@ -63,6 +62,7 @@ class ServiceManager:
         # Initialize system mode
         self.mode_store = SystemModeStore()
 
+        # Initialize schedule manager
         self.schedule_store = ScheduleStore()
         self.schedule_manager = ScheduleManager(self.schedule_store)
 
@@ -72,8 +72,12 @@ class ServiceManager:
         # Initialize forecast service
         self.pv_forecast_service = PVForecastService()
 
+        # Initialize the IP-/Device-Manager
+        self.device_manager = DeviceManager()
+
+        # Initialize and START the scheduler service
         self.scheduler = SchedulerService(
-             mode_store=self.mode_store,
+            mode_store=self.mode_store,
             schedule_manager=self.schedule_manager,
             boiler=self.boiler_bridge,
             wallbox=self.wallbox_controller,
@@ -104,10 +108,12 @@ class ServiceManager:
 
         # Configure all routes
         self.configure_routes()
-        
+
+    # Start the Flask server 
     def start_server(self):
         self.app.run(host=self.host_ip, port=self.server_port)
      
+    # Expose Flask app
     def get_app(self):
         return self.app
 
@@ -133,12 +139,7 @@ class ServiceManager:
 
         # EPEX endpoints
         self.app.add_url_rule('/api/epex/latest', 'epex_latest', self.get_epex_latest, methods=['GET'])
-        self.app.add_url_rule(
-            '/api/epex/price-offset',
-            'epex_price_offset',
-            self.device_manager.epex_price_offset_endpoint,
-            methods=['PUT']
-        )
+        self.app.add_url_rule('/api/epex/price-offset','epex_price_offset',self.device_manager.epex_price_offset_endpoint,methods=['PUT'] )
 
         # Monitoring-/State Enpoint
         self.app.add_url_rule('/api/state', 'state', self.get_state, methods=['GET'])
@@ -287,9 +288,9 @@ class ServiceManager:
 
     # Route Handlers
     def _json(self, payload, status=200):
-        """Helper for consistent JSON responses."""
         return jsonify(payload), status
 
+    # GET /connection - Check DB connection and basic API responsiveness
     def check_connection(self):
         try:
             self.db_bridge.check_connection()
@@ -314,18 +315,19 @@ class ServiceManager:
             return jsonify({"message": "No PV data found"}), 404
 
         # Rename _kw keys back to original field names for frontend compatibility
+        # This allows us to keep the internal DB schema consistent while providing a clean API for the frontend
         frontend_data = {**data}
-        frontend_data["pv_power"]      = frontend_data.pop("pv_power_kw",      None)
-        frontend_data["load_power"]    = frontend_data.pop("house_load_kw",    None)
+        frontend_data["pv_power"] = frontend_data.pop("pv_power_kw", None)
+        frontend_data["load_power"] = frontend_data.pop("house_load_kw", None)
         frontend_data["battery_power"] = frontend_data.pop("battery_power_kw", None)
 
         frontend_data = {k: v for k, v in frontend_data.items() if v is not None}
 
         return jsonify(frontend_data), 200
 
-    # GET /api/pv/daily?date=YYYY-MM-DD
+    # GET /api/pv/daily?date=YYYY-MM-DD - Get daily aggregated PV data
     def get_daily(self):
-        date = request.args.get("date")  # optional: YYYY-MM-DD
+        date = request.args.get("date") 
         try:
             data = self.db_bridge.get_daily_pv_data(date)
         except ValueError as e:
@@ -339,9 +341,9 @@ class ServiceManager:
 
         return self._json(data, 200)
 
-     # GET /api/pv/monthly?month=YYYY-MM
+    # GET /api/pv/monthly?month=YYYY-MM - Get monthly aggregated PV data
     def get_monthly(self):
-        month = request.args.get("month")  # optional: YYYY-MM
+        month = request.args.get("month")
         try:
             data = self.db_bridge.get_monthly_pv_data(month)
         except ValueError as e:
@@ -355,9 +357,9 @@ class ServiceManager:
 
         return self._json(data, 200)
 
-    # GET /api/pv/yearly?year=YYYY
+    # GET /api/pv/yearly?year=YYYY - Get yearly aggregated PV data
     def get_yearly(self):
-        year = request.args.get("year")  # optional: YYYY
+        year = request.args.get("year") 
         try:
             year = int(year) if year else None
             data = self.db_bridge.get_yearly_pv_data(year)
@@ -374,7 +376,6 @@ class ServiceManager:
             )
 
         return self._json(data, 200)
-    
 
     #########################
     ### Wallbox Endpoints ###
@@ -397,7 +398,7 @@ class ServiceManager:
             print(err)
             return self._json({"error": err}, 502)
     
-    # Wallbox: POST JSON: { "allow": true | false }
+    # POST /api/wallbox/setCharging - Enable or disable wallbox charging
     def set_wallbox_allow(self):
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
             return self._json(
@@ -558,7 +559,7 @@ class ServiceManager:
             return self._json({"error": str(e)}, 500)
 
         
-    # POST JSON: { "action": "on" | "off" | "toggle" }
+    # POST /api/boiler/control - Control the boiler (on/off/toggle)
     def control_boiler(self):
 
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
@@ -665,6 +666,7 @@ class ServiceManager:
             mode = SystemMode(payload["mode"])
             self.mode_store.set(mode)
 
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="info",
                 source="mode",
@@ -676,9 +678,9 @@ class ServiceManager:
         except ValueError:
             return self._json({"error": "Invalid mode. Use AUTOMATIC | MANUAL | TIME_CONTROLLED"},400)
         
-    # GET / PUT / POST schedule configuration
+    # GET /api/schedule - Get current schedule configuration
     def schedule_endpoint(self):
-        # GET: actual effective schedule configuration (after applying overrides)
+        # GET: current schedule
         if request.method == "GET":
             return self._json(self.schedule_store.get_effective())
 
@@ -715,7 +717,7 @@ class ServiceManager:
                 "message": "Schedule reset to default"
             })
     
-    # POST: Reset schedule to default
+    # POST /api/schedule/reset - Reset schedule to default configuration
     def schedule_reset_endpoint(self):
         self.schedule_store.reset_to_default()
 
@@ -730,8 +732,9 @@ class ServiceManager:
             "message": "Schedule reset to default"
         })
     
+    # GET /api/automatic-config - Get current AUTOMATIC mode configuration
     def automatic_config_endpoint(self):
-        # GET: actual effective AUTOMATIC mode configuration
+        # GET: AUTOMATIC mode configuration
         if request.method == "GET":
             return self._json(self.automatic_config_store.get())
 

@@ -12,5 +12,7 @@ class PVSurplusService:
         house_load = float(data.get("house_load_kw", 0))
         battery_power = float(data.get("battery_power_kw", 0))
 
+        # Surplus is calculated as PV generation minus house load and battery charging (if battery_power is negative, 
+        # it means battery is discharging and contributing to surplus, so we only subtract positive battery power)
         surplus = pv_power - house_load - max(battery_power, 0)
         return round(surplus, 2)

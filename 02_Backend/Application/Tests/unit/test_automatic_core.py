@@ -1,18 +1,20 @@
 from services.scheduler_service import SchedulerService
 
 # FAKES
-
 class FakeLogger:
     def system_event(self, *a, **k): pass
     def control_decision(self, *a, **k): pass
     def device_state_change(self, *a, **k): pass
 
-
+# A simple fake schedule manager that always returns "winter" as the current season, allowing us to test the automatic control 
+# logic of the SchedulerService without needing to implement actual season determination logic
 class FakeScheduleManager:
     def determine_season(self):
         return "winter"
 
-
+# A simple fake boiler class that allows 
+# testing the automatic control logic of the SchedulerService without needing to interact with actual hardware. 
+# The get_state method returns the current state of the boiler, and the control method allows us to simulate turning the boiler on and off
 class FakeBoiler:
     def __init__(self):
         self.state = False
@@ -26,7 +28,7 @@ class FakeBoiler:
         elif action == "off":
             self.state = False
 
-
+# A simple fake wallbox class that allows testing the automatic control logic of the SchedulerService without needing to interact with actual hardware
 class FakeWallbox:
     def __init__(self):
         self.allow = False
@@ -41,7 +43,6 @@ class FakeWallbox:
     def get_allow_state(self):
         return self.allow
 
-
 # Fake DB for boiler temperature
 class FakeDB:
     def __init__(self, temp=40):
@@ -50,7 +51,8 @@ class FakeDB:
     def get_latest_boiler_data(self):
         return {"boiler_temp": self.temp}
 
-
+# A simple fake PV surplus service that allows us to set a fixed surplus value and boiler
+# temperature for testing the automatic control logic of the SchedulerService
 class FakePVSurplus:
     def __init__(self, value, temp=40):
         self.value = value
@@ -59,7 +61,7 @@ class FakePVSurplus:
     def get_surplus_kw(self):
         return self.value
 
-
+# A simple fake forecast class that allows
 class FakeForecast:
     def __init__(self, today=False, tomorrow=False):
         self.today = today
@@ -71,7 +73,7 @@ class FakeForecast:
             "pv_tomorrow": self.tomorrow
         }
 
-
+# A simple fake configuration class that allows us to pass a dictionary of configuration values to the SchedulerService for testing purposes
 class FakeConfig:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -79,9 +81,7 @@ class FakeConfig:
     def get(self):
         return self.cfg
 
-
 # HELPER
-
 def make_scheduler(boiler, wallbox, pv, forecast, config):
     s = SchedulerService(
         mode_store=None,
@@ -97,9 +97,8 @@ def make_scheduler(boiler, wallbox, pv, forecast, config):
     s.automatic_config = config
     return s
 
-# TESTS
-
-# Tests for the automatic control logic of the SchedulerService, ensuring that it correctly decides when to turn on the boiler and allow wallbox charging based on PV surplus and forecast data
+# Tests for the automatic control logic of the SchedulerService, ensuring that it
+# correctly decides when to turn on the boiler and allow wallbox charging based on PV surplus and forecast data
 def test_automatic_boiler_turns_on_with_pv():
     boiler = FakeBoiler()
 
@@ -124,7 +123,8 @@ def test_automatic_boiler_turns_on_with_pv():
     scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
     assert boiler.get_state() is True
 
-# Tests that the automatic boiler control does not turn on the boiler if the forecast indicates no PV production for today, even if there is currently a PV surplus
+# Tests that the automatic boiler control does not turn on the boiler if the forecast indicates no PV production for today,
+# even if there is currently a PV surplus
 def test_automatic_boiler_waits_for_forecast():
     boiler = FakeBoiler()
 
