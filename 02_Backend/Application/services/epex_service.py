@@ -27,6 +27,7 @@ class EPEXService:
                 threshold = self._cached_stats.get("threshold")
                 emergency_threshold = self._cached_stats.get("emergency_threshold")
                 
+                # Update cheapness flags based on new current price
                 if threshold is not None:
                     self._cached_stats["is_cheap"] = current_price <= threshold
                 
@@ -36,6 +37,7 @@ class EPEXService:
             return self._cached_stats
         
         # Cache invalid or empty - fetch new data
+        # Note: This method will update the cache with new statistics and current price
         try:
             start_time = now - timedelta(days=self.analysis_days)
             
@@ -45,6 +47,7 @@ class EPEXService:
             # Get current price
             current_price = self.db.get_current_epex_price()
             
+            # Validate data
             if not prices or len(prices) < 10:
                 return {
                     "min": None,
@@ -60,6 +63,7 @@ class EPEXService:
                     "error": "Insufficient EPEX data (need at least 10 data points)"
                 }
             
+            # If current price is None, cannot determine cheapness, but can still provide historical stats
             if current_price is None:
                 return {
                     "min": round(min(prices), 2),
@@ -122,6 +126,7 @@ class EPEXService:
             }
         
     # Check if cached statistics are still valid (within TTL)
+    # This method is called before fetching new data to determine if can use cached stats or need to refresh
     def _is_cache_valid(self, now):
         if self._cached_stats is None or self._cache_timestamp is None:
             return False
@@ -130,6 +135,7 @@ class EPEXService:
         return time_since_cache < self._cache_ttl_seconds
     
     # Manually invalidate cache (useful for testing or forced refresh)
+    # This method can be called to clear the cached statistics and force the next call to get_price_statistics to fetch fresh data
     def invalidate_cache(self):
         self._cached_stats = None
         self._cache_timestamp = None

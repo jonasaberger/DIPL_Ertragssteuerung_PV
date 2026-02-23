@@ -62,6 +62,7 @@ class ServiceManager:
         # Initialize system mode
         self.mode_store = SystemModeStore()
 
+        # Initialize schedule manager
         self.schedule_store = ScheduleStore()
         self.schedule_manager = ScheduleManager(self.schedule_store)
 
@@ -74,6 +75,7 @@ class ServiceManager:
         # Initialize the IP-/Device-Manager
         self.device_manager = DeviceManager()
 
+        # Initialize and START the scheduler service
         self.scheduler = SchedulerService(
             mode_store=self.mode_store,
             schedule_manager=self.schedule_manager,
@@ -100,10 +102,12 @@ class ServiceManager:
 
         # Configure all routes
         self.configure_routes()
-        
+
+    # Start the Flask server 
     def start_server(self):
         self.app.run(host=self.host_ip, port=self.server_port)
      
+    # Expose Flask app
     def get_app(self):
         return self.app
 
@@ -154,7 +158,6 @@ class ServiceManager:
 
         # Forecast service endpoint
         self.app.add_url_rule( "/api/forecast", "forecast", self.get_forecast, methods=["GET"])
-
 
     # Edit-Device Endpoint with auto-reload of affected controllers
     def edit_device_endpoint(self):
@@ -227,6 +230,7 @@ class ServiceManager:
             return jsonify({"message": "No PV data found"}), 404
 
         # Rename _kw keys back to original field names for frontend compatibility
+        # This allows us to keep the internal DB schema consistent while providing a clean API for the frontend
         frontend_data = {**data}
         frontend_data["pv_power"] = frontend_data.pop("pv_power_kw", None)
         frontend_data["load_power"] = frontend_data.pop("house_load_kw", None)

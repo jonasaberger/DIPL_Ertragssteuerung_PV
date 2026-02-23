@@ -14,6 +14,10 @@ class SchedulerService(threading.Thread):
     def __init__(self, mode_store, schedule_manager, boiler, wallbox, db_bridge, logger, interval=60):
         super().__init__(daemon=True)
 
+        # The SchedulerService is responsible for controlling the boiler and wallbox based on the current system mode (manual, time-controlled, automatic),
+        # schedules, PV forecast, PV surplus, and EPEX electricity price analysis. 
+        # It runs in a separate thread and periodically checks conditions to make control decisions. 
+        # The service also logs all decisions and relevant events for transparency and debugging purposes.
         self.mode_store = mode_store
         self.schedule_manager = schedule_manager
         self.boiler = boiler
@@ -22,10 +26,12 @@ class SchedulerService(threading.Thread):
         self.logger = logger
         self.db_bridge = db_bridge
 
+        # State variables for time-controlled mode error logging, to avoid spamming logs with repeated errors
         self.last_time_controlled_error_date = None
         self.wallbox_online_last_state = None
         self.boiler_last_reason = None
 
+        # Initialize services and configuration store for automatic mode
         self.automatic_config = AutomaticConfigStore()
         self.pv_service = PVSurplusService(db_bridge)
         self.pv_forecast = PVForecastService()
@@ -44,6 +50,7 @@ class SchedulerService(threading.Thread):
         self.last_forecast_override_log_boiler = None
         self.last_forecast_override_log_wallbox = None
 
+    # Main loop of the scheduler thread, which calls tick() every interval seconds
     def run(self):
         while True:
             self.tick()
@@ -268,7 +275,7 @@ class SchedulerService(threading.Thread):
                     if (self.last_epex_log_hour_boiler is None or 
                         (now.hour - self.last_epex_log_hour_boiler) >= 2 or 
                         (now.hour < self.last_epex_log_hour_boiler)):
-                        
+                        # SYSTEM EVENT LOG
                         self.logger.system_event(
                             level="info",
                             source="epex_decision_boiler",
@@ -455,7 +462,7 @@ class SchedulerService(threading.Thread):
                         "target_reached": target_reached
                     }
                 )
-                
+                # DEVICE STATE CHANGE LOG (if had set allow to True during session, log the change to False on disconnect)
                 self.wallbox_eto_start = None
                 self.wallbox_finished = False
                 self.wallbox_last_set_allow = None
@@ -467,6 +474,7 @@ class SchedulerService(threading.Thread):
             self.wallbox_eto_start = eto_now
             self.wallbox_finished = False
             
+            # Session start log (once per session)
             if not self.wallbox_session_logged:
                 target_kwh = float(wb_cfg.get("energy_kwh", 0))
                 target_time = wb_cfg.get("target_time")

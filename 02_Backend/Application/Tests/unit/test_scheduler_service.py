@@ -10,11 +10,12 @@ class FakeLogger:
     def control_decision(self, *a, **k): pass
     def device_state_change(self, *a, **k): pass
 
-
+# A simple fake schedule manager that always returns "winter" as the current season, allowing to test the automatic control
 class FakeDB:
     def get_latest_pv_data(self):
         return None
-
+    
+# A simple fake PV surplus service that allows to set a fixed surplus value and boiler
 class FakeBoiler:
     def __init__(self):
         self.state = False
@@ -25,6 +26,7 @@ class FakeBoiler:
     def control(self, action):
         self.state = (action == "on")
 
+# A simple fake wallbox class that allows testing the automatic control logic of the SchedulerService without needing to interact with actual hardware
 class FakeWallbox:
     def __init__(self):
         self.allow = False
@@ -38,15 +40,13 @@ class FakeWallbox:
     def get_allow_state(self):
         return self.allow
 
-
+# Fake DB for boiler temperature
 class FakeScheduleStore:
     def get_effective(self):
         return {
             "boiler": {"winter": {"start": "00:00", "end": "23:59"}},
             "wallbox": {"winter": {"start": "00:00", "end": "23:59"}},
         }
-
-
 
 # Tests if the SchedulerService correctly controls the boiler and wallbox based on the schedule and current system mode
 def test_scheduler_controls_devices():

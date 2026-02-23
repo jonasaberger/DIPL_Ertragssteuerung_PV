@@ -18,7 +18,7 @@ def main():
         print(f"No connection to InfluxDB: {e}")
         sys.exit(1)
 
-    # PV data
+    # Fetch and write PV data
     pv = PV_Bridge(device_manager)
     pv_raw = pv.fetch_data()
     pv_data = pv.parse_data(pv_raw)
