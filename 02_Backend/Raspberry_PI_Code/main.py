@@ -10,7 +10,7 @@ from db_bridge import DB_Bridge
 def main():
     # Connect to DB
     db = DB_Bridge()
-    device_manager = DeviceManager("http://100.120.107.71:5050/api/devices")
+    device_manager = DeviceManager("http://100.120.107.71:5050/api/devices") # TODO: Eventuelle Auslagerung der URL in die InfluxDB 
 
     try:
         db.check_connection()
