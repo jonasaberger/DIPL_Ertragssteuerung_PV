@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.3.0 Chrome/140.0.7339.249 Electron/38.7.2 Safari/537.36" version="29.3.0">
   <diagram name="PV-Ertragssteuerung" id="leibeaptkg5Hp3O_3Fon">
-    <mxGraphModel dx="2050" dy="747" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1889" dy="461" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -74,7 +74,7 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="D-Z_zhgOC_RD8TRPQNjq-1" connectable="0" parent="IZ3iPtRe4PbC51QvtmwR-12" style="group" value="" vertex="1">
-          <mxGeometry height="90" width="240" x="40" y="180" as="geometry" />
+          <mxGeometry height="90" width="240" x="-20" y="180" as="geometry" />
         </mxCell>
         <mxCell id="IZ3iPtRe4PbC51QvtmwR-57" parent="D-Z_zhgOC_RD8TRPQNjq-1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;" value="" vertex="1">
           <mxGeometry height="90" width="170" x="70" as="geometry" />
