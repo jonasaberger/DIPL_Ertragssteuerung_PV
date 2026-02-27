@@ -1,5 +1,5 @@
-# Integration tests for the boiler control API endpoint.
-# These tests will check if the API correctly handles valid and invalid requests to control the boiler.
+# Integration tests for the boiler control API endpoint
+# These tests will check if the API correctly handles valid and invalid requests to control the boiler
 
 def test_api_boiler_control(client):
     client.post("/api/mode", json={"mode": "MANUAL"})

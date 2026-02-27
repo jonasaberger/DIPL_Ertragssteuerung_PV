@@ -43,12 +43,12 @@ class LoggingBridge:
     def control_decision(self, device, action, reason, success=True, extra=None):
         point = (
             Point("control_decision")
-            .tag("device", device)               # wallbox / boiler
-            .field("action", action)             # on / off / toggle / set_allow
-            .field("success", str(success))
-            .field("reason", reason)             # manual / pv_surplus / scheduler
-            .field("extra", str(extra) if extra else "")
-            .time(datetime.now(timezone.utc), WritePrecision.NS)
+            .tag("device", device)                                # wallbox / boiler
+            .field("action", action)                              # on / off / toggle / set_allow
+            .field("success", str(success))                       # whether the action was successfully executed
+            .field("reason", reason)                              # manual / pv_surplus / scheduler
+            .field("extra", str(extra) if extra else "")          # any additional info (e.g. PV surplus amount, scheduler time)
+            .time(datetime.now(timezone.utc), WritePrecision.NS)  # log the time of the decision
         )
         self._write(point)
 
@@ -63,7 +63,7 @@ class LoggingBridge:
         )
         self._write(point) 
 
-    # External API errors (WITH DEVICE INFORMATION)
+    # External API errors
     def api_error(self, device, endpoint, error):
         description = f"{device} API error at {endpoint}: {error}"
 
@@ -145,9 +145,11 @@ class LoggingBridge:
                         f"extra={values.get('extra')}"
                     )
 
+                # For system events and device state changes, use the description field if available
                 elif log_type == "device_state_change":
                     msg = values.get("description") or "device state changed"
 
+                # For API errors, construct a message with device, endpoint, and error details
                 elif log_type == "api_error":
                     device = values.get("device", "unknown")
                     endpoint = values.get("endpoint", "unknown")
@@ -160,9 +162,10 @@ class LoggingBridge:
 
                     msg = f"{device} | {endpoint} | {error_text}"
 
+                # For system events, use the message field directly
                 else:
                     msg = values.get("message")
-
+                
                 results.append({
                     "time": ts,
                     "message": msg

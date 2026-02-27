@@ -9,25 +9,25 @@ try:
 except Exception:
     LED = None
 
-
 class BoilerController:
     def __init__(self, gpio_pin=26, inverted_logic=True):
 
         # Relay control: use gpiozero on Pi, simulate on others
         self.gpio_pin = gpio_pin
         self.inverted_logic = inverted_logic
-
         self.relay = None
+
+        # Initialize hardware relay if on Linux (Pi)
         if LED and platform.system() == "Linux":
             try:
                 self.relay = LED(self.gpio_pin)
             except Exception:
                 self.relay = None
 
-        # simulation state for non-Pi environments (Windows, CI, dev)
+        # simulation state for non-Pi environments (Windows, CI, ...)
         self._sim_state = False
 
-        # logical boiler state (single source of truth)
+        # logical boiler state
         self._state = False
 
     # Relay Logic 
@@ -49,11 +49,11 @@ class BoilerController:
         self._sim_state = logical_on
         return logical_on
 
-    # Turn boiler heating ON (logical on)
+    # Turn boiler heating ON
     def turn_on(self):
         return self._apply_logic(True)
 
-    # Turn boiler heating OFF (logical off)
+    # Turn boiler heating OFF
     def turn_off(self):
         return self._apply_logic(False)
 
@@ -61,11 +61,12 @@ class BoilerController:
     def toggle(self):
         return self._apply_logic(not self._state)
 
-    #   Returns logical boiler state (True/False)
+    # Returns logical boiler state (True/False)
     def get_state(self):
         return self._state
 
     # API-style control helper
+    # Accepts 'on', 'off', 'toggle' and returns action result
     def control(self, action: str):
         action = (action or "").lower()
 

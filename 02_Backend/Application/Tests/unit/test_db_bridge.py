@@ -1,7 +1,8 @@
 from datetime import datetime
 from bridges.db_bridge import DB_Bridge
 
-# Simualtes a successful InfluxDB query and checks that get_latest_pv_data() correctly processes the data and returns the expected dictionary with pv_power_kw and _time converted to ISO format
+# Simualtes a successful InfluxDB query and checks that get_latest_pv_data() correctly processes the data and
+# returns the expected dictionary with pv_power_kw and _time converted to ISO format
 def test_get_latest_pv_data_mocked(mocker):
     fake_time = datetime(2026, 1, 1, 12, 0)
 
@@ -32,7 +33,8 @@ def test_get_latest_pv_data_mocked(mocker):
     assert "pv_power" not in data
     assert data["pv_power_kw"] == 1234
 
-# Simulates a scenario where the InfluxDB query raises an exception and checks that get_latest_pv_data() handles it gracefully by returning None
+# Simulates a scenario where the InfluxDB query raises an exception and checks that get_latest_pv_data() handles
+# it gracefully by returning None
 def test_get_latest_pv_data_handles_influx_error(mocker):
   
     fake_query_api = mocker.Mock()

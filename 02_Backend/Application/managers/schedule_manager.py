@@ -1,7 +1,6 @@
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
-
 class ScheduleManager:
     def __init__(self, store):
         self.store = store
@@ -10,6 +9,8 @@ class ScheduleManager:
         month = datetime.now(ZoneInfo("Europe/Vienna")).month
         return "summer" if 4 <= month <= 9 else "winter"
 
+    # Parses a time string in "HH:MM" format, returns a time object or None if invalid
+    # Handles empty, None, or malformed inputs gracefully
     def _parse(self, value: str | None) -> time | None:
         if not value or ":" not in value:
             return None
@@ -19,10 +20,17 @@ class ScheduleManager:
         except ValueError:
             return None
 
+    # Checks if the device should be active based on the current time and schedule configuration
     def is_active(self, device: str) -> bool:
+
+        # Get the effective schedule configuration for the device and current season
         config = self.store.get_effective()
+
+        # Determine the current season (summer/winter) based on the month
         season = self.determine_season()
 
+        # Get the schedule entry for the device and season
+        # If no entry exists or if start/end times are invalid, consider the device inactive
         entry = config.get(device, {}).get(season)
         if not entry:
             return False
@@ -35,7 +43,7 @@ class ScheduleManager:
 
         now = datetime.now(ZoneInfo("Europe/Vienna")).time()
 
-        # Edge case: if start and end are the same, we consider the device to be inactive (no time window)
+        # Edge case: if start and end are the same, consider the device to be inactive (no time window)
         if start == end:
             return False
 

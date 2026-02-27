@@ -8,13 +8,15 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-
+# This fixture sets the working directory to the base directory of the project,
+# ensuring that all file paths in the tests are relative to the project root and that test data files can be accessed correctly
 @pytest.fixture(scope="session", autouse=True)
 def set_working_directory():
     import os
     os.chdir(BASE_DIR)
 
-
+# This fixture automatically mocks external HTTP calls made by the requests library in all tests,
+# preventing actual network requests and allowing tests to run reliably in isolation
 @pytest.fixture(autouse=True)
 def disable_external_calls(monkeypatch, request):
     if request.node.get_closest_marker("hardware"):
@@ -39,6 +41,8 @@ def client(mocker):
     fake_boiler.get_state.return_value = False
     fake_boiler.control.return_value = None
 
+    # Mocking the controllers and other dependencies of the ServiceManager to ensure that when we create an instance of the ServiceManager
+    # for testing, it uses our mocked versions instead of trying to interact with real hardware or external services
     mocker.patch("managers.service_manager.BoilerController", return_value=fake_boiler)
     mocker.patch("managers.service_manager.DB_Bridge")
     mocker.patch("managers.service_manager.WallboxController")

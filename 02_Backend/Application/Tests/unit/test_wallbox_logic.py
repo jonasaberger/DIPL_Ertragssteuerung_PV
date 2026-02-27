@@ -61,7 +61,6 @@ def test_set_charging_ampere_success(mocker):
     assert result["amp"] == 16
     assert result["message"] == "Charging ampere updated"
 
-
 # Tests that providing an invalid ampere value raises a ValueError with the expected message
 def test_set_charging_ampere_invalid_value():
     wb = WallboxController()
