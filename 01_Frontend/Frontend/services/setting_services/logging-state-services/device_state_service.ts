@@ -33,7 +33,7 @@ function parseDeviceStateMessage(message: string): {
 
 export async function fetchDeviceStateLogs(): Promise<DeviceStateLogEntry[]> {
   const rows = await fetchJson<LoggingApiRow[]>(
-    '/logging?type=device_state_change&limit=50'
+    '/logging?type=device_state_change&limit=200'
   )
 
   const out: DeviceStateLogEntry[] = []
