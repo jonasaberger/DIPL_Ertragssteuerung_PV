@@ -128,6 +128,14 @@ class WallboxController:
         except Exception:
             return False
 
+    # Get current charging ampere
+    def get_current_ampere(self) -> int:
+        try:
+            data = self.fetch_data()
+            return int(data.get("amp", 0))
+        except Exception:
+            return 0
+
     # Set charging current (Ampere)
     def set_charging_ampere(self, amp: int):
         allowed_values = [6, 10, 12, 14, 16]
