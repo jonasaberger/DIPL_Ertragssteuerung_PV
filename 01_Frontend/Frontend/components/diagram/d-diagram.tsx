@@ -646,12 +646,17 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
       if (max <= 0) return
 
       // Bei Modus Tag sind die Werte anders (weil Month / Year liegen näher beieinander --> weniger aggresives scrollen)
-      const edge = mode === 'day' ? 280 : 320     // Randbereich, wann gescrollt wird
-      const mult = mode === 'day' ? 2 : 1.4     // Verstärkung, wie stark gescrollt wird, je näher am Rand
-      const cap = mode === 'day' ? 50 : 20      // Maximale Scrollgeschwindigkeit pro Aufruf
+      const edge = Math.min(mode === 'day' ? 70 : 85, screenWidth * 0.18)     // Randbereich, wann gescrollt wird (dynamisch mit Screenweite)
+
+      // Schauen ob überhaupt gescrollt werden kann
+      const canScrollLeft = scrollXRef.current > 0
+      const canScrollRight = scrollXRef.current < max
+
+      const mult = mode === 'day' ? 0.9 : 0.7    // Verstärkung, wie stark gescrollt wird, je näher am Rand
+      const cap = mode === 'day' ? 18 : 14      // Maximale Scrollgeschwindigkeit pro Aufruf
 
       // Linke Seite prüfen
-      if (xVisible < edge) {
+      if (canScrollLeft && xVisible < edge) {
         // delta = Wie viel gescrollt werden soll
         const delta = Math.min(cap, (edge - xVisible) * mult)
         scrollToX(scrollXRef.current - delta)
@@ -659,9 +664,10 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
       }
 
       // Rechte Seite prüfen
-      if (xVisible > screenWidth - edge) {
+      if (canScrollRight && xVisible > screenWidth - edge) {
         // delta = Wie viel gescrollt werden soll
-        const delta = Math.min(cap, (xVisible - (screenWidth - edge)) * mult)
+        const dist = xVisible - (screenWidth - edge)
+        const delta = Math.min(cap, dist * mult)
         scrollToX(scrollXRef.current + delta)
       }
     },
