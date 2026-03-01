@@ -9,6 +9,7 @@ from stores.automatic_config_store import AutomaticConfigStore
 from services.pv_surplus_service import PVSurplusService
 from services.pv_forecast_service import PVForecastService
 from services.epex_service import EPEXService
+from services.wallbox_dynamic_controller import WallboxDynamicController
 
 class SchedulerService(threading.Thread):
     def __init__(self, mode_store, schedule_manager, boiler, wallbox, db_bridge, logger, interval=60):
@@ -37,6 +38,14 @@ class SchedulerService(threading.Thread):
         self.pv_forecast = PVForecastService()
         self.epex_service = EPEXService(db_bridge)
 
+        # Dynamic charging controller
+        self.wallbox_dynamic = WallboxDynamicController(
+            hysteresis_kw=0.3,           # Hinders Flapping when surplus fluctuates around the threshold (1.4kW ± 0.3kW)
+            min_surplus_kw=1.4,          # Min for 6A
+            battery_protection_soc=20,   # Protection of battery (don't discharge below SoC)
+            max_battery_discharge_kw=0.5 # Max allowable discharge from battery to wallbox
+        )
+
         # Wallbox runtime state
         self.wallbox_eto_start = None
         self.wallbox_finished = False
@@ -55,6 +64,20 @@ class SchedulerService(threading.Thread):
         while True:
             self.tick()
             time.sleep(self.interval)
+
+    # Log time-controlled mode errors (throttled to once per day)
+    def log_time_controlled_error(self, error):
+        now = datetime.now(ZoneInfo("Europe/Vienna"))
+        today = now.date()
+        
+        # Only log once per day
+        if self.last_time_controlled_error_date != today:
+            self.logger.system_event(
+                level="error",
+                source="scheduler_time_controlled",
+                message=f"TIME_CONTROLLED mode error: {error}"
+            )
+            self.last_time_controlled_error_date = today
 
     # Main scheduler tick function, called every interval (60s)
     def tick(self):
@@ -478,11 +501,28 @@ class SchedulerService(threading.Thread):
             if not self.wallbox_session_logged:
                 target_kwh = float(wb_cfg.get("energy_kwh", 0))
                 target_time = wb_cfg.get("target_time")
+                
+                # SYSTEM EVENT LOG
                 self.logger.system_event(
                     level="info",
                     source="wallbox_session",
                     message=f"Wallbox session start: target={target_kwh}kWh deadline={target_time} season={season}"
                 )
+                
+                # Also use control_decision for better tracking
+                self.logger.control_decision(
+                    device="wallbox",
+                    action="session_start",
+                    reason="car_connected",
+                    success=True,
+                    extra={
+                        "target_kwh": target_kwh,
+                        "eto_start": eto_now / 1000,  # In kWh
+                        "deadline": target_time,
+                        "season": season
+                    }
+                )
+                
                 self.wallbox_session_logged = True
         
         # Calculate charging progress
@@ -536,20 +576,126 @@ class SchedulerService(threading.Thread):
         # Decision logic
         PV_MIN_KW = 1.4
         
-        # Priority 1: PV-Surplus available
-        if pv_surplus >= PV_MIN_KW:
-            if not allow:
-                self.wallbox.set_allow_charging(True)
-                self.logger.control_decision(
-                    device="wallbox",
-                    action="set_allow",
-                    reason="automatic_pv_surplus",
-                    success=True,
-                    extra={"pv_surplus_kw": pv_surplus}
-                )
-                self.logger.device_state_change("wallbox", False, True)
+          # Priority 1: PV-Surplus mit dynamischem Laden
+        if pv_surplus > 0: # Any surplus is a good sign --> indicates generation and can be used for dynamic charging decisions
+            
+            # Battery-Data for dynamic charging decision
+            try:
+                pv_data = self.db_bridge.get_latest_pv_data()
+                battery_soc = float(pv_data.get("soc", 50))
+                battery_power_kw = float(pv_data.get("battery_power_kw", 0))
+            except Exception:
+                battery_soc = 50
+                battery_power_kw = 0
+            
+            # Get current ampere
+            try:
+                current_ampere = self.wallbox.get_current_ampere()
+            except Exception:
+                current_ampere = 0
+            
+            # Dynamic Charging calculation
+            charging_decision = self.wallbox_dynamic.get_charging_decision(
+                pv_surplus_kw=pv_surplus,
+                battery_power_kw=battery_power_kw,
+                battery_soc=battery_soc,
+                current_ampere=current_ampere
+            )
+            
+            # Apply dynamic charging decision
+            optimal_ampere = charging_decision['ampere']
+            should_charge = charging_decision['allow_charging']
+            
+            # When loading recommended
+            if should_charge and optimal_ampere > 0:
+                
+                # Set amperage (if changed)
+                if optimal_ampere != current_ampere:
+                    try:
+                        self.wallbox.set_charging_ampere(optimal_ampere)
+                        # CONTROL DECISION LOG
+                        self.logger.control_decision(
+                            device="wallbox",
+                            action="set_ampere",
+                            reason="automatic_pv_dynamic",
+                            success=True,
+                            extra={
+                                "ampere": optimal_ampere,
+                                "pv_surplus_kw": pv_surplus,
+                                "battery_soc": battery_soc,
+                                "battery_power_kw": battery_power_kw
+                            }
+                        )
+                        # DEVICE STATE CHANGE LOG
+                        self.logger.device_state_change("wallbox_ampere", current_ampere, optimal_ampere)
+                    except Exception as e:
+                        # SYSTEM EVENT LOG
+                        self.logger.system_event(
+                            level="error",
+                            source="scheduler",
+                            message=f"Failed to set wallbox ampere: {e}"
+                        )
+                
+                # Enable charging (if off)
+                if not allow:
+                    self.wallbox.set_allow_charging(True)
+                    # CONTROL DECISION LOG
+                    self.logger.control_decision(
+                        device="wallbox",
+                        action="set_allow",
+                        reason="automatic_pv_surplus_dynamic",
+                        success=True,
+                        extra=charging_decision
+                    )
+                    # DEVICE STATE CHANGE LOG
+                    self.logger.device_state_change("wallbox", False, True)
+                
+                # Log even when charging is already underway and amperage is stable (throttled to 10 min)
+                elif allow and optimal_ampere == current_ampere:
+                    now_stable = datetime.now(ZoneInfo("Europe/Vienna"))
+                    
+                    # Initialize throttle variable if not exists
+                    if not hasattr(self, '_last_charging_stable_log'):
+                        self._last_charging_stable_log = None
+                    
+                    # Log only every 10 minutes to avoid spam
+                    if (self._last_charging_stable_log is None or 
+                        (now_stable - self._last_charging_stable_log).total_seconds() > 600):
+                        
+                        # CONTROL DECISION LOG
+                        self.logger.control_decision(
+                            device="wallbox",
+                            action="charging_stable",
+                            reason="automatic_pv_dynamic_continuing",
+                            success=True,
+                            extra={
+                                "ampere": optimal_ampere,
+                                "pv_surplus_kw": pv_surplus,
+                                "battery_soc": battery_soc,
+                                "battery_power_kw": battery_power_kw
+                            }
+                        )
+                        self._last_charging_stable_log = now_stable
+                
                 self.wallbox_last_set_allow = True
-            return
+                return
+            
+            # If not enough PV despite surplus
+            elif not should_charge:
+                if allow:
+                    self.wallbox.set_allow_charging(False)
+                    # CONTROL DECISION LOG
+                    self.logger.control_decision(
+                        device="wallbox",
+                        action="set_allow",
+                        reason="automatic_insufficient_pv_dynamic",
+                        success=True,
+                        extra=charging_decision
+                    )
+                    # DEVICE STATE CHANGE LOG
+                    self.logger.device_state_change("wallbox", True, False)
+                    self.wallbox_last_set_allow = False
+                return
         
         # Priority 2+: EPEX price check
         epex_stats = self.epex_service.get_price_statistics()
@@ -564,6 +710,7 @@ class SchedulerService(threading.Thread):
                 (now.hour - self.last_epex_log_hour_wallbox) >= 2 or 
                 (now.hour < self.last_epex_log_hour_wallbox)):
                 
+                # SYSTEM EVENT LOG
                 self.logger.system_event(
                     level="info",
                     source="epex_decision_wallbox",
@@ -579,6 +726,7 @@ class SchedulerService(threading.Thread):
             
             if not allow:
                 self.wallbox.set_allow_charging(True)
+                # CONTROL DECISION LOG
                 self.logger.control_decision(
                     device="wallbox",
                     action="set_allow",
@@ -594,6 +742,7 @@ class SchedulerService(threading.Thread):
                         "forecast_overridden": pv_today or pv_tomorrow
                     }
                 )
+                # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change("wallbox", False, True)
                 self.wallbox_last_set_allow = True
             return
@@ -606,6 +755,7 @@ class SchedulerService(threading.Thread):
                 (now.hour - self.last_epex_log_hour_wallbox) >= 2 or 
                 (now.hour < self.last_epex_log_hour_wallbox)):
                 
+                # SYSTEM EVENT LOG
                 self.logger.system_event(
                     level="info",
                     source="epex_decision_wallbox",
@@ -622,6 +772,7 @@ class SchedulerService(threading.Thread):
             if epex_stats.get("is_cheap", False):
                 if not allow:
                     self.wallbox.set_allow_charging(True)
+                    # CONTROL DECISION LOG
                     self.logger.control_decision(
                         device="wallbox",
                         action="set_allow",
@@ -635,6 +786,7 @@ class SchedulerService(threading.Thread):
                             "epex_14d_max": epex_stats.get("max")
                         }
                     )
+                    # DEVICE STATE CHANGE LOG
                     self.logger.device_state_change("wallbox", False, True)
                     self.wallbox_last_set_allow = True
                 return
@@ -647,6 +799,7 @@ class SchedulerService(threading.Thread):
                 if (self.last_forecast_override_log_wallbox is None or 
                     (now - self.last_forecast_override_log_wallbox).total_seconds() > 7200):
                     
+                    # SYSTEM EVENT LOG
                     self.logger.system_event(
                         level="info",
                         source="forecast_override_wallbox",
@@ -661,6 +814,7 @@ class SchedulerService(threading.Thread):
             
             if allow:
                 self.wallbox.set_allow_charging(False)
+                # CONTROL DECISION LOG
                 self.logger.control_decision(
                     device="wallbox",
                     action="set_allow",
@@ -671,6 +825,7 @@ class SchedulerService(threading.Thread):
                         "pv_tomorrow": pv_tomorrow
                     }
                 )
+                # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change("wallbox", allow, False)
                 self.wallbox_last_set_allow = False
             return
@@ -678,6 +833,7 @@ class SchedulerService(threading.Thread):
         # Priority 5: Night grid failsafe (deadline approaching)
         if allow_night and remaining_hours <= 2.0 and pv_surplus < PV_MIN_KW and not (pv_today or pv_tomorrow) and not allow:
             self.wallbox.set_allow_charging(True)
+            # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="wallbox",
                 action="set_allow",
@@ -688,6 +844,7 @@ class SchedulerService(threading.Thread):
                     "charged_kwh": round(charged_kwh, 2)
                 }
             )
+            # DEVICE STATE CHANGE LOG
             self.logger.device_state_change("wallbox", False, True)
             self.wallbox_last_set_allow = True
             return
@@ -695,6 +852,7 @@ class SchedulerService(threading.Thread):
         # Default: Turn off if no conditions met
         if allow and self.wallbox_last_set_allow is not True:
             self.wallbox.set_allow_charging(False)
+            # CONTROL DECISION LOG
             self.logger.control_decision(
                 device="wallbox",
                 action="set_allow",
@@ -706,5 +864,6 @@ class SchedulerService(threading.Thread):
                     "pv_tomorrow": pv_tomorrow
                 }
             )
+            # DEVICE STATE CHANGE LOG
             self.logger.device_state_change("wallbox", True, False)
             self.wallbox_last_set_allow = False
