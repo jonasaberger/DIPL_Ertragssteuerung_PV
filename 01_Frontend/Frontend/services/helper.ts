@@ -16,6 +16,11 @@ export async function fetchJson<T>(path: string): Promise<T> {
   const baseUrl = await ensureAPIBase()
   const response = await fetch(`${baseUrl}${path}`)
 
+  console.log("API_BASE:", baseUrl)
+  console.log("PATH:", path)
+  console.log("FINAL URL:", response.url)
+
+
   if (!response.ok) {
     const text = await response.text().catch(() => '')
     throw new Error(
