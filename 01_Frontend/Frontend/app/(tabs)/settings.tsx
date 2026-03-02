@@ -28,7 +28,7 @@ export default function SettingsScreen() {
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} style={styles.scroll}>
         {authorized && (
           <>
             <SDeviceConfigs/>
@@ -49,5 +49,9 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, marginTop: 30, gap: 12 }
+  container: { padding: 16, marginTop: 30, gap: 12 },
+  scroll: {
+  flex: 1,
+  backgroundColor: '#EDE9E9',
+  },
 })

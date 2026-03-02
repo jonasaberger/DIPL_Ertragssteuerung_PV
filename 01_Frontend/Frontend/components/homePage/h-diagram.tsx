@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
   },
 
   subValueText: {
-    marginTop: 2,
+    marginTop: 6,
     fontSize: 14,
     fontWeight: '700',
     color: '#6E6C6C',
