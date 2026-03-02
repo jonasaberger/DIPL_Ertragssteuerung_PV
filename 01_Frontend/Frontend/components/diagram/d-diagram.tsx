@@ -19,6 +19,7 @@ import { fetchDiagramPvPoints, diagramRequestKey, type PvPoint } from '@/service
 type Props = {
   selection: DateSelection
   showSoc?: boolean
+  onChartTouchActiveChange?: (active: boolean) => void
 }
 
 const COLORS = {
@@ -68,7 +69,7 @@ function clamp(n: number, min: number, max: number) {
 // Sorgt dafür, dass ein X-Wert nicht zu nah am Bildschirmrand liegt
 function clampVisibleX(xVisible: number, screenWidth: number, mode: Mode) {
   // Im Modus day ist der Rand 40 Pixel weg, in anderen Modi 55 Pixel
-  const edge = mode === 'day' ? 40 : 55
+  const edge = mode === 'day' ? 24 : 22
   // Element bleibt edge Pixel vom Rand entfernt
   return clamp(xVisible, edge, screenWidth - edge)
 }
@@ -400,8 +401,7 @@ function integrateEnergy(points: PvPoint[]) {
   }
 }
 
-
-export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
+export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTouchActiveChange }) => {
   const { width: screenWidth } = useWindowDimensions()
   // skia braucht fonts, denn Skia rendert alles selbst
   const font = useFont(require('../../assets/fonts/Inter.ttf'), 11)
@@ -421,6 +421,16 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
   const viewportWRef = useRef(0)
   const contentWRef = useRef(0)
   const maxScrollRef = useRef(0)
+
+  const scrollViewLeftInWindowRef = useRef(0)
+
+  const measureScrollViewLeft = useCallback(() => {
+    const node: any = scrollRef.current
+    if (!node || typeof node.measureInWindow !== 'function') return
+    node.measureInWindow((x: number) => {
+      if (Number.isFinite(x)) scrollViewLeftInWindowRef.current = x
+    })
+  }, [])
 
   //useMemo, damit die Werte nur neu berechnet werden, wenn sich die Selection ändert (und nicht bei Neu Rendering)
   const mode = useMemo(() => modeFromSelection(selection), [selection])
@@ -527,13 +537,13 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
   // Wählt einen Datenpunkt im Diagramm aus
   // Usecallback, damit sich die Funktion nur neu erzeugt wenn prepared.rows sich ändert
   const selectIndex = useCallback(
-    (idxRaw: number) => 
+    (idxRaw: number) =>
     {
       // Anzahl der Datenpunkte
       const n = prepared.rows.length
 
       // Falls keine Punkte existieren
-      if (n <= 0) 
+      if (n <= 0)
       {
         return
       }
@@ -547,7 +557,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
       if (!row)
       {
         return
-      } 
+      }
 
       // Letzen Index speichern
       lastIdxRef.current = idx
@@ -616,7 +626,6 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     return best
   }, [])
 
-
   //Scrollt zu einer bestimmten X-Position im Diagramm wenn nötig
   const scrollToX = useCallback((x: number) => {
     // Maximale Scrollposition
@@ -625,7 +634,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     const next = clamp(x, 0, max)
 
     // Nur scrollen falls nötig
-    if (next === scrollXRef.current) 
+    if (next === scrollXRef.current)
     {
       return
     }
@@ -645,8 +654,10 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
       const max = maxScrollRef.current
       if (max <= 0) return
 
+      const viewportW = viewportWRef.current || screenWidth
+
       // Bei Modus Tag sind die Werte anders (weil Month / Year liegen näher beieinander --> weniger aggresives scrollen)
-      const edge = Math.min(mode === 'day' ? 70 : 85, screenWidth * 0.18)     // Randbereich, wann gescrollt wird (dynamisch mit Screenweite)
+      const edge = Math.min(mode === 'day' ? 70 : 85, viewportW * 0.18)     // Randbereich, wann gescrollt wird (dynamisch mit Screenweite)
 
       // Schauen ob überhaupt gescrollt werden kann
       const canScrollLeft = scrollXRef.current > 0
@@ -664,9 +675,9 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
       }
 
       // Rechte Seite prüfen
-      if (canScrollRight && xVisible > screenWidth - edge) {
+      if (canScrollRight && xVisible > viewportW - edge) {
         // delta = Wie viel gescrollt werden soll
-        const dist = xVisible - (screenWidth - edge)
+        const dist = xVisible - (viewportW - edge)
         const delta = Math.min(cap, dist * mult)
         scrollToX(scrollXRef.current + delta)
       }
@@ -674,15 +685,13 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
     [mode, screenWidth, scrollToX],
   )
 
+  const handleSelectAtPageX = useCallback(
+    (pageX: number) => {
+      const viewportW = viewportWRef.current || screenWidth
+      const xVisibleRaw = pageX - scrollViewLeftInWindowRef.current
 
-  // Ermöglicht das Auswählen von Datenpunkten durch Berühren und Ziehen
-  // PanResponder ist von React-Native und zuständig für Touch-Handling
-  const panResponder = useMemo(() => {
-
-    const handleSelectAtEventX = (xVisibleRaw: number) => 
-    {
       // Sorgt dafür dass die Auswahl nicht am Rand klebt
-      const xVisible = clampVisibleX(xVisibleRaw, screenWidth, mode)
+      const xVisible = clampVisibleX(xVisibleRaw, viewportW, mode)
       // Absolute Position im ganzen Chart = Wie weit nach rechts gescrollt + aktuelle Screen Koordinate
       const xContent = scrollXRef.current + xVisible
 
@@ -690,150 +699,52 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
       const idx = nearestIndexFromChartX(xContent)
       // Auswahl setzen
       if (idx >= 0) selectIndex(idx)
-    }
+    },
+    [screenWidth, mode, nearestIndexFromChartX, selectIndex],
+  )
 
+  // Ermöglicht das Auswählen von Datenpunkten durch Berühren und Ziehen
+  // PanResponder ist von React-Native und zuständig für Touch-Handling
+  const panResponder = useMemo(() => {
     return PanResponder.create({
       // Dieser PanResponder ist zuständig von Start über Move bis Ende
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderTerminationRequest: () => false,
 
       // Finger setzt auf
       onPanResponderGrant: (e) => {
-        const xVisibleRaw = e.nativeEvent.locationX
-        handleSelectAtEventX(xVisibleRaw)
+        onChartTouchActiveChange?.(true)
+        measureScrollViewLeft()
+        handleSelectAtPageX(e.nativeEvent.pageX)
       },
       // Finger zieht
       onPanResponderMove: (e) => {
-        const xVisibleRaw = e.nativeEvent.locationX
+        const pageX = e.nativeEvent.pageX
+        const viewportW = viewportWRef.current || screenWidth
+        const xVisibleRaw = pageX - scrollViewLeftInWindowRef.current
 
         // Autoscroll am echten Finger 
-        autoScrollIfNearEdges(xVisibleRaw)
+        autoScrollIfNearEdges(clamp(xVisibleRaw, 0, viewportW))
 
         // Auswahl nicht am Rand kleben lassen
-        handleSelectAtEventX(xVisibleRaw)
+        handleSelectAtPageX(pageX)
       },
       // Finger loslassen --> Auswahl soll bleiben
-      onPanResponderRelease: () => {},
-      onPanResponderTerminate: () => {},
+      onPanResponderRelease: () => {
+        onChartTouchActiveChange?.(false)
+      },
+      onPanResponderTerminate: () => {
+        onChartTouchActiveChange?.(false)
+      },
     })
-  }, [nearestIndexFromChartX, selectIndex, autoScrollIfNearEdges, screenWidth, mode])
-
-
-  // Liste von Indices für die X-Achse
-  // Victory Native XL will wissen bei welchem Datenpunkt ein Labek hin soll
-  const xTickValues = useMemo(() => {
-    const n = prepared.rows.length
-    if (n === 0) {
-      return []
-    }
-
-    // TAG
-    if (mode === 'day') {
-      const desiredPx = 45
-      // desiredPx / pxPerPoint berechnet wie viele Punkte man braucht, um ungefähr desiredPx Pixel Abstand zu haben
-      const step = Math.max(1, Math.round(desiredPx / pxPerPoint))
-
-      const ticks: number[] = []
-      for (let i = 0; i < n; i += step) {
-        ticks.push(i)
-      }
-
-      // Letzter Tick wird erzwungen, damit das Ende auch ein Label bekommt
-      if (ticks[ticks.length - 1] !== n - 1) {
-        ticks.push(n - 1)
-      }
-
-      return ticks
-    }
-
-    // MONAT
-    if (mode === 'month') {
-      const y = selection.year
-      const m0 = selection.month ?? 0
-      const dim = getDaysInMonth(y, m0)
-
-      const ticks: number[] = []
-      // seen speichert welche Tage schon als Tick existieren (Set für schnelle Überprüfung)
-      const seen = new Set<number>()
-
-      for (let i = 0; i < n; i++) {
-        const d = new Date(prepared.rows[i].t)
-        const day = d.getDate()
-
-        if (seen.has(day)) {
-          continue
-        }
-
-        // Mitternacht prüfen
-        const h = d.getHours()
-        const min = d.getMinutes()
-
-        if (h === 0 && min === 0) {
-          ticks.push(i)
-          seen.add(day)
-
-          if (seen.size >= dim) {
-            break
-          }
-        }
-      }
-
-      if (ticks.length > 0) {
-        return ticks
-      }
-
-      // Zur Sicherheit falls keine Mitternachtsdaten existieren
-      const step = Math.max(1, Math.round(35 / pxPerPoint))
-      for (let i = 0; i < n; i += step) {
-        ticks.push(i)
-      }
-
-      return ticks
-    }
-
-    // Jahr
-    // Wenn yearTickIndices funktioniert, dann benutz dessen Werte
-    const yearTicks = yearTickIndices(prepared.rows)
-    if (yearTicks.length > 0) {
-      return yearTicks
-    }
-
-    // Sicherheit, falls yearTickIndices keine Werte um 00:00 findet
-    const step = Math.max(1, Math.round(70 / pxPerPoint))
-    const fallback: number[] = []
-    for (let i = 0; i < n; i += step) {
-      fallback.push(i)
-    }
-    return fallback
-  }, [prepared.rows, mode, selection.year, selection.month, pxPerPoint])
-
-  // Wandelt x-Wert in Text um welcher angezeigt wird
-  const formatXLabel = useCallback(
-    (xIndex: number) => {
-      const idx = Math.round(Number(xIndex))
-      // Wenn Index ungültig ist, leeres Label zurückgeben
-      const r = prepared.rows[idx]
-      if (!r) return ''
-
-      // Im Jahresmodus andere Darstellung
-      if (mode === 'year') {
-        const d = new Date(r.t)
-        const day = d.getDate()
-        // Kurzen Monatsnamen holen
-        const mon = new Intl.DateTimeFormat('de-AT', { month: 'short' }).format(d)
-        // Wenn erster des Monats, dann Monatsname, sonst Tag anzeigen
-        if (day === 1) return mon
-        return `${day}.`
-      }
-
-      return r.axisLabel
-    },
-    [prepared.rows, mode],
-  )
+  }, [autoScrollIfNearEdges, handleSelectAtPageX, measureScrollViewLeft, onChartTouchActiveChange, screenWidth])
 
   const selectedIndex = selected?.index ?? -1       // Index des ausgewählten Punkts, oder -1 wenn keiner ausgewählt ist
   const showOverlayMessage = !isLoading && (!!errorText || prepared.rows.length === 0)  // Doppeltes !! ist eine Typ-Umwandlung zu Boolean, damit es true/false ist
-  const showFontLoading = !font   
+  const showFontLoading = !font
 
   // Gesamtenergie für den aktuellen Zeitraum berechnen
   const periodTotals = useMemo(() => {
@@ -919,13 +830,14 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                 ref={scrollRef}
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                scrollEnabled
+                scrollEnabled={false}
                 scrollEventThrottle={16}
                 onLayout={(e) => {
                   viewportWRef.current = e.nativeEvent.layout.width
                   const max = Math.max(0, contentWRef.current - viewportWRef.current)
                   maxScrollRef.current = max
                   scrollToX(scrollXRef.current)
+                  requestAnimationFrame(() => measureScrollViewLeft())
                 }}
                 onContentSizeChange={(w) => {
                   contentWRef.current = w
@@ -965,8 +877,8 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
                     domain={{ x: [0, Math.max(1, prepared.rows.length - 1)], y: [0, prepared.yMax] }}
                     xAxis={{
                       font,
-                      tickValues: xTickValues,
-                      formatXLabel,
+                      tickValues: [],
+                      formatXLabel: () => '',
                       labelColor: '#666',
                     }}
                     yAxis={[
@@ -1024,7 +936,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true }) => {
               </ScrollView>
 
               <View
-                style={[styles.gestureViewportOverlay, { width: screenWidth, height: chartHeight }]}
+                style={[styles.gestureViewportOverlay, { width: '100%', height: chartHeight }]}
                 {...panResponder.panHandlers}
               />
             </View>

@@ -16,19 +16,23 @@ export default function DiagramScreen() {
     day: now.getDate(),
   })
 
+  const [chartTouchActive, setChartTouchActive] = useState(false)
+
   return (
     <ThemedView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
+        scrollEnabled={!chartTouchActive}
+        directionalLockEnabled
       >
         <Card>
           <DDates selection={selection} onChangeSelection={setSelection} />
         </Card>
 
         <Card>
-          <DDiagram selection={selection} />
+          <DDiagram selection={selection} onChartTouchActiveChange={setChartTouchActive} />
         </Card>
       </ScrollView>
     </ThemedView>

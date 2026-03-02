@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { ScrollView, StyleSheet, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 
@@ -9,13 +9,22 @@ import SErrorLog from '@/components/settings/s-errorlog'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
 import { useAuth } from '@/contexts/s-authcontext'
 import { verifyAdminPW } from '@/services/setting_services/device-backend_configs/settings_service'
+import { useIsFocused } from '@react-navigation/native'
 
 export default function SettingsScreen() {
   const router = useRouter()
   const { password, authorize, deauthorize } = useAuth()
   const authorized = password !== null
 
+  const isFocused = useIsFocused()
+  const [showPwModal, setShowPwModal] = useState(true)
+
+  useEffect(() => {
+    if (isFocused) setShowPwModal(true)
+  }, [isFocused])
+
   const handleCancel = () => {
+    setShowPwModal(false)
     deauthorize()
     router.replace('/')
   }
@@ -40,7 +49,7 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <SPasswordModal
-        visible={!authorized}
+        visible={isFocused && showPwModal && !authorized}
         onCancel={handleCancel}
         onSuccess={handleSuccess}
       />
