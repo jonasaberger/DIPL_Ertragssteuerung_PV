@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { StyleSheet, Text, TextInput, View } from 'react-native'
 import { verifyAdminPW } from '@/services/setting_services/device-backend_configs/settings_service'
 import AppModal from '@/components/modal'
@@ -12,30 +12,45 @@ type Props = {
 export default function SPasswordModal({ visible, onCancel, onSuccess }: Props) {
   const [pw, setPw] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!visible) return
     setPw('')
     setError('')
+    setSubmitting(false)
   }, [visible])
 
+  const trySubmit = useCallback(async () => {
+    if (!pw || submitting) return
+
+    setSubmitting(true)
+    setError('')
+
+    try {
+      const isValid = await verifyAdminPW(pw)
+      if (isValid) {
+        onSuccess(pw)
+      } else {
+        setError('Falsches Passwort')
+      }
+    } catch (e) {
+      // fängt HTTP/Network Fehler ab 
+      setError('Falsches Passwort')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [pw, submitting, onSuccess])
 
   return (
     <AppModal
       visible={visible}
       title="Passwort erforderlich"
       onCancel={onCancel}
-      onConfirm={async () => {
-        const isValid = await verifyAdminPW(pw)
-        if (isValid) {
-          onSuccess(pw)
-        } else {
-          setError('Falsches Passwort')
-        }
-      }}
-      confirmDisabled={pw.length === 0}
+      onConfirm={trySubmit}
+      confirmDisabled={pw.length === 0 || submitting}
       cancelText="Abbrechen"
-      confirmText="Bestätigen"
+      confirmText={submitting ? '...' : 'Bestätigen'}
     >
       <View style={styles.content}>
         <Text style={styles.label}>Passwort</Text>
@@ -52,14 +67,8 @@ export default function SPasswordModal({ visible, onCancel, onSuccess }: Props) 
           style={styles.input}
           selectionColor="#474646"
           returnKeyType="done"
-          onSubmitEditing={async () => {
-            const isValid = await verifyAdminPW(pw)
-            if (isValid) {
-              onSuccess(pw)
-            } else {
-              setError('Falsches Passwort')
-            }
-          }}
+          onSubmitEditing={trySubmit}
+          editable={!submitting}
         />
 
         {!!error && <Text style={styles.error}>{error}</Text>}

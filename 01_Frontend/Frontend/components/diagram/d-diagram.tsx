@@ -45,7 +45,7 @@ function parseApiTime(iso: string): Date {
     return new Date(s)
   }
 
-  // Hat der String einen Offset wie z.b +01:00 
+  // Hat der String einen Offset wie z.b +01:00
   if (/[+\-]\d{2}:\d{2}$/.test(s)) {
     return new Date(s)
   }
@@ -97,7 +97,7 @@ function isoParts(iso: string) {
 
   const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/)
   if (m) {
-    // Braucht man so für die Zeitzone 
+    // Braucht man so für die Zeitzone
     return {
       y: Number(m[1]),
       mo: Number(m[2]),
@@ -122,7 +122,6 @@ function isoParts(iso: string) {
 function axisLabelForIso(iso: string, mode: Mode) {
   const p = isoParts(iso)
 
-
   if (mode === 'day') {
     return pad2(p.h) + ':' + pad2(p.mi)
   }
@@ -131,12 +130,11 @@ function axisLabelForIso(iso: string, mode: Mode) {
     return pad2(p.d)
   }
 
-  const monthNames = [ 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez',]
+  const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 
   const idx = clamp(p.mo, 1, 12) - 1
   return monthNames[idx]
 }
-
 
 function tooltipLabelForIso(iso: string, mode: Mode) {
   const p = isoParts(iso)
@@ -147,7 +145,7 @@ function tooltipLabelForIso(iso: string, mode: Mode) {
 
   // Monatsname für Jahresansicht
   if (mode === 'year') {
-    const monthNames = [ 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez', ]
+    const monthNames = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez']
 
     // Monat aus Datum extrahieren und Namen zuordnen, clamp damit monat zwischen 1 und 12 und -1 weil Array 0-basiert ist
     const idx = clamp(p.mo, 1, 12) - 1
@@ -158,7 +156,6 @@ function tooltipLabelForIso(iso: string, mode: Mode) {
 
   return date + ' ' + time
 }
-
 
 function getDaysInMonth(year: number, month0Based: number) {
   // +1 bei Monat und 0 bei Tag, damit man den letzten Tag des Vormonats bekommt
@@ -256,8 +253,7 @@ function downsampleYear(points: PvPoint[]) {
     // Zeit des Datenpunkts parsen
     const d = parseApiTime(p._time)
     // Tagesschlüssel erstellen, z.B: "2024-06-014"
-    const key =
-      d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate())
+    const key = d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate())
 
     // Punkt in die Map einfügen (entweder neue erstellen oder hinzufügen)
     const arr = map.get(key)
@@ -279,12 +275,12 @@ function downsampleYear(points: PvPoint[]) {
     // Falls kein Datenpunkt für den Tag, einfach überspringen
     if (!arr || arr.length === 0) continue
 
-    let pvMax = 0       // Höchster PV-Wert des Tages
-    let loadMax = 0     // Höchster Load-Wert des Tages (positiver Wert --> Verbrauch)
-    let feedMax = 0     // Höchster Feed-In Wert des Tages (positiver Wert --> Einspeisung)
+    let pvMax = 0 // Höchster PV-Wert des Tages
+    let loadMax = 0 // Höchster Load-Wert des Tages (positiver Wert --> Verbrauch)
+    let feedMax = 0 // Höchster Feed-In Wert des Tages (positiver Wert --> Einspeisung)
 
-    let socLast = 0          // SoC-Wert des letzten Datenpunkts des Tages
-    let lastT = -Infinity    // Zeit des letzten Datenpunkts; -infinity damit jeder Punkt am Anfang höher ist
+    let socLast = 0 // SoC-Wert des letzten Datenpunkts des Tages
+    let lastT = -Infinity // Zeit des letzten Datenpunkts; -infinity damit jeder Punkt am Anfang höher ist
 
     // Alle Messpunkte des tages durchgehen
     for (let j = 0; j < arr.length; j++) {
@@ -406,10 +402,10 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
   // skia braucht fonts, denn Skia rendert alles selbst
   const font = useFont(require('../../assets/fonts/Inter.ttf'), 11)
 
-  const [selected, setSelected] = useState<Selected | null>(null)         // Aktuell ausgewählter Punkt
-  const [rawApiData, setRawApiData] = useState<PvPoint[] | null>(null)    // Daten vom API
-  const [isLoading, setIsLoading] = useState(false)                       // State, ob gerade eine API Request läuft
-  const [errorText, setErrorText] = useState<string | null>(null)         // Fehlermeldung, falls API Request fehlschlägt
+  const [selected, setSelected] = useState<Selected | null>(null) // Aktuell ausgewählter Punkt
+  const [rawApiData, setRawApiData] = useState<PvPoint[] | null>(null) // Daten vom API
+  const [isLoading, setIsLoading] = useState(false) // State, ob gerade eine API Request läuft
+  const [errorText, setErrorText] = useState<string | null>(null) // Fehlermeldung, falls API Request fehlschlägt
 
   const [detailMode, setDetailMode] = useState<'current' | 'sum'>('current')
 
@@ -432,7 +428,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
     })
   }, [])
 
-  //useMemo, damit die Werte nur neu berechnet werden, wenn sich die Selection ändert (und nicht bei Neu Rendering)
+  // useMemo, damit die Werte nur neu berechnet werden, wenn sich die Selection ändert (und nicht bei Neu Rendering)
   const mode = useMemo(() => modeFromSelection(selection), [selection])
   const requestKey = useMemo(() => diagramRequestKey(selection), [selection])
 
@@ -472,18 +468,13 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
   }, [chartData, mode])
 
   const yMax = useMemo(() => {
-    //Bestimmt den maximalen Y-Wert für die Skalierung des Diagramms
-    const maxY = Math.max(
-      100,
-      ...baseRows.map(r => r.pv),
-      ...baseRows.map(r => r.load),
-      ...baseRows.map(r => r.feedIn),
-    )
+    // Bestimmt den maximalen Y-Wert für die Skalierung des Diagramms
+    const maxY = Math.max(100, ...baseRows.map(r => r.pv), ...baseRows.map(r => r.load), ...baseRows.map(r => r.feedIn))
     //y-Achse endet z.B bei Wert von 4267, auf 4500
     return Math.ceil(maxY / 500) * 500
   }, [baseRows])
 
-  //Bereitet die Daten für das Diagramm vor, inklusive Skalierung des SoC-Werts
+  // Bereitet die Daten für das Diagramm vor, inklusive Skalierung des SoC-Werts
   const prepared = useMemo(() => {
     const rows: ChartRow[] = baseRows.map(r => ({
       ...r,
@@ -498,7 +489,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
     return 'Energieverlauf (Jahr)'
   }, [mode])
 
-  //Pixelanzahl für jeden Datenpunkt, abhängig von Modus und Datenanzahl
+  // Pixelanzahl für jeden Datenpunkt, abhängig von Modus und Datenanzahl
   const pxPerPoint = useMemo(() => {
     const n = prepared.rows.length
     if (mode === 'day') return 9
@@ -509,18 +500,45 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
     return 2.4
   }, [mode, prepared.rows.length])
 
-  const padding = { top: 20, bottom: 40, left: 55, right: 20 }
+  const AXIS_W = 62
+  const paddingAxis = { top: 20, bottom: 40, left: 0, right: 6 }
+  const paddingPlot = { top: 20, bottom: 40, left: 12, right: 20 }
   const chartHeight = 260
 
   const chartWidth = useMemo(() => {
     const n = prepared.rows.length
-    if (n === 0) return screenWidth
-    return Math.max(screenWidth, n * pxPerPoint + padding.left + padding.right)
+    const viewportPlotW = Math.max(1, screenWidth - AXIS_W)
+    if (n === 0) return viewportPlotW
+    return Math.max(viewportPlotW, n * pxPerPoint + paddingPlot.left + paddingPlot.right)
   }, [prepared.rows.length, pxPerPoint, screenWidth])
 
   const yKeys = useMemo(() => {
     return showSoc ? (['pv', 'load', 'feedIn', 'socScaled'] as const) : (['pv', 'load', 'feedIn'] as const)
   }, [showSoc])
+
+  const xTickValues = useMemo(() => {
+    const n = prepared.rows.length
+    if (n <= 1) return [0]
+
+    if (mode === 'year') {
+      const ticks = yearTickIndices(prepared.rows)
+      if (ticks.length > 0) return ticks
+      // Fallback, falls die Daten nicht exakt auf 00:00 liegen
+      const step = Math.max(1, Math.round(n / 12))
+      const out: number[] = []
+      for (let i = 0; i < n; i += step) out.push(i)
+      if (out[out.length - 1] !== n - 1) out.push(n - 1)
+      return out
+    }
+
+    // Day/Month: gleichmäßig verteilen, damit es nicht überlappt
+    const target = mode === 'day' ? 6 : 8
+    const step = Math.max(1, Math.round(n / target))
+    const out: number[] = []
+    for (let i = 0; i < n; i += step) out.push(i)
+    if (out[out.length - 1] !== n - 1) out.push(n - 1)
+    return out
+  }, [prepared.rows, mode])
 
   //Graue Kreuzlinie X-Position
   const crossX = useMemo(() => {
@@ -537,14 +555,12 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
   // Wählt einen Datenpunkt im Diagramm aus
   // Usecallback, damit sich die Funktion nur neu erzeugt wenn prepared.rows sich ändert
   const selectIndex = useCallback(
-    (idxRaw: number) =>
-    {
+    (idxRaw: number) => {
       // Anzahl der Datenpunkte
       const n = prepared.rows.length
 
       // Falls keine Punkte existieren
-      if (n <= 0)
-      {
+      if (n <= 0) {
         return
       }
 
@@ -553,9 +569,8 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
       // Datenpunkt für den Index holen
       const row = prepared.rows[idx]
 
-      // Sicherhet falls sich prepared.rows geändert hat 
-      if (!row)
-      {
+      // Sicherhet falls sich prepared.rows geändert hat
+      if (!row) {
         return
       }
 
@@ -589,8 +604,8 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
     }
 
     // Binäre Suche
-    let lowerBorder = 0         // Untere Grenze für binäre Suche
-    let higherBorder = n - 1    // Obere Grenze für binäre Suche
+    let lowerBorder = 0 // Untere Grenze für binäre Suche
+    let higherBorder = n - 1 // Obere Grenze für binäre Suche
 
     // Solange der Suchbereich größer als 3 Elemente ist wird halbiert
     while (higherBorder - lowerBorder > 3) {
@@ -608,8 +623,8 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
     }
 
     // lineare Suche im kleinen Restbereich
-    let best = lowerBorder                                          // Aktuell bester index
-    let bestDist = Math.abs(xArray[lowerBorder] - xInContent)       // Abstand zur gesuchten X-Position
+    let best = lowerBorder // Aktuell bester index
+    let bestDist = Math.abs(xArray[lowerBorder] - xInContent) // Abstand zur gesuchten X-Position
 
     // Durch alle Kandidaten gehen und besten Index finden
     for (let i = lowerBorder + 1; i <= higherBorder; i++) {
@@ -634,8 +649,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
     const next = clamp(x, 0, max)
 
     // Nur scrollen falls nötig
-    if (next === scrollXRef.current)
-    {
+    if (next === scrollXRef.current) {
       return
     }
 
@@ -657,14 +671,14 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
       const viewportW = viewportWRef.current || screenWidth
 
       // Bei Modus Tag sind die Werte anders (weil Month / Year liegen näher beieinander --> weniger aggresives scrollen)
-      const edge = Math.min(mode === 'day' ? 70 : 85, viewportW * 0.18)     // Randbereich, wann gescrollt wird (dynamisch mit Screenweite)
+      const edge = Math.min(mode === 'day' ? 70 : 85, viewportW * 0.18) // Randbereich, wann gescrollt wird (dynamisch mit Screenweite)
 
       // Schauen ob überhaupt gescrollt werden kann
       const canScrollLeft = scrollXRef.current > 0
       const canScrollRight = scrollXRef.current < max
 
-      const mult = mode === 'day' ? 0.9 : 0.7    // Verstärkung, wie stark gescrollt wird, je näher am Rand
-      const cap = mode === 'day' ? 18 : 14      // Maximale Scrollgeschwindigkeit pro Aufruf
+      const mult = mode === 'day' ? 0.9 : 0.7 // Verstärkung, wie stark gescrollt wird, je näher am Rand
+      const cap = mode === 'day' ? 18 : 14 // Maximale Scrollgeschwindigkeit pro Aufruf
 
       // Linke Seite prüfen
       if (canScrollLeft && xVisible < edge) {
@@ -726,7 +740,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
         const viewportW = viewportWRef.current || screenWidth
         const xVisibleRaw = pageX - scrollViewLeftInWindowRef.current
 
-        // Autoscroll am echten Finger 
+        // Autoscroll am echten Finger
         autoScrollIfNearEdges(clamp(xVisibleRaw, 0, viewportW))
 
         // Auswahl nicht am Rand kleben lassen
@@ -742,8 +756,8 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
     })
   }, [autoScrollIfNearEdges, handleSelectAtPageX, measureScrollViewLeft, onChartTouchActiveChange, screenWidth])
 
-  const selectedIndex = selected?.index ?? -1       // Index des ausgewählten Punkts, oder -1 wenn keiner ausgewählt ist
-  const showOverlayMessage = !isLoading && (!!errorText || prepared.rows.length === 0)  // Doppeltes !! ist eine Typ-Umwandlung zu Boolean, damit es true/false ist
+  const selectedIndex = selected?.index ?? -1 // Index des ausgewählten Punkts, oder -1 wenn keiner ausgewählt ist
+  const showOverlayMessage = !isLoading && (!!errorText || prepared.rows.length === 0) // Doppeltes !! ist eine Typ-Umwandlung zu Boolean, damit es true/false ist
   const showFontLoading = !font
 
   // Gesamtenergie für den aktuellen Zeitraum berechnen
@@ -825,120 +839,156 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
 
         {!showOverlayMessage && !showFontLoading && (
           <>
-            <View style={{ width: '100%', height: chartHeight }}>
-              <ScrollView
-                ref={scrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                scrollEnabled={false}
-                scrollEventThrottle={16}
-                onLayout={(e) => {
-                  viewportWRef.current = e.nativeEvent.layout.width
-                  const max = Math.max(0, contentWRef.current - viewportWRef.current)
-                  maxScrollRef.current = max
-                  scrollToX(scrollXRef.current)
-                  requestAnimationFrame(() => measureScrollViewLeft())
+            <View style={{ width: '100%', height: chartHeight, flexDirection: 'row' }}>
+              <View
+                style={{
+                  width: AXIS_W,
+                  height: chartHeight,
+                  backgroundColor: '#fff',
+                  borderRightWidth: 1,
+                  borderRightColor: '#EEE',
                 }}
-                onContentSizeChange={(w) => {
-                  contentWRef.current = w
-                  const max = Math.max(0, contentWRef.current - viewportWRef.current)
-                  maxScrollRef.current = max
-                  scrollToX(scrollXRef.current)
-                }}
-                onScroll={(e) => {
-                  scrollXRef.current = e.nativeEvent.contentOffset.x
-                }}
-                contentContainerStyle={{ width: chartWidth }}
               >
-                <View style={{ width: chartWidth, height: chartHeight }}>
-                  {crossX !== null && (
-                    <View
-                      pointerEvents="none"
-                      style={[
-                        styles.crosshair,
+                <CartesianChart
+                  // Jede Row enthält: x (Index), axisLabel (für X-Achse), tipLabel (für Tooltip), pv, load, feedIn, socPct, t (Zeitstempel)
+                  data={prepared.rows}
+                  // xKey ist "x", also der Index der Datenpunkte
+                  xKey="x"
+                  yKeys={yKeys as any}
+                  padding={paddingAxis}
+                  // x-Werte von 0 bis Anzahl der Datenpunkte, y-Werte von 0 bis yMax (automatisch berechnet)
+                  domain={{ x: [0, Math.max(1, prepared.rows.length - 1)], y: [0, prepared.yMax] }}
+                  xAxis={{
+                    font,
+                    tickValues: [],
+                    formatXLabel: () => '',
+                    labelColor: '#666',
+                  }}
+                  yAxis={[
+                    {
+                      font,
+                      tickCount: 5,
+                      labelColor: '#666',
+                      formatYLabel: (v) => `${Math.round(Number(v))} W`,
+                    },
+                  ]}
+                >
+                  {() => null}
+                </CartesianChart>
+              </View>
+
+              <View style={{ flex: 1, height: chartHeight }}>
+                <ScrollView
+                  ref={scrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  scrollEnabled={false}
+                  scrollEventThrottle={16}
+                  onLayout={(e) => {
+                    viewportWRef.current = e.nativeEvent.layout.width
+                    const max = Math.max(0, contentWRef.current - viewportWRef.current)
+                    maxScrollRef.current = max
+                    scrollToX(scrollXRef.current)
+                    requestAnimationFrame(() => measureScrollViewLeft())
+                  }}
+                  onContentSizeChange={(w) => {
+                    contentWRef.current = w
+                    const max = Math.max(0, contentWRef.current - viewportWRef.current)
+                    maxScrollRef.current = max
+                    scrollToX(scrollXRef.current)
+                  }}
+                  onScroll={(e) => {
+                    scrollXRef.current = e.nativeEvent.contentOffset.x
+                  }}
+                  contentContainerStyle={{ width: chartWidth }}
+                >
+                  <View style={{ width: chartWidth, height: chartHeight }}>
+                    {crossX !== null && (
+                      <View
+                        pointerEvents="none"
+                        style={[
+                          styles.crosshair,
+                          {
+                            left: crossX - 1,
+                            top: 0,
+                            height: chartHeight,
+                            width: 2,
+                          },
+                        ]}
+                      />
+                    )}
+
+                    <CartesianChart
+                      // Jede Row enthält: x (Index), axisLabel (für X-Achse), tipLabel (für Tooltip), pv, load, feedIn, socPct, t (Zeitstempel)
+                      data={prepared.rows}
+                      // xKey ist "x", also der Index der Datenpunkte
+                      xKey="x"
+                      yKeys={yKeys as any}
+                      padding={paddingPlot}
+                      // x-Werte von 0 bis Anzahl der Datenpunkte, y-Werte von 0 bis yMax (automatisch berechnet)
+                      domain={{ x: [0, Math.max(1, prepared.rows.length - 1)], y: [0, prepared.yMax] }}
+                      xAxis={{
+                        font,
+                        tickValues: xTickValues,
+                        formatXLabel: (v) => prepared.rows[Math.round(Number(v))]?.axisLabel ?? '',
+                        labelColor: '#666',
+                      }}
+                      yAxis={[
                         {
-                          left: crossX - 1,
-                          top: 0,
-                          height: chartHeight,
-                          width: 2,
+                          font,
+                          tickCount: 0,
+                          labelColor: 'transparent',
+                          formatYLabel: () => '',
                         },
                       ]}
-                    />
-                  )}
-
-                  <CartesianChart
-                    // Jede Row enthält: x (Index), axisLabel (für X-Achse), tipLabel (für Tooltip), pv, load, feedIn, socPct, t (Zeitstempel)
-                    data={prepared.rows}
-                    // xKey ist "x", also der Index der Datenpunkte
-                    xKey="x"
-                    yKeys={yKeys as any}
-                    padding={padding}
-                    // x-Werte von 0 bis Anzahl der Datenpunkte, y-Werte von 0 bis yMax (automatisch berechnet)
-                    domain={{ x: [0, Math.max(1, prepared.rows.length - 1)], y: [0, prepared.yMax] }}
-                    xAxis={{
-                      font,
-                      tickValues: [],
-                      formatXLabel: () => '',
-                      labelColor: '#666',
-                    }}
-                    yAxis={[
-                      {
-                        font,
-                        tickCount: 5,
-                        labelColor: '#666',
-                        formatYLabel: (v) => `${Math.round(Number(v))} W`,
-                      },
-                    ]}
-                  >
-                    {({ points }) => {
-                      // Victory rechnet aus Daten echte Chart-Koordinaten aus
-                      const pvPts = points.pv ?? []
-                      if (pvPts.length > 0) {
-                        const xs: number[] = []
-                        // X-Koordinaten der PV-Punkte extrahieren
-                        for (let i = 0; i < pvPts.length; i++) {
-                          const x = pvPts[i]?.x
-                          // Sicherheitshalber prüfen, ob x eine endliche Zahl ist, sonst NaN speichern
-                          xs.push(typeof x === 'number' && Number.isFinite(x) ? x : NaN)
+                    >
+                      {({ points }) => {
+                        // Victory rechnet aus Daten echte Chart-Koordinaten aus
+                        const pvPts = points.pv ?? []
+                        if (pvPts.length > 0) {
+                          const xs: number[] = []
+                          // X-Koordinaten der PV-Punkte extrahieren
+                          for (let i = 0; i < pvPts.length; i++) {
+                            const x = pvPts[i]?.x
+                            // Sicherheitshalber prüfen, ob x eine endliche Zahl ist, sonst NaN speichern
+                            xs.push(typeof x === 'number' && Number.isFinite(x) ? x : NaN)
+                          }
+                          // Wenn alle X-Koordinaten gültige Zahlen sind, dann in Ref speichern
+                          if (xs.every(v => Number.isFinite(v))) pointsXRef.current = xs
                         }
-                        // Wenn alle X-Koordinaten gültige Zahlen sind, dann in Ref speichern
-                        if (xs.every(v => Number.isFinite(v))) pointsXRef.current = xs
-                      }
 
-                      const n = pvPts.length
-                      const idxOk = selectedIndex >= 0 && selectedIndex < n                     // Ist Index gültig?
-                      const pvP = idxOk ? pvPts[selectedIndex] : undefined                      // Datenpunkt bei Index holen
-                      const loadP = idxOk ? points.load?.[selectedIndex] : undefined            // Datenpunkt bei Index holen
-                      const feedP = idxOk ? points.feedIn?.[selectedIndex] : undefined          // Datenpunkt bei Index holen
-                      const socP = idxOk ? points.socScaled?.[selectedIndex] : undefined        // Datenpunkt bei Index holen
+                        const n = pvPts.length
+                        const idxOk = selectedIndex >= 0 && selectedIndex < n // Ist Index gültig?
+                        const pvP = idxOk ? pvPts[selectedIndex] : undefined // Datenpunkt bei Index holen
+                        const loadP = idxOk ? points.load?.[selectedIndex] : undefined // Datenpunkt bei Index holen
+                        const feedP = idxOk ? points.feedIn?.[selectedIndex] : undefined // Datenpunkt bei Index holen
+                        const socP = idxOk ? points.socScaled?.[selectedIndex] : undefined // Datenpunkt bei Index holen
 
-                      return (
-                        <>
-                          <Line points={points.pv} color={COLORS.pv} strokeWidth={3} />
-                          <Line points={points.load} color={COLORS.load} strokeWidth={3} />
-                          <Line points={points.feedIn} color={COLORS.feedIn} strokeWidth={3} />
-                          {showSoc && <Line points={points.socScaled} color={COLORS.soc} strokeWidth={3} />}
+                        return (
+                          <>
+                            <Line points={points.pv} color={COLORS.pv} strokeWidth={3} />
+                            <Line points={points.load} color={COLORS.load} strokeWidth={3} />
+                            <Line points={points.feedIn} color={COLORS.feedIn} strokeWidth={3} />
+                            {showSoc && <Line points={points.socScaled} color={COLORS.soc} strokeWidth={3} />}
 
-                          {/* Punkt auf Linie bei aktueller Markerposition setzen */}
-                          {idxOk && (
-                            <>
-                              {pvP && <Scatter points={[pvP]} color={COLORS.pv} radius={5} />}
-                              {loadP && <Scatter points={[loadP]} color={COLORS.load} radius={5} />}
-                              {feedP && <Scatter points={[feedP]} color={COLORS.feedIn} radius={5} />}
-                              {showSoc && socP && <Scatter points={[socP]} color={COLORS.soc} radius={5} />}
-                            </>
-                          )}
-                        </>
-                      )
-                    }}
-                  </CartesianChart>
-                </View>
-              </ScrollView>
+                            {/* Punkt auf Linie bei aktueller Markerposition setzen */}
+                            {idxOk && (
+                              <>
+                                {pvP && <Scatter points={[pvP]} color={COLORS.pv} radius={5} />}
+                                {loadP && <Scatter points={[loadP]} color={COLORS.load} radius={5} />}
+                                {feedP && <Scatter points={[feedP]} color={COLORS.feedIn} radius={5} />}
+                                {showSoc && socP && <Scatter points={[socP]} color={COLORS.soc} radius={5} />}
+                              </>
+                            )}
+                          </>
+                        )
+                      }}
+                    </CartesianChart>
+                  </View>
+                </ScrollView>
 
-              <View
-                style={[styles.gestureViewportOverlay, { width: '100%', height: chartHeight }]}
-                {...panResponder.panHandlers}
-              />
+                <View style={[styles.gestureViewportOverlay, { width: '100%', height: chartHeight }]} {...panResponder.panHandlers} />
+              </View>
             </View>
 
             <View style={styles.valuesBox}>
@@ -954,10 +1004,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
                   >
                     <Text style={[styles.toggleText, detailMode === 'current' && styles.toggleTextActive]}>Aktuell</Text>
                   </Pressable>
-                  <Pressable
-                    onPress={() => setDetailMode('sum')}
-                    style={[styles.togglePill, detailMode === 'sum' && styles.togglePillActive]}
-                  >
+                  <Pressable onPress={() => setDetailMode('sum')} style={[styles.togglePill, detailMode === 'sum' && styles.togglePillActive]}>
                     <Text style={[styles.toggleText, detailMode === 'sum' && styles.toggleTextActive]}>Summe</Text>
                   </Pressable>
                 </View>
@@ -977,9 +1024,7 @@ export const DDiagram: React.FC<Props> = ({ selection, showSoc = true, onChartTo
                   <ValueRow color={COLORS.pv} label="Erzeugung" value={fmtKWh(periodTotals?.pvKWh ?? 0)} />
                   <ValueRow color={COLORS.load} label="Hausverbrauch" value={fmtKWh(periodTotals?.loadKWh ?? 0)} />
                   <ValueRow color={COLORS.feedIn} label="Netzeinspeisung" value={fmtKWh(periodTotals?.feedInKWh ?? 0)} />
-                  {showSoc && (
-                    <ValueRow color={COLORS.soc} label="Batterieladung (Ende)" value={fmtPct(periodTotals?.socEnd ?? 0)} />
-                  )}
+                  {showSoc && <ValueRow color={COLORS.soc} label="Batterieladung (Ende)" value={fmtPct(periodTotals?.socEnd ?? 0)} />}
                 </>
               )}
             </View>

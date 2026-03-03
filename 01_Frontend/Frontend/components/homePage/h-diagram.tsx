@@ -21,6 +21,7 @@ const BATTERY_COLOR = '#2EFF74'
 const GRID_COLOR = '#FF702E'
 
 export type DiagramData = {
+  time?: string   
   // PV Erzeugung
   total: number
 
@@ -396,6 +397,9 @@ export default function HDiagram({ data, available = true }: Props) {
 
   return (
     <Card height={520}>
+      <Text style={styles.timestampTop}>
+         {data.time ? data.time.slice(0, 5) : '--:--'}
+      </Text>
       {!available && (
         <View style={styles.noDataBadge}>
           <MaterialCommunityIcons name="wifi-off" size={13} color="#8E8E93" />
@@ -612,6 +616,17 @@ const styles = StyleSheet.create({
     height: '100%',
     position: 'relative',
   },
+  timestampTop: {
+  position: 'absolute',
+  top: 12,
+  left: 0,
+  right: 0,
+  textAlign: 'center',
+  fontSize: 16,
+  fontWeight: '700',
+  color: '#474646',
+  zIndex: 11,
+  },
 
   noDataBadge: {
     position: 'absolute',
@@ -647,7 +662,6 @@ const styles = StyleSheet.create({
   },
 
   subValueText: {
-    marginTop: 6,
     fontSize: 14,
     fontWeight: '700',
     color: '#6E6C6C',
