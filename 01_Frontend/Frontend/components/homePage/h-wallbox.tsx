@@ -6,12 +6,12 @@ import UnavailableState from '@/components/unavailable-state'
 
 // car: 0=Unknown/Error, 1=Idle, 2=Charging, 3=WaitCar, 4=Complete, 5=Error
 const CAR_STATE_CONFIG: Record<number, { label: string; icon: string; color: string; bg: string }> = {
-  0: { label: 'Unbekannt', icon: 'help-circle',     color: '#8E8E93', bg: '#F2F2F7' },
-  1: { label: 'Bereit',    icon: 'check',   color: '#16C75C', bg: '#E8F8ED' },
-  2: { label: 'Lädt',      icon: 'flash',            color: '#16C75C', bg: '#E8F8ED' },
-  3: { label: 'Wartet',    icon: 'timer-sand',       color: '#FF9500', bg: '#FFF3E0' },
-  4: { label: 'Fertig',    icon: 'check-circle',     color: '#1EAFF3', bg: '#E3F2FD' },
-  5: { label: 'Fehler',    icon: 'alert-circle',     color: '#FF3B30', bg: '#FFE8E8' },
+  0: { label: 'Unbekannt', icon: 'help-circle-outline', color: '#8E8E93', bg: '#F2F2F7' },
+  1: { label: 'Bereit',    icon: 'ev-plug-type2',        color: '#16C75C', bg: '#E8F8ED' },
+  2: { label: 'Lädt',      icon: 'flash',                color: '#1EAFF3', bg: '#E3F2FD' },
+  3: { label: 'Wartet',    icon: 'pause-circle-outline', color: '#FF9500', bg: '#FFF3E0' },
+  4: { label: 'Fertig',    icon: 'battery-charging-100', color: '#16C75C', bg: '#E8F8ED' },
+  5: { label: 'Fehler',    icon: 'alert-circle-outline', color: '#FF3B30', bg: '#FFE8E8' },
 }
 
 type Props = {
