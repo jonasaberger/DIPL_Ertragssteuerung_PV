@@ -1,3 +1,4 @@
+import os
 import sys
 from datetime import datetime
 
@@ -8,9 +9,15 @@ from db_bridge import DB_Bridge
 
 
 def main():
+       # Load backend URL from environment
+    backend_url = os.getenv("BACKEND_URL")
+    if not backend_url:
+        print("Error: BACKEND_URL is not set in the .env file")
+        sys.exit(1)
+
     # Connect to DB
     db = DB_Bridge()
-    device_manager = DeviceManager("http://100.120.107.71:5050/api/devices") # TODO: Eventuelle Auslagerung der URL in die InfluxDB 
+    device_manager = DeviceManager(f"{backend_url}/api/devices")
 
     try:
         db.check_connection()

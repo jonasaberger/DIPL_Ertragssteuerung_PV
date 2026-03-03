@@ -181,7 +181,7 @@ export default function HomeScreen() {
   // Sync wallbox setting from backend data
   useEffect(() => {
     if (wallboxData?.isCharging !== undefined) {
-      const initialSetting: EGoWallboxSetting = wallboxData.isCharging ? 'MANUAL_ON' : 'MANUAL_OFF'
+      const initialSetting: EGoWallboxSetting = wallboxData.carState === 2 ? 'MANUAL_ON' : 'MANUAL_OFF'
       setUiState((prev) => {
         if (prev.selectedWallboxSetting !== initialSetting) {
           return { ...prev, selectedWallboxSetting: initialSetting }
@@ -387,14 +387,14 @@ export default function HomeScreen() {
 
         <HWallbox
           energyKWh={wallboxData?.energy ?? 0}
-          isCharging={wallboxData?.isCharging ?? false}
-          selectedSetting={uiState.selectedWallboxSetting}
-          onSelect={handleWallboxSelect}
+          carState={wallboxData?.carState ?? 0}
           carConnected={wallboxData?.carConnected ?? false}
           ampere={wallboxData?.ampere ?? 0}
+          selectedSetting={uiState.selectedWallboxSetting}
+          onSelect={handleWallboxSelect}
+          onAmpereChange={handleAmpereChange}
           available={available.wallbox}
           showControls={showManualControls}
-          onAmpereChange={handleAmpereChange}
         />
       </ScrollView>
     </ThemedView>
