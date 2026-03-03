@@ -1,6 +1,7 @@
 import os
 import sys
 from datetime import datetime
+from dotenv import load_dotenv
 
 from device_manager import DeviceManager
 from pv_bridge import PV_Bridge
@@ -9,7 +10,8 @@ from db_bridge import DB_Bridge
 
 
 def main():
-       # Load backend URL from environment
+    # Load backend URL from environment
+    load_dotenv()
     backend_url = os.getenv("BACKEND_URL")
     if not backend_url:
         print("Error: BACKEND_URL is not set in the .env file")
