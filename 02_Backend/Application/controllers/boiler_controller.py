@@ -32,8 +32,7 @@ class BoilerController:
 
     # Relay Logic 
     def _apply_logic(self, logical_on: bool):
-        self._state = logical_on
-
+       
         # Hardware relay available (Pi)
         if self.relay:
             physical_on = not logical_on if self.inverted_logic else logical_on
