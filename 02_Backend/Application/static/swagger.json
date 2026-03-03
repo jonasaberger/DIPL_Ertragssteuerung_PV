@@ -75,7 +75,6 @@
                 "enum": [
                   "system_event",
                   "api_error",
-                  "control_decision",
                   "device_state_change"
                 ]
               }

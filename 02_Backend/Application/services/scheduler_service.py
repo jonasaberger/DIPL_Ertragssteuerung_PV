@@ -58,6 +58,7 @@ class SchedulerService(threading.Thread):
         self.last_epex_log_hour_wallbox = None
         self.last_forecast_override_log_boiler = None
         self.last_forecast_override_log_wallbox = None
+        self._last_charging_stable_log = None
 
     # Main loop of the scheduler thread, which calls tick() every interval seconds
     def run(self):
@@ -67,15 +68,13 @@ class SchedulerService(threading.Thread):
 
     # Log time-controlled mode errors (throttled to once per day)
     def log_time_controlled_error(self, error):
-        now = datetime.now(ZoneInfo("Europe/Vienna"))
-        today = now.date()
-        
-        # Only log once per day
+        today = datetime.now(ZoneInfo("Europe/Vienna")).date()
         if self.last_time_controlled_error_date != today:
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="error",
-                source="scheduler_time_controlled",
-                message=f"TIME_CONTROLLED mode error: {error}"
+                source="zeitsteuerung",
+                message=f"Zeitsteuerung Fehler: {error}"
             )
             self.last_time_controlled_error_date = today
 
@@ -89,114 +88,65 @@ class SchedulerService(threading.Thread):
 
             if mode == SystemMode.MANUAL:
                 return
-
             if mode == SystemMode.TIME_CONTROLLED:
                 self.run_time_controlled()
                 return
-
             if mode == SystemMode.AUTOMATIC:
                 self.run_automatic()
                 return
 
         except Exception as e:
             # SYSTEM EVENT LOG 
-            self.logger.system_event(
-                level="error",
-                source="scheduler",
-                message=f"AUTOMATIC scheduler error: {e}"
+             self.logger.system_event(
+                 level="error",
+                 source="scheduler",
+                 message=f"Scheduler Fehler im Tick: {e}"
             )
 
     # TIME CONTROLLED
     def run_time_controlled(self):
         try:
-            # BOILER 
+            # Boiler
             state = self.boiler.get_state()
             should_on = self.schedule_manager.is_active("boiler")
 
-            if should_on and not state: 
+            if should_on and not state:
                 self.boiler.control("on")
-
-                # CONTROL DECISION LOG
-                self.logger.control_decision(
-                    device="boiler",
-                    action="on",
-                    reason="time_controlled_schedule",
-                    success=True
-                )
-
                 # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change(
-                    device="boiler",
-                    old_state=False,
-                    new_state=True
+                    "boiler", False, True,
+                    reason="Zeitsteuerung: Einschaltzeit erreicht"
                 )
-
             elif not should_on and state:
                 self.boiler.control("off")
-
-                # CONTROL DECISION LOG
-                self.logger.control_decision(
-                    device="boiler",
-                    action="off",
-                    reason="time_controlled_schedule",
-                    success=True
-                )
-
                 # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change(
-                    device="boiler",
-                    old_state=True,
-                    new_state=False
+                    "boiler", True, False,
+                    reason="Zeitsteuerung: Ausschaltzeit erreicht"
                 )
 
-            # WALLBOX 
+            # Wallbox
             current = self.wallbox.get_allow_state()
             should_allow = self.schedule_manager.is_active("wallbox")
-            online = self.wallbox.is_online()
 
-            if not online:
-                return
-
-            if current is None:
+            if not self.wallbox.is_online() or current is None:
                 return
 
             if should_allow and not current:
                 self.wallbox.set_allow_charging(True)
-
-                # CONTROL DECISION LOG
-                self.logger.control_decision(
-                    device="wallbox",
-                    action="set_allow",
-                    reason="time_controlled_schedule",
-                    success=True,
-                    extra={"allow": True}
-                )
-
                 # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change(
-                    device="wallbox",
-                    old_state=False,
-                    new_state=True
+                    "wallbox", False, True,
+                    reason="Zeitsteuerung: Ladefreigabe"
                 )
-
             elif not should_allow and current:
                 self.wallbox.set_allow_charging(False)
-
-                # CONTROL DECISION LOG
-                self.logger.control_decision(
-                    device="wallbox",
-                    action="set_allow",
-                    reason="time_controlled_schedule",
-                    success=True,
-                    extra={"allow": False}
-                )
-
                 # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change(
-                    device="wallbox",
-                    old_state=True,
-                    new_state=False
+                    "wallbox", True, False,
+                    reason="Zeitsteuerung: Ladestopp"
                 )
+
         except Exception as e:
             self.log_time_controlled_error(e)
 
@@ -208,378 +158,307 @@ class SchedulerService(threading.Thread):
 
     # AUTOMATIC – Boiler
     def automatic_boiler(self, forecast):
-        # Load configuration
         config = self.automatic_config.get()
         season = self.schedule_manager.determine_season()
         boiler_cfg = config.get("boiler", {}).get(season, {})
-        
+
         target_time = boiler_cfg.get("target_time")
         target_temp = boiler_cfg.get("target_temp_c")
-        min_runtime = int(boiler_cfg.get("min_runtime_min", 90)) if boiler_cfg.get("min_runtime_min") else 90
-        
+        min_runtime = int(boiler_cfg.get("min_runtime_min", 90))
+
         if not target_time or target_temp is None:
             return
-        
-        # Read current state
+
         try:
             boiler_on = self.boiler.get_state()
             boiler_data = self.db_bridge.get_latest_boiler_data()
             current_temp = boiler_data.get("boiler_temp") if boiler_data else None
         except Exception:
             return
-        
+
         if current_temp is None:
             return
-        
-        # Calculate time to deadline
+
         now = datetime.now(ZoneInfo("Europe/Vienna"))
-        deadline = datetime.combine(now.date(), datetime.strptime(target_time, "%H:%M").time(), tzinfo=ZoneInfo("Europe/Vienna"))
+        deadline = datetime.combine(
+            now.date(),
+            datetime.strptime(target_time, "%H:%M").time(),
+            tzinfo=ZoneInfo("Europe/Vienna")
+        )
         if deadline < now:
             deadline += timedelta(days=1)
         remaining_min = (deadline - now).total_seconds() / 60
-        
-        # Session start log (once per day)
+
+        # Einmal täglich Sitzungsstart loggen
         if self.boiler_session_logged_date != now.date():
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="info",
-                source="boiler_session",
-                message=f"Boiler AUTOMATIC session start: temp={current_temp}°C target={target_temp}°C "
-                       f"deadline={target_time} min_runtime={min_runtime}min season={season}"
+                source="boiler_automatik",
+                message=f"Boiler Automatik-Tag: {current_temp}°C aktuell / Ziel {target_temp}°C bis {target_time} Uhr | "
+                        f"Saison: {season} | Mindestlaufzeit: {min_runtime}min"
             )
             self.boiler_session_logged_date = now.date()
-        
-        # Prepare logging data
-        extra = {
-            "current_temp": current_temp,
-            "target_temp": target_temp,
-            "remaining_min": round(remaining_min, 1)
-        }
-        
-        # Decision logic
-        HYSTERESIS = 2  # °C
+
+        HYSTERESIS = 2
         decision_on = False
         reason = "idle"
-        
-        # Case 1: Target temperature reached
+        pv_surplus = 0.0
+        epex_stats = {}
+
+        # Fall 1: Zieltemperatur erreicht
         if current_temp >= target_temp:
             decision_on = False
             reason = "target_temp_reached"
-        
-        # Case 2: Temperature below target - heating needed
+
+        # Fall 2: Temperatur unter Ziel -> Heizung nötig
         elif current_temp <= target_temp - HYSTERESIS:
-            
-            # Get current PV state
+
             try:
                 pv_surplus = self.pv_service.get_surplus_kw()
                 pv_valid = True
             except Exception:
                 pv_surplus = 0.0
                 pv_valid = False
-            
-            # Get forecast
+
             pv_today = forecast.get("pv_today", False)
             pv_tomorrow = forecast.get("pv_tomorrow", False)
-            
-            # Priority 1: PV-Surplus available
+
+            # Priorität 1: PV-Überschuss
             if pv_valid and pv_surplus > 0.5:
                 decision_on = True
                 reason = "pv_surplus"
-            
-            # Priority 2+: EPEX price check
+
             else:
+                # EPEX-Analyse nur wenn kein PV-Überschuss, da EPEX-Entscheidungen PV-Prognosen überstimmen können (z.B. Notfall-Billigstrom)
                 epex_stats = self.epex_service.get_price_statistics()
                 is_emergency_cheap = epex_stats.get("is_emergency_cheap", False)
                 emergency_threshold = epex_stats.get("emergency_threshold")
-                
-                # Priority 2: EPEX emergency cheap (overrides forecast)
+
+                # Priorität 2: EPEX Notfall-Billigstrom (überstimmt Prognose)
                 if is_emergency_cheap:
-                    
-                    # EPEX decision log
-                    if (self.last_epex_log_hour_boiler is None or 
-                        (now.hour - self.last_epex_log_hour_boiler) >= 2 or 
-                        (now.hour < self.last_epex_log_hour_boiler)):
+                    if (self.last_epex_log_hour_boiler is None or
+                            abs(now.hour - self.last_epex_log_hour_boiler) >= 2):
                         # SYSTEM EVENT LOG
                         self.logger.system_event(
                             level="info",
-                            source="epex_decision_boiler",
-                            message=f"EPEX Analysis: current={epex_stats.get('current')} "
-                                   f"threshold={epex_stats.get('threshold')} "
-                                   f"emergency_threshold={round(emergency_threshold, 2) if emergency_threshold else None} "
-                                   f"is_cheap={epex_stats.get('is_cheap')} "
-                                   f"is_emergency={is_emergency_cheap} "
-                                   f"14d_range=[{epex_stats.get('min')}-{epex_stats.get('max')}] "
-                                   f"avg={epex_stats.get('avg')}"
+                            source="boiler_automatik",
+                            message=f"EPEX Notfall-Billigstrom: {epex_stats.get('current')} ct/kWh "
+                                    f"(Notfall-Schwelle: {round(emergency_threshold, 2) if emergency_threshold else '?'} ct/kWh) | "
+                                    f"14-Tage: {epex_stats.get('min')}–{epex_stats.get('max')} ct/kWh, Ø {epex_stats.get('avg')} | "
+                                    f"PV-Prognose überstimmt (heute: {pv_today}, morgen: {pv_tomorrow})"
                         )
                         self.last_epex_log_hour_boiler = now.hour
-                    
                     decision_on = True
                     reason = "epex_emergency_cheap"
-                    extra.update({
-                        "epex_current": epex_stats.get("current"),
-                        "epex_threshold": epex_stats.get("threshold"),
-                        "epex_emergency_threshold": round(emergency_threshold, 2) if emergency_threshold else None,
-                        "epex_avg": epex_stats.get("avg"),
-                        "epex_14d_min": epex_stats.get("min"),
-                        "epex_14d_max": epex_stats.get("max"),
-                        "forecast_overridden": pv_today or pv_tomorrow
-                    })
-                
-                # Priority 3: EPEX regular cheap (no forecast blocking)
+
+                # Priorität 3: EPEX günstig, kein PV erwartet
                 elif not (pv_today or pv_tomorrow):
-                    
-                    # EPEX decision log
-                    if (self.last_epex_log_hour_boiler is None or 
-                        (now.hour - self.last_epex_log_hour_boiler) >= 2 or 
-                        (now.hour < self.last_epex_log_hour_boiler)):
-                        
+                    # EPEX-Preise nur alle 2h loggen, um Logspam zu vermeiden, wenn Preis günstig aber Zielzeit noch weit weg ist
+                    if (self.last_epex_log_hour_boiler is None or
+                            abs(now.hour - self.last_epex_log_hour_boiler) >= 2):
+                        # SYSTEM EVENT LOG
                         self.logger.system_event(
                             level="info",
-                            source="epex_decision_boiler",
-                            message=f"EPEX Analysis: current={epex_stats.get('current')} "
-                                   f"threshold={epex_stats.get('threshold')} "
-                                   f"emergency_threshold={round(emergency_threshold, 2) if emergency_threshold else None} "
-                                   f"is_cheap={epex_stats.get('is_cheap')} "
-                                   f"is_emergency={is_emergency_cheap} "
-                                   f"14d_range=[{epex_stats.get('min')}-{epex_stats.get('max')}] "
-                                   f"avg={epex_stats.get('avg')}"
+                            source="boiler_automatik",
+                            message=f"EPEX Strompreis: {epex_stats.get('current')} ct/kWh | "
+                                    f"Schwelle: {epex_stats.get('threshold')} ct/kWh | "
+                                    f"günstig: {epex_stats.get('is_cheap')} | "
+                                    f"14-Tage Ø: {epex_stats.get('avg')} ct/kWh"
                         )
                         self.last_epex_log_hour_boiler = now.hour
-                    
+
                     if epex_stats.get("is_cheap", False):
                         decision_on = True
                         reason = "epex_cheap"
-                        extra.update({
-                            "epex_current": epex_stats.get("current"),
-                            "epex_threshold": epex_stats.get("threshold"),
-                            "epex_avg": epex_stats.get("avg"),
-                            "epex_14d_min": epex_stats.get("min"),
-                            "epex_14d_max": epex_stats.get("max")
-                        })
                     elif remaining_min <= min_runtime:
                         decision_on = True
                         reason = "deadline_failsafe"
                     else:
                         decision_on = False
                         reason = "wait"
-                
-                # Priority 4: Forecast predicts PV - wait
+
+                # Priorität 4: PV erwartet -> warten
                 else:
                     decision_on = False
                     reason = "forecast_wait"
-                    
-                    # Forecast override log
+                    # EPEX-Preise nur alle 2h loggen, um Logspam zu vermeiden, wenn Preis günstig aber PV erwartet wird
                     if epex_stats.get("is_cheap", False):
-                        if (self.last_forecast_override_log_boiler is None or 
-                            (now - self.last_forecast_override_log_boiler).total_seconds() > 7200):
-                            
+                        if (self.last_forecast_override_log_boiler is None or
+                                (now - self.last_forecast_override_log_boiler).total_seconds() > 7200):
+                            # SYSTEM EVENT LOG
                             self.logger.system_event(
                                 level="info",
-                                source="forecast_override_boiler",
-                                message=f"EPEX cheap (current={epex_stats.get('current')} "
-                                       f"threshold={epex_stats.get('threshold')}) but waiting for PV forecast "
-                                       f"(pv_today={pv_today}, pv_tomorrow={pv_tomorrow}). "
-                                       f"Not emergency cheap (> {round(emergency_threshold, 2) if emergency_threshold else 'N/A'})."
+                                source="boiler_automatik",
+                                message=f"Strom günstig ({epex_stats.get('current')} ct/kWh), aber PV erwartet "
+                                        f"(heute: {pv_today}, morgen: {pv_tomorrow}) – warte auf PV. "
+                                        f"Kein Notfall-Billigstrom (Grenze: {round(emergency_threshold, 2) if emergency_threshold else 'N/A'} ct/kWh)"
                             )
                             self.last_forecast_override_log_boiler = now
-            
-            # Failsafe: Deadline approaching
+
+            # Failsafe: Deadline nähert sich
             if not decision_on and remaining_min <= min_runtime:
                 decision_on = True
                 reason = "deadline_failsafe"
-        
-        # Case 3: Hysteresis window - maintain current state
+
+        # Fall 3: Hysterese → Zustand halten
         else:
             decision_on = boiler_on
             reason = "hysteresis_hold"
-        
-        # Execute decision
+
+        # Lesbarer Grund für Logs
+        def reason_text():
+            if reason == "pv_surplus":
+                return f"PV-Überschuss {pv_surplus:.1f} kW"
+            elif reason == "epex_emergency_cheap":
+                return f"EPEX Notfall-Billigstrom {epex_stats.get('current')} ct/kWh (PV-Prognose überstimmt)"
+            elif reason == "epex_cheap":
+                return f"EPEX günstig {epex_stats.get('current')} ct/kWh (kein PV erwartet)"
+            elif reason == "deadline_failsafe":
+                return f"Deadline-Failsafe: Zielzeit {target_time} in {round(remaining_min)}min"
+            elif reason == "target_temp_reached":
+                return f"Zieltemperatur {target_temp}°C erreicht (aktuell {current_temp}°C)"
+            elif reason == "forecast_wait":
+                return "Warte auf PV laut Prognose"
+            elif reason == "hysteresis_hold":
+                return "Hysterese: Zustand beibehalten"
+            else:
+                return "Kein Einschaltgrund"
+
+        # Entscheidung ausführen
         if decision_on and not boiler_on:
             self.boiler.control("on")
-            self.logger.control_decision(
-                device="boiler",
-                action="on",
-                reason=f"automatic_{reason}",
-                success=True,
-                extra=extra
+            # DEVICE STATE CHANGE LOG
+            self.logger.device_state_change(
+                "boiler", False, True,
+                reason=f"Automatik: {reason_text()} | {current_temp}°C → Ziel {target_temp}°C | noch {round(remaining_min)}min bis {target_time}"
             )
-            self.logger.device_state_change("boiler", False, True)
-        
+
         elif not decision_on and boiler_on:
             self.boiler.control("off")
-            log_action = "target_reached" if reason == "target_temp_reached" else "off"
-            self.logger.control_decision(
-                device="boiler",
-                action=log_action,
-                reason=f"automatic_{reason}",
-                success=True,
-                extra=extra
+            # DEVICE STATE CHANGE LOG
+            self.logger.device_state_change(
+                "boiler", True, False,
+                reason=f"Automatik: {reason_text()} | aktuell {current_temp}°C / Ziel {target_temp}°C"
             )
-            self.logger.device_state_change("boiler", True, False)
-        
-        elif not decision_on and not boiler_on and reason == "forecast_wait":
-            if self.boiler_last_reason != "forecast_wait":
-                self.logger.control_decision(
-                    device="boiler",
-                    action="wait",
-                    reason="automatic_forecast_wait",
-                    success=True,
-                    extra=extra
-                )
-        
+
         self.boiler_last_reason = reason
 
     # AUTOMATIC – Wallbox 
-    def automatic_wallbox(self, forecast): 
-        # Load configuration
+    def automatic_wallbox(self, forecast):
         config = self.automatic_config.get()
         season = self.schedule_manager.determine_season()
         wb_cfg = config.get("wallbox", {}).get(season, {})
-        
+
         if not self.wallbox:
             return
-        
-        # Check wallbox online status
+
         try:
+            # Online-Check – wenn fehlerhaft, lieber nicht steuern als ständig Fehler zu loggen
             if hasattr(self.wallbox, "is_online") and not self.wallbox.is_online():
                 return
         except Exception as e:
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="error",
-                source="scheduler",
-                message=f"automatic_wallbox: Wallbox online-check failed: {e}"
+                source="wallbox_automatik",
+                message=f"Wallbox Online-Check fehlgeschlagen: {e}"
             )
             return
-        
-        # Fetch wallbox data
+
         try:
             data = self.wallbox.fetch_data()
         except Exception as e:
+            # SYSTEM EVENT LOG
             self.logger.system_event(
                 level="error",
-                source="scheduler",
-                message=f"automatic_wallbox: Failed to fetch wallbox data: {e}"
+                source="wallbox_automatik",
+                message=f"Wallbox Datenabruf fehlgeschlagen: {e}"
             )
             return
-        
+
         car_connected = data.get("car_connected") == 1
-        eto_now = data.get("eto")  # Energy counter in Wh
-        
+        eto_now = data.get("eto")
+
         if eto_now is None:
             return
-        
-        # Handle car disconnect - reset session
+
+        target_kwh = float(wb_cfg.get("energy_kwh", 0))
+        target_time = wb_cfg.get("target_time", "?")
+
+        # Auto getrennt -> Sitzung beenden
         if not car_connected:
             if self.wallbox_eto_start is not None:
-                target_kwh = float(wb_cfg.get("energy_kwh", 0))
                 charged_kwh = max((eto_now - self.wallbox_eto_start) / 1000, 0)
                 target_reached = charged_kwh >= target_kwh
-                
-                self.logger.control_decision(
-                    device="wallbox",
-                    action="session_ended",
-                    reason="car_disconnected",
-                    success=target_reached,
-                    extra={
-                        "charged_kwh": round(charged_kwh, 2),
-                        "target_kwh": target_kwh,
-                        "target_reached": target_reached
-                    }
+                # SYSTEM EVENT LOG
+                self.logger.system_event(
+                    level="info",
+                    source="wallbox_automatik",
+                    message=f"Ladevorgang beendet: Auto getrennt | "
+                            f"Geladen: {round(charged_kwh, 2)} kWh / Ziel: {target_kwh} kWh | "
+                            f"{'✓ Ziel erreicht' if target_reached else '✗ Ziel nicht erreicht'}"
                 )
-                # DEVICE STATE CHANGE LOG (if had set allow to True during session, log the change to False on disconnect)
                 self.wallbox_eto_start = None
                 self.wallbox_finished = False
                 self.wallbox_last_set_allow = None
                 self.wallbox_session_logged = False
             return
-        
-        # Initialize session on car connect
+
+        # Neue Sitzung starten
         if self.wallbox_eto_start is None:
             self.wallbox_eto_start = eto_now
             self.wallbox_finished = False
-            
-            # Session start log (once per session)
             if not self.wallbox_session_logged:
-                target_kwh = float(wb_cfg.get("energy_kwh", 0))
-                target_time = wb_cfg.get("target_time")
-                
                 # SYSTEM EVENT LOG
                 self.logger.system_event(
                     level="info",
-                    source="wallbox_session",
-                    message=f"Wallbox session start: target={target_kwh}kWh deadline={target_time} season={season}"
+                    source="wallbox_automatik",
+                    message=f"Neue Ladesitzung gestartet: Ziel {target_kwh} kWh bis {target_time} Uhr | "
+                            f"Saison: {season} | Zählerstand: {round(eto_now / 1000, 2)} kWh"
                 )
-                
-                # Also use control_decision for better tracking
-                self.logger.control_decision(
-                    device="wallbox",
-                    action="session_start",
-                    reason="car_connected",
-                    success=True,
-                    extra={
-                        "target_kwh": target_kwh,
-                        "eto_start": eto_now / 1000,  # In kWh
-                        "deadline": target_time,
-                        "season": season
-                    }
-                )
-                
                 self.wallbox_session_logged = True
-        
-        # Calculate charging progress
-        target_kwh = float(wb_cfg.get("energy_kwh", 0))
+
         charged_kwh = max((eto_now - self.wallbox_eto_start) / 1000, 0)
-        
-        # Check if charging goal reached
+        progress_info = f"{round(charged_kwh, 2)}/{target_kwh} kWh | Ziel: {target_time} Uhr"
+
+        # Ladeziel erreicht
         if charged_kwh >= target_kwh:
             if not self.wallbox_finished:
                 self.wallbox.set_allow_charging(False)
-                self.logger.control_decision(
-                    device="wallbox",
-                    action="session_complete",
-                    reason="automatic_target_reached",
-                    success=True,
-                    extra={
-                        "charged_kwh": round(charged_kwh, 2),
-                        "target_kwh": target_kwh
-                    }
+                self.logger.device_state_change(
+                    "wallbox", True, False,
+                    reason=f"Automatik: Ladeziel erreicht – {round(charged_kwh, 2)} / {target_kwh} kWh geladen"
                 )
-                self.logger.device_state_change("wallbox", True, False)
                 self.wallbox_finished = True
                 self.wallbox_last_set_allow = False
             return
-        
-        # Get current state and inputs
+
         allow = self.wallbox.get_allow_state()
-        
+
         try:
             pv_surplus = self.pv_service.get_surplus_kw()
         except Exception:
             pv_surplus = 0.0
-        
+
         pv_today = forecast.get("pv_today", False)
         pv_tomorrow = forecast.get("pv_tomorrow", False)
-        
-        # Get deadline configuration
-        target_time = wb_cfg.get("target_time")
-        if not target_time:
-            return
-        
         allow_night = wb_cfg.get("allow_night_grid", False)
-        
-        # Calculate time to deadline
+
         now = datetime.now(ZoneInfo("Europe/Vienna"))
-        deadline = datetime.combine(now.date(), datetime.strptime(target_time, "%H:%M").time(), tzinfo=ZoneInfo("Europe/Vienna"))
+        deadline = datetime.combine(
+            now.date(),
+            datetime.strptime(target_time, "%H:%M").time(),
+            tzinfo=ZoneInfo("Europe/Vienna")
+        )
         if deadline < now:
             deadline += timedelta(days=1)
         remaining_hours = (deadline - now).total_seconds() / 3600
-        
-        # Decision logic
+
         PV_MIN_KW = 1.4
-        
-          # Priority 1: PV-Surplus mit dynamischem Laden
-        if pv_surplus > 0: # Any surplus is a good sign --> indicates generation and can be used for dynamic charging decisions
-            
-            # Battery-Data for dynamic charging decision
+
+        # Priorität 1: PV-Überschuss -> dynamisches Laden
+        if pv_surplus > 0:
             try:
                 pv_data = self.db_bridge.get_latest_pv_data()
                 battery_soc = float(pv_data.get("soc", 50))
@@ -587,283 +466,178 @@ class SchedulerService(threading.Thread):
             except Exception:
                 battery_soc = 50
                 battery_power_kw = 0
-            
-            # Get current ampere
+
             try:
                 current_ampere = self.wallbox.get_current_ampere()
             except Exception:
                 current_ampere = 0
-            
-            # Dynamic Charging calculation
+
             charging_decision = self.wallbox_dynamic.get_charging_decision(
                 pv_surplus_kw=pv_surplus,
                 battery_power_kw=battery_power_kw,
                 battery_soc=battery_soc,
                 current_ampere=current_ampere
             )
-            
-            # Apply dynamic charging decision
-            optimal_ampere = charging_decision['ampere']
-            should_charge = charging_decision['allow_charging']
-            
-            # When loading recommended
+
+            optimal_ampere = charging_decision["ampere"]
+            should_charge = charging_decision["allow_charging"]
+
             if should_charge and optimal_ampere > 0:
-                
-                # Set amperage (if changed)
+
+                # Ampere anpassen wenn geändert
                 if optimal_ampere != current_ampere:
                     try:
                         self.wallbox.set_charging_ampere(optimal_ampere)
-                        # CONTROL DECISION LOG
-                        self.logger.control_decision(
-                            device="wallbox",
-                            action="set_ampere",
-                            reason="automatic_pv_dynamic",
-                            success=True,
-                            extra={
-                                "ampere": optimal_ampere,
-                                "pv_surplus_kw": pv_surplus,
-                                "battery_soc": battery_soc,
-                                "battery_power_kw": battery_power_kw
-                            }
-                        )
                         # DEVICE STATE CHANGE LOG
-                        self.logger.device_state_change("wallbox_ampere", current_ampere, optimal_ampere)
+                        self.logger.device_state_change(
+                            "wallbox_ampere", current_ampere, optimal_ampere,
+                            reason=f"Automatik PV-Dynamik: {pv_surplus:.1f} kW Überschuss | "
+                                   f"Batterie: {battery_soc}% ({battery_power_kw:+.1f} kW)"
+                        )
                     except Exception as e:
                         # SYSTEM EVENT LOG
                         self.logger.system_event(
                             level="error",
-                            source="scheduler",
-                            message=f"Failed to set wallbox ampere: {e}"
+                            source="wallbox_automatik",
+                            message=f"Ladestrom setzen fehlgeschlagen ({optimal_ampere}A): {e}"
                         )
-                
-                # Enable charging (if off)
+
+                # Laden freigeben wenn noch nicht aktiv
                 if not allow:
                     self.wallbox.set_allow_charging(True)
-                    # CONTROL DECISION LOG
-                    self.logger.control_decision(
-                        device="wallbox",
-                        action="set_allow",
-                        reason="automatic_pv_surplus_dynamic",
-                        success=True,
-                        extra=charging_decision
-                    )
                     # DEVICE STATE CHANGE LOG
-                    self.logger.device_state_change("wallbox", False, True)
-                
-                # Log even when charging is already underway and amperage is stable (throttled to 10 min)
+                    self.logger.device_state_change(
+                        "wallbox", False, True,
+                        reason=f"Automatik: PV-Überschuss {pv_surplus:.1f} kW → {optimal_ampere}A | "
+                               f"Batterie: {battery_soc}% ({battery_power_kw:+.1f} kW) | {progress_info}"
+                    )
+
+                # Stabiles Laden loggen (gedrosselt auf 10min)
                 elif allow and optimal_ampere == current_ampere:
-                    now_stable = datetime.now(ZoneInfo("Europe/Vienna"))
-                    
-                    # Initialize throttle variable if not exists
-                    if not hasattr(self, '_last_charging_stable_log'):
-                        self._last_charging_stable_log = None
-                    
-                    # Log only every 10 minutes to avoid spam
-                    if (self._last_charging_stable_log is None or 
-                        (now_stable - self._last_charging_stable_log).total_seconds() > 600):
-                        
-                        # CONTROL DECISION LOG
-                        self.logger.control_decision(
-                            device="wallbox",
-                            action="charging_stable",
-                            reason="automatic_pv_dynamic_continuing",
-                            success=True,
-                            extra={
-                                "ampere": optimal_ampere,
-                                "pv_surplus_kw": pv_surplus,
-                                "battery_soc": battery_soc,
-                                "battery_power_kw": battery_power_kw
-                            }
+                    if (self._last_charging_stable_log is None or
+                            (now - self._last_charging_stable_log).total_seconds() > 600):
+                        # SYSTEM EVENT LOG
+                        self.logger.system_event(
+                            level="info",
+                            source="wallbox_automatik",
+                            message=f"Laden stabil: {optimal_ampere}A | "
+                                    f"PV-Überschuss: {pv_surplus:.1f} kW | "
+                                    f"Batterie: {battery_soc}% ({battery_power_kw:+.1f} kW) | {progress_info}"
                         )
-                        self._last_charging_stable_log = now_stable
-                
+                        self._last_charging_stable_log = now
+
                 self.wallbox_last_set_allow = True
                 return
-            
-            # If not enough PV despite surplus
+
+            # PV vorhanden aber zu wenig
             elif not should_charge:
                 if allow:
                     self.wallbox.set_allow_charging(False)
-                    # CONTROL DECISION LOG
-                    self.logger.control_decision(
-                        device="wallbox",
-                        action="set_allow",
-                        reason="automatic_insufficient_pv_dynamic",
-                        success=True,
-                        extra=charging_decision
-                    )
                     # DEVICE STATE CHANGE LOG
-                    self.logger.device_state_change("wallbox", True, False)
+                    self.logger.device_state_change(
+                        "wallbox", True, False,
+                        reason=f"Automatik: PV unzureichend – {charging_decision.get('reason', '?')} | {progress_info}"
+                    )
                     self.wallbox_last_set_allow = False
                 return
-        
-        # Priority 2+: EPEX price check
+
+        # Priorität 2+: EPEX Preisanalyse
         epex_stats = self.epex_service.get_price_statistics()
         is_emergency_cheap = epex_stats.get("is_emergency_cheap", False)
         emergency_threshold = epex_stats.get("emergency_threshold")
-        
-        # Priority 2: EPEX emergency cheap (overrides forecast)
+
+        # Priorität 2: EPEX Notfall-Billigstrom (überstimmt Prognose)
         if is_emergency_cheap:
-            
-            # EPEX decision log
-            if (self.last_epex_log_hour_wallbox is None or 
-                (now.hour - self.last_epex_log_hour_wallbox) >= 2 or 
-                (now.hour < self.last_epex_log_hour_wallbox)):
-                
+            if (self.last_epex_log_hour_wallbox is None or
+                    abs(now.hour - self.last_epex_log_hour_wallbox) >= 2):
                 # SYSTEM EVENT LOG
                 self.logger.system_event(
                     level="info",
-                    source="epex_decision_wallbox",
-                    message=f"EPEX Analysis: current={epex_stats.get('current')} "
-                           f"threshold={epex_stats.get('threshold')} "
-                           f"emergency_threshold={round(emergency_threshold, 2) if emergency_threshold else None} "
-                           f"is_cheap={epex_stats.get('is_cheap')} "
-                           f"is_emergency={is_emergency_cheap} "
-                           f"14d_range=[{epex_stats.get('min')}-{epex_stats.get('max')}] "
-                           f"avg={epex_stats.get('avg')}"
+                    source="wallbox_automatik",
+                    message=f"EPEX Notfall-Billigstrom: {epex_stats.get('current')} ct/kWh "
+                            f"(Notfall-Schwelle: {round(emergency_threshold, 2) if emergency_threshold else '?'} ct/kWh) | "
+                            f"PV-Prognose überstimmt | {progress_info}"
                 )
                 self.last_epex_log_hour_wallbox = now.hour
-            
+
             if not allow:
                 self.wallbox.set_allow_charging(True)
-                # CONTROL DECISION LOG
-                self.logger.control_decision(
-                    device="wallbox",
-                    action="set_allow",
-                    reason="automatic_epex_emergency_cheap",
-                    success=True,
-                    extra={
-                        "epex_current": epex_stats.get("current"),
-                        "epex_threshold": epex_stats.get("threshold"),
-                        "epex_emergency_threshold": round(emergency_threshold, 2) if emergency_threshold else None,
-                        "epex_avg": epex_stats.get("avg"),
-                        "epex_14d_min": epex_stats.get("min"),
-                        "epex_14d_max": epex_stats.get("max"),
-                        "forecast_overridden": pv_today or pv_tomorrow
-                    }
-                )
                 # DEVICE STATE CHANGE LOG
-                self.logger.device_state_change("wallbox", False, True)
+                self.logger.device_state_change(
+                    "wallbox", False, True,
+                    reason=f"Automatik: EPEX Notfall-Billigstrom {epex_stats.get('current')} ct/kWh "
+                           f"(PV-Prognose überstimmt) | {progress_info}"
+                )
                 self.wallbox_last_set_allow = True
             return
-        
-        # Priority 3: EPEX regular cheap (no forecast blocking)
+
+        # Priorität 3: EPEX günstig, kein PV erwartet
         if not (pv_today or pv_tomorrow):
-            
-            # EPEX decision log
-            if (self.last_epex_log_hour_wallbox is None or 
-                (now.hour - self.last_epex_log_hour_wallbox) >= 2 or 
-                (now.hour < self.last_epex_log_hour_wallbox)):
-                
+            if (self.last_epex_log_hour_wallbox is None or
+                    abs(now.hour - self.last_epex_log_hour_wallbox) >= 2):
                 # SYSTEM EVENT LOG
                 self.logger.system_event(
                     level="info",
-                    source="epex_decision_wallbox",
-                    message=f"EPEX Analysis: current={epex_stats.get('current')} "
-                           f"threshold={epex_stats.get('threshold')} "
-                           f"emergency_threshold={round(emergency_threshold, 2) if emergency_threshold else None} "
-                           f"is_cheap={epex_stats.get('is_cheap')} "
-                           f"is_emergency={is_emergency_cheap} "
-                           f"14d_range=[{epex_stats.get('min')}-{epex_stats.get('max')}] "
-                           f"avg={epex_stats.get('avg')}"
+                    source="wallbox_automatik",
+                    message=f"EPEX Strompreis: {epex_stats.get('current')} ct/kWh | "
+                            f"Schwelle: {epex_stats.get('threshold')} ct/kWh | "
+                            f"günstig: {epex_stats.get('is_cheap')} | "
+                            f"14-Tage Ø: {epex_stats.get('avg')} ct/kWh | {progress_info}"
                 )
                 self.last_epex_log_hour_wallbox = now.hour
             
             if epex_stats.get("is_cheap", False):
                 if not allow:
                     self.wallbox.set_allow_charging(True)
-                    # CONTROL DECISION LOG
-                    self.logger.control_decision(
-                        device="wallbox",
-                        action="set_allow",
-                        reason="automatic_epex_cheap",
-                        success=True,
-                        extra={
-                            "epex_current": epex_stats.get("current"),
-                            "epex_threshold": epex_stats.get("threshold"),
-                            "epex_avg": epex_stats.get("avg"),
-                            "epex_14d_min": epex_stats.get("min"),
-                            "epex_14d_max": epex_stats.get("max")
-                        }
+                    self.logger.device_state_change(
+                        "wallbox", False, True,
+                        reason=f"Automatik: EPEX günstig {epex_stats.get('current')} ct/kWh (kein PV erwartet) | {progress_info}"
                     )
-                    # DEVICE STATE CHANGE LOG
-                    self.logger.device_state_change("wallbox", False, True)
                     self.wallbox_last_set_allow = True
                 return
-        
-        # Priority 4: Forecast predicts PV - wait
+
+        # Priorität 4: PV erwartet → warten
         if pv_surplus < PV_MIN_KW and (pv_today or pv_tomorrow):
-            
-            # Forecast override log
             if epex_stats.get("is_cheap", False):
-                if (self.last_forecast_override_log_wallbox is None or 
-                    (now - self.last_forecast_override_log_wallbox).total_seconds() > 7200):
-                    
+                if (self.last_forecast_override_log_wallbox is None or
+                        (now - self.last_forecast_override_log_wallbox).total_seconds() > 7200):
                     # SYSTEM EVENT LOG
                     self.logger.system_event(
                         level="info",
-                        source="forecast_override_wallbox",
-                        message=f"EPEX cheap (current={epex_stats.get('current')} "
-                               f"threshold={epex_stats.get('threshold')}) but waiting for PV forecast "
-                               f"(pv_today={pv_today}, pv_tomorrow={pv_tomorrow}). "
-                               f"Charged: {round(charged_kwh, 2)}/{target_kwh}kWh, "
-                               f"remaining: {round(remaining_hours, 1)}h. "
-                               f"Not emergency cheap (> {round(emergency_threshold, 2) if emergency_threshold else 'N/A'})."
+                        source="wallbox_automatik",
+                        message=f"Strom günstig ({epex_stats.get('current')} ct/kWh), aber PV erwartet "
+                                f"(heute: {pv_today}, morgen: {pv_tomorrow}) – warte auf PV | {progress_info}"
                     )
                     self.last_forecast_override_log_wallbox = now
-            
+
             if allow:
                 self.wallbox.set_allow_charging(False)
-                # CONTROL DECISION LOG
-                self.logger.control_decision(
-                    device="wallbox",
-                    action="set_allow",
-                    reason="automatic_forecast_wait",
-                    success=True,
-                    extra={
-                        "pv_today": pv_today,
-                        "pv_tomorrow": pv_tomorrow
-                    }
-                )
                 # DEVICE STATE CHANGE LOG
-                self.logger.device_state_change("wallbox", allow, False)
+                self.logger.device_state_change(
+                    "wallbox", True, False,
+                    reason=f"Automatik: Warte auf PV (heute: {pv_today}, morgen: {pv_tomorrow}) | {progress_info}"
+                )
                 self.wallbox_last_set_allow = False
             return
-        
-        # Priority 5: Night grid failsafe (deadline approaching)
+
+        # Priorität 5: Nacht-Failsafe (Deadline nähert sich)
         if allow_night and remaining_hours <= 2.0 and pv_surplus < PV_MIN_KW and not (pv_today or pv_tomorrow) and not allow:
             self.wallbox.set_allow_charging(True)
-            # CONTROL DECISION LOG
-            self.logger.control_decision(
-                device="wallbox",
-                action="set_allow",
-                reason="automatic_night_grid_failsafe",
-                success=True,
-                extra={
-                    "remaining_hours": round(remaining_hours, 2),
-                    "charged_kwh": round(charged_kwh, 2)
-                }
-            )
             # DEVICE STATE CHANGE LOG
-            self.logger.device_state_change("wallbox", False, True)
+            self.logger.device_state_change(
+                "wallbox", False, True,
+                reason=f"Automatik: Deadline-Failsafe Netzstrom – "
+                       f"noch {round(remaining_hours, 1)}h bis {target_time} | {progress_info}"
+            )
             self.wallbox_last_set_allow = True
             return
-        
-        # Default: Turn off if no conditions met
+
+        # Default: Kein Einschaltgrund → ausschalten
         if allow and self.wallbox_last_set_allow is not True:
             self.wallbox.set_allow_charging(False)
-            # CONTROL DECISION LOG
-            self.logger.control_decision(
-                device="wallbox",
-                action="set_allow",
-                reason="automatic_no_pv_no_forecast",
-                success=True,
-                extra={
-                    "pv_surplus_kw": pv_surplus,
-                    "pv_today": pv_today,
-                    "pv_tomorrow": pv_tomorrow
-                }
-            )
             # DEVICE STATE CHANGE LOG
-            self.logger.device_state_change("wallbox", True, False)
+            self.logger.device_state_change(
+                "wallbox", True, False,
+                reason=f"Automatik: Kein PV, kein günstiger Strom, keine Prognose | {progress_info}"
+            )
             self.wallbox_last_set_allow = False
