@@ -10,7 +10,7 @@ except Exception:
     LED = None
 
 class BoilerController:
-    def __init__(self, gpio_pin=25, inverted_logic=True):
+    def __init__(self, gpio_pin=26, inverted_logic=True):
 
         # Relay control: use gpiozero on Pi, simulate on others
         self.gpio_pin = gpio_pin
