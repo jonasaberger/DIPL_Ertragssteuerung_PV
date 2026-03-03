@@ -9,7 +9,6 @@ try:
 except Exception:
     LED = None
 
-# TODO: Check if this is the correct pin for boiler control - (Votta frogn)
 class BoilerController:
     def __init__(self, gpio_pin=25, inverted_logic=True):
 

@@ -5,11 +5,6 @@ from dotenv import find_dotenv, load_dotenv
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-# TODO: Simplify to 3 endpoints: {api_error, system_event, control_decision}
-# api_error - stays the same
-# system_event - for logging important system-level events (e.g. startup, shutdown, mode-changes)
-# device_state_change - for logging state changes and the cause of them (automatic, manual)
-
 class LoggingBridge:
     def __init__(self):
         env_path = find_dotenv()
