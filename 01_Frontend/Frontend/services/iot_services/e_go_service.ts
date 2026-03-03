@@ -3,11 +3,11 @@ import { fetchJson, postJson, parseInfluxTime, round1 } from '@/services/helper'
 export interface EGoData {
   date: string
   time: string
-  energy: number       // Gesamtenergie in kWh
-  ampere: number       // Strom in A
-  carConnected: boolean
-  isCharging: boolean
-  phases: number
+  energy: number        // Gesamtenergie in kWh
+  ampere: number        // Strom in A
+  carState: 0 | 1 | 2 | 3 | 4 | 5 // Rohwert: 0=Unknown/Error, 1=Idle, 2=Charging, 3=WaitCar, 4=Complete, 5=Error
+  carConnected: boolean // true wenn Fahrzeug physisch verbunden (car_connected === 1)
+  phases: number        // Anzahl aktiver Phasen
   alwaysAllowed: boolean
 }
 
@@ -21,12 +21,12 @@ export async function fetchEGoData(): Promise<EGoData | null> {
     return {
       date,
       time,
-      energy: round1(data.eto),                // Gesamtenergie kWh
-      ampere: data.amp,                        // Ampere
-      carConnected: data.car === 1,            // 1 = true, 0 = false
-      isCharging: data.charging === 1,         // 1 = true, 0 = false
-      phases: data.pha_count,                  // Anzahl Phasen
-      alwaysAllowed: data.alw === 1,           // Lademodus-Flag
+      energy: round1(data.eto),
+      ampere: data.amp,
+      carState: data.car,
+      carConnected: data.car_connected === 1,
+      phases: data.pha_count,
+      alwaysAllowed: data.alw === 1,
     }
   } catch (error) {
     console.error('Failed to fetch e-Go Wallbox data:', error)
@@ -37,10 +37,9 @@ export async function fetchEGoData(): Promise<EGoData | null> {
 // Setzt den Lademodus (EIN/AUS)
 export async function allowEGoPower(setting: 'MANUAL_OFF' | 'MANUAL_ON'): Promise<boolean> {
   try {
-    const allow = setting === 'MANUAL_ON' ? true : false
+    const allow = setting === 'MANUAL_ON'
     console.log('Toggling EGoAllow to:', allow)
     await postJson('/wallbox/setCharging', { allow })
-
     return true
   } catch (error) {
     console.error('Failed to allow the EGoPower:', error)
@@ -48,18 +47,15 @@ export async function allowEGoPower(setting: 'MANUAL_OFF' | 'MANUAL_ON'): Promis
   }
 }
 
-// Setzt die Amperezahl (6-32A)
+// Setzt die Amperezahl (6-16A)
 export async function setEGoAmpere(ampere: number): Promise<boolean> {
   try {
-    // Validierung: Ampere muss zwischen 6 und 32 sein
-    if (ampere < 6 || ampere > 32) {
-      console.error('Invalid ampere value. Must be between 6 and 32.')
+    if (ampere < 6 || ampere > 16) {
+      console.error('Invalid ampere value. Must be between 6 and 16.')
       return false
     }
-
     console.log('Setting EGo ampere to:', ampere)
     await postJson('/wallbox/setCurrent', { amp: ampere })
-
     return true
   } catch (error) {
     console.error('Failed to set EGo ampere:', error)

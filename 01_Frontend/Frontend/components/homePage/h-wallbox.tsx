@@ -4,10 +4,20 @@ import Card from '@/components/card'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import UnavailableState from '@/components/unavailable-state'
 
+// car: 0=Unknown/Error, 1=Idle, 2=Charging, 3=WaitCar, 4=Complete, 5=Error
+const CAR_STATE_CONFIG: Record<number, { label: string; icon: string; color: string; bg: string }> = {
+  0: { label: 'Unbekannt', icon: 'help-circle-outline', color: '#8E8E93', bg: '#F2F2F7' },
+  1: { label: 'Bereit',    icon: 'ev-plug-type2',        color: '#16C75C', bg: '#E8F8ED' },
+  2: { label: 'Lädt',      icon: 'flash',                color: '#1EAFF3', bg: '#E3F2FD' },
+  3: { label: 'Wartet',    icon: 'pause-circle-outline', color: '#FF9500', bg: '#FFF3E0' },
+  4: { label: 'Fertig',    icon: 'battery-charging-100', color: '#16C75C', bg: '#E8F8ED' },
+  5: { label: 'Fehler',    icon: 'alert-circle-outline', color: '#FF3B30', bg: '#FFE8E8' },
+}
+
 type Props = {
   energyKWh: number
-  isCharging: boolean
   carConnected: boolean
+  carState: number
   ampere: number
   phases?: number
   selectedSetting: 'MANUAL_OFF' | 'MANUAL_ON'
@@ -19,8 +29,8 @@ type Props = {
 
 export default function HWallbox({
   energyKWh,
-  isCharging,
   carConnected,
+  carState,
   ampere,
   phases = 3,
   selectedSetting,
@@ -29,10 +39,12 @@ export default function HWallbox({
   available,
   showControls = true,
 }: Props) {
+  const isCharging = carState === 2
   const [showAmpereModal, setShowAmpereModal] = useState(false)
   const [tempAmpere, setTempAmpere] = useState(ampere)
 
   const amperePresets = [6, 10, 12, 14, 16]
+  const stateConfig = CAR_STATE_CONFIG[carState] ?? CAR_STATE_CONFIG[0]
 
   const handleAmpereSubmit = () => {
     if (amperePresets.includes(tempAmpere)) {
@@ -52,26 +64,6 @@ export default function HWallbox({
             <View style={styles.headerSection}>
               <Text style={styles.wallboxTitle}>E-GO Wallbox</Text>
 
-              <View
-                style={[
-                  styles.statusBadge,
-                  isCharging ? styles.statusBadgeCharging : styles.statusBadgeIdle,
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={isCharging ? 'flash' : 'flash-off'}
-                  size={16}
-                  color={isCharging ? '#16C75C' : '#FF3B30'}
-                />
-                <Text
-                  style={[
-                    styles.statusBadgeText,
-                    isCharging ? styles.statusTextCharging : styles.statusTextIdle,
-                  ]}
-                >
-                  {isCharging ? 'Lädt' : 'Inaktiv'}
-                </Text>
-              </View>
             </View>
 
             {/* Energie */}
@@ -101,19 +93,17 @@ export default function HWallbox({
                 </View>
               </View>
 
-              {isCharging && (
-                <View style={styles.statusItem}>
-                  <View style={styles.statusIconContainer}>
-                    <MaterialCommunityIcons name="lightning-bolt" size={20} color="#1EAFF3" />
-                  </View>
-                  <View style={styles.statusContent}>
-                    <Text style={styles.statusLabel}>Leistung</Text>
-                    <Text style={[styles.statusValue, { color: '#1EAFF3' }]}>
-                      {ampere}A · {phases}Ph
-                    </Text>
-                  </View>
+              <View style={styles.statusItem}>
+                <View style={[styles.statusIconContainer, { backgroundColor: stateConfig.bg }]}>
+                  <MaterialCommunityIcons name={stateConfig.icon as any} size={20} color={stateConfig.color} />
                 </View>
-              )}
+                <View style={styles.statusContent}>
+                  <Text style={styles.statusLabel}>Status</Text>
+                  <Text style={[styles.statusValue, { color: stateConfig.color }]}>
+                    {stateConfig.label}
+                  </Text>
+                </View>
+              </View>
             </View>
 
             {showControls && (
@@ -249,11 +239,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 16,
   },
-  statusBadgeCharging: { backgroundColor: '#E8F8ED' },
-  statusBadgeIdle: { backgroundColor: '#FFE8E8' },
   statusBadgeText: { fontSize: 12, fontWeight: '600' },
-  statusTextCharging: { color: '#16C75C' },
-  statusTextIdle: { color: '#FF3B30' },
   energySection: {
     alignItems: 'center',
     paddingVertical: 12,
@@ -265,9 +251,9 @@ const styles = StyleSheet.create({
   energyValue: { fontSize: 32, fontWeight: '700', color: '#1EAFF3' },
   energyUnit: { fontSize: 18, fontWeight: '600', color: '#1EAFF3' },
   energyLabel: { fontSize: 12, fontWeight: '500', color: '#1C1C1E' },
-  statusGrid: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  statusGrid: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 12 },
   statusItem: {
-    flex: 1,
+    flexBasis: '48%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
