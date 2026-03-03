@@ -32,7 +32,7 @@ class FakeBoiler:
 class FakeWallbox:
     def __init__(self):
         self.allow = False
-        self.data = {"car": 1, "eto": 0}
+        self.data = {"car": 2, "car_connected": 1, "eto": 0}  # car=2 (Charging/Connected), car_connected=1
 
     def fetch_data(self):
         return self.data
@@ -42,6 +42,12 @@ class FakeWallbox:
 
     def get_allow_state(self):
         return self.allow
+
+    def is_online(self):
+        return True
+
+    def get_current_ampere(self):
+        return 0
 
 # Fake DB for boiler temperature
 class FakeDB:

@@ -461,7 +461,7 @@ class SchedulerService(threading.Thread):
             )
             return
         
-        car_connected = data.get("car") == 1
+        car_connected = data.get("car_connected") == 1
         eto_now = data.get("eto")  # Energy counter in Wh
         
         if eto_now is None:
