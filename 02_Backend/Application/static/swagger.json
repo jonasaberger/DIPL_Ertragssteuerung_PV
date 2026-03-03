@@ -75,7 +75,6 @@
                 "enum": [
                   "system_event",
                   "api_error",
-                  "control_decision",
                   "device_state_change"
                 ]
               }
@@ -1141,6 +1140,7 @@
               "_time": { "type": "string", "format": "date-time" },
               "amp": { "type": "integer", "description": "Current (A)" },
               "car": { "type": "integer", "description": "Car connected (1/0)" },
+              "car_connected": { "type": "integer", "description": "Car connected (1/0)" },
               "alw": { "type": "integer", "description": "Charging allowed (1/0)" },
               "wst": { "type": "integer", "description": "Wallbox status code" },
               "eto": { "type": "number", "description": "Total energy charged (Wh)" },

@@ -5,6 +5,8 @@ from decimal import Decimal
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+# CAR STATUS ENUM (laut go-eCharger API v2 Doku):
+CAR_CONNECTED_STATES = {2, 3, 4}
 
 class WallboxController:
     def __init__(self, config_path: str = "config/devices.json"):
@@ -12,7 +14,6 @@ class WallboxController:
         self.config_path = os.path.abspath(config_path)
         self.load_config()
         
-
     def load_config(self):
         if not os.path.exists(self.config_path):
             raise FileNotFoundError(f"Config file not found: {self.config_path}")
@@ -34,9 +35,7 @@ class WallboxController:
         f"{base_url}{endpoints.get('api', '/api/status')}",
         f"{base_url}{endpoints.get('mqtt', '/mqtt')}"
         )
-
-
-
+        
         # Prevents log spam when the wallbox resets alw=1 on its own
         self._intended_allow = None
 
@@ -62,10 +61,15 @@ class WallboxController:
             pha = api_data.get("pha", [])
             pha = [1 if v else 0 for v in (pha + [0, 0, 0])[:3]]
 
+            # car: raw value from API (0=Unknown/Error, 1=Idle, 2=Charging, 3=WaitCar, 4=Complete, 5=Error)
+            # car_connected: 1 if a car is physically connected (states 2, 3, 4), 0 otherwise
+            car_raw = int(status_data.get("car", 0))
+
             data = {
                 "_time": datetime.now(ZoneInfo("Europe/Vienna")).isoformat(),
                 "amp": int(status_data.get("amp", 0)),
-                "car": 1 if int(status_data.get("car", 0)) > 0 else 0,
+                "car": car_raw,
+                "car_connected": 1 if car_raw in CAR_CONNECTED_STATES else 0,
                 "alw": int(api_data.get("alw", 0)),
                 "wst": int(status_data.get("wst", 0)),
                 "eto": float(status_data.get("eto", 0)),
@@ -77,7 +81,7 @@ class WallboxController:
 
             # Determine if charging is currently active
             data["charging"] = (
-                1 if data["car"] == 1 and data["alw"] == 1 and data["amp"] > 0 else 0
+                1 if data["car_connected"] == 1 and data["alw"] == 1 and data["amp"] > 0 else 0
             )
 
             return data

@@ -12,7 +12,6 @@ from zoneinfo import ZoneInfo
 
 class LoggingBridge:
     def __init__(self):
-        # Load environment variables
         env_path = find_dotenv()
         if not env_path:
             raise FileNotFoundError("No .env file found - please create one")
@@ -26,83 +25,61 @@ class LoggingBridge:
         if not all([self.url, self.token, self.org, self.bucket]):
             raise ValueError("Missing InfluxDB logging configuration")
 
-        self.client = InfluxDBClient(
-            url=self.url,
-            token=self.token,
-            org=self.org
-        )
-
+        self.client = InfluxDBClient(url=self.url, token=self.token, org=self.org)
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
         self.query_api = self.client.query_api()
 
-    # Internal write helper
     def _write(self, point: Point):
-        self.write_api.write(
-            bucket=self.bucket,
-            org=self.org,
-            record=point
-        )
+        self.write_api.write(bucket=self.bucket, org=self.org, record=point)
 
-    # Control decision logging
-    def control_decision(self, device, action, reason, success=True, extra=None):
-        point = (
-            Point("control_decision")
-            .tag("device", device)                                # wallbox / boiler
-            .field("action", action)                              # on / off / toggle / set_allow
-            .field("success", str(success))                       # whether the action was successfully executed
-            .field("reason", reason)                              # manual / pv_surplus / scheduler
-            .field("extra", str(extra) if extra else "")          # any additional info (e.g. PV surplus amount, scheduler time)
-            .time(datetime.now(timezone.utc), WritePrecision.NS)  # log the time of the decision
-        )
-        self._write(point)
-
-    # System-level events
-    def system_event(self, level, source, message):
+    # 1) SYSTEM EVENT
+    #    Für: Start/Stop, Modus-Wechsel, Zeitplan-Updates,
+    #         EPEX-Analysen, Sitzungs-Start, Prognose-Overrides, Scheduler-Fehler
+    def system_event(self, level: str, source: str, message: str):
         point = (
             Point("system_event")
-            .tag("level", level)
-            .tag("source", source)
+            .tag("level", level)     # info / warning / error
+            .tag("source", source)   # backend / modus / zeitplan / boiler_automatik / wallbox_automatik / ...
             .field("message", message)
             .time(datetime.now(timezone.utc), WritePrecision.NS)
         )
-        self._write(point) 
+        self._write(point)
 
-    # External API errors
-    def api_error(self, device, endpoint, error):
-        description = f"{device} API error at {endpoint}: {error}"
-
+    # 2) API ERROR
+    #    Für: Verbindungsfehler zu Wallbox, InfluxDB, Forecast-Service
+    def api_error(self, device: str, endpoint: str, error):
         point = (
             Point("api_error")
             .tag("device", device)
             .tag("endpoint", endpoint)
-            .field("message", description)
+            .field("message", f"{device} Fehler bei {endpoint}: {error}")
             .time(datetime.now(timezone.utc), WritePrecision.NS)
         )
         self._write(point)
 
-    # Device state changes
-    def device_state_change(self, device, old_state, new_state):
-      
-        # Skip invalid / unknown states (timeouts, device unreachable)
+    # 3) DEVICE STATE CHANGE
+    #    Für: Alle Zustandsänderungen von Boiler und Wallbox,
+    def device_state_change(self, device: str, old_state, new_state, reason: str = "unbekannt"):
         if old_state is None or new_state is None:
             return
-
-        # Skip redundant transitions (ON -> ON, OFF -> OFF)
         if old_state == new_state:
             return
 
         if device == "boiler":
-            old_label = "ON" if old_state else "OFF"
-            new_label = "ON" if new_state else "OFF"
-            description = f"boiler heating: {old_label} → {new_label}"
+            old_label = "AN" if old_state else "AUS"
+            new_label = "AN" if new_state else "AUS"
+            description = f"Boiler: {old_label} → {new_label} | {reason}"
 
         elif device == "wallbox":
-            old_label = "ENABLED" if old_state else "DISABLED"
-            new_label = "ENABLED" if new_state else "DISABLED"
-            description = f"wallbox charging: {old_label} → {new_label}"
+            old_label = "lädt" if old_state else "pausiert"
+            new_label = "lädt" if new_state else "pausiert"
+            description = f"Wallbox: {old_label} → {new_label} | {reason}"
+
+        elif device == "wallbox_ampere":
+            description = f"Wallbox Ladestrom: {old_state}A → {new_state}A | {reason}"
 
         else:
-            description = f"{device}: {old_state} → {new_state}"
+            description = f"{device}: {old_state} → {new_state} | {reason}"
 
         point = (
             Point("device_state_change")
@@ -112,8 +89,12 @@ class LoggingBridge:
         )
         self._write(point)
 
-    # Query logs from InfluxDB
-    def query_logs(self, log_type, limit=50, days=30):
+    # QUERY
+    def query_logs(self, log_type: str, limit: int = 50, days: int = 30):
+        allowed = {"system_event", "api_error", "device_state_change"}
+        if log_type not in allowed:
+            raise ValueError(f"Ungültiger Log-Typ '{log_type}'. Erlaubt: {allowed}")
+
         query = f'''
         from(bucket: "{self.bucket}")
         |> range(start: -{days}d)
@@ -131,48 +112,18 @@ class LoggingBridge:
         tables = self.query_api.query(query, org=self.org)
         results = []
 
-        # Process query results into a list of dicts with time and message
         for table in tables:
             for r in table.records:
                 values = r.values
-                ts = values["_time"].astimezone(
-                    ZoneInfo("Europe/Vienna")
-                ).isoformat(timespec="seconds")
+                ts = values["_time"].astimezone(ZoneInfo("Europe/Vienna")).isoformat(timespec="seconds")
 
-                # Format message based on log type
-                if log_type == "control_decision":
-                    msg = (
-                        f"device={values.get('device')} | "
-                        f"action={values.get('action')} | "
-                        f"reason={values.get('reason')} | "
-                        f"success={values.get('success')} | "
-                        f"extra={values.get('extra')}"
-                    )
-
-                # For system events and device state changes, use the description field if available
-                elif log_type == "device_state_change":
-                    msg = values.get("description") or "device state changed"
-
-                # For API errors, construct a message with device, endpoint, and error details
+                if log_type == "device_state_change":
+                    msg = values.get("description") or "Zustandsänderung"
                 elif log_type == "api_error":
-                    device = values.get("device", "unknown")
-                    endpoint = values.get("endpoint", "unknown")
-
-                    error_text = (
-                        values.get("message")
-                        or values.get("error")
-                        or "unknown error"
-                    )
-
-                    msg = f"{device} | {endpoint} | {error_text}"
-
-                # For system events, use the message field directly
+                    msg = values.get("message") or "Unbekannter API-Fehler"
                 else:
-                    msg = values.get("message")
-                
-                results.append({
-                    "time": ts,
-                    "message": msg
-                })
+                    msg = values.get("message") or ""
+
+                results.append({"time": ts, "message": msg})
 
         return results

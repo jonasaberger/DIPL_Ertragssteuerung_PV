@@ -1,5 +1,5 @@
 class WallboxDynamicController:
-# Dynamic charge controller for PV-optimized charging
+    # Dynamic charge controller for PV-optimized charging
     def __init__(self, hysteresis_kw=0.3, min_surplus_kw=1.4, battery_protection_soc=20,max_battery_discharge_kw=0.5):
         self.hysteresis = hysteresis_kw
         self.min_surplus = min_surplus_kw

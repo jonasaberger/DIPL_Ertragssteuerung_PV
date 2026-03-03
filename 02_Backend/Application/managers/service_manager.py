@@ -86,10 +86,11 @@ class ServiceManager:
         )
         self.scheduler.start()
 
+        # SYSTEM EVENT LOG: Service Startup
         self.logger.system_event(
             level="info",
             source="backend",
-            message="PV Backend Service started"
+            message="PV Backend Service gestartet"
         )
 
         # Initialize the IP-/Device-Manager
@@ -190,8 +191,8 @@ class ServiceManager:
             status["influx"] = "error"
             self.logger.system_event(
                 level="error",
-                source="monitoring",
-                message=f"InfluxDB not reachable: {e}"
+                source="backend",
+                message=f"InfluxDB Verbindung fehlgeschlagen: {e}"
             )
 
         # Wallbox
@@ -231,7 +232,7 @@ class ServiceManager:
             self.logger.system_event(
                 level="error",
                 source="monitoring",
-                message=f"EPEX data check failed: {e}"
+                message=f"EPEX Datenprüfung fehlgeschlagen: {e}"
         )
             
         # PV Forecast
@@ -248,7 +249,7 @@ class ServiceManager:
             self.logger.system_event(
                 level="error",
                 source="monitoring",
-                message=f"Forecast service failed: {e}"
+                message=f"Prognose-Service fehlgeschlagen: {e}"
             )
 
         return jsonify(status), 200
@@ -279,7 +280,7 @@ class ServiceManager:
             self.logger.system_event(
                 level="error",
                 source="logging",
-                message=f"Failed to fetch logging data: {e}"
+                message=f"Log-Abfrage fehlgeschlagen: {e}"
             )
             return self._json(
                 {"error": "Failed to fetch logging data"},
@@ -300,7 +301,7 @@ class ServiceManager:
             self.logger.system_event(
                 level="error",
                 source="backend",
-                message=f"InfluxDB connection failed: {e}"
+                message=f"InfluxDB nicht erreichbar: {e}"
             )
             return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -401,111 +402,72 @@ class ServiceManager:
     # POST /api/wallbox/setCharging - Enable or disable wallbox charging
     def set_wallbox_allow(self):
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
-            return self._json(
-                {
-                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
-                },
-                403
-            )
+            return self._json({"error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"}, 403)
 
+        # API expects JSON body: { "allow": true/false }
         payload = request.get_json(silent=True)
+        # VALIDATION: Check if payload is present and contains 'allow' field
         if not payload or "allow" not in payload:
             return self._json({"error": "Missing 'allow' field"}, 400)
 
-        # Logging purpose: Capture the old state before attempting to change it, to log the state change if it occurs
         old_state = self.wallbox_controller.get_allow_state()
 
         try:
             result = self.wallbox_controller.set_allow_charging(bool(payload["allow"]))
-
-            # Logging purpose: Capture the new state after the change, to log the state change if it differs from the old state
             new_state = self.wallbox_controller.get_allow_state()
 
-            # CONTROL DECISION LOG 
-            self.logger.control_decision(
-                device="wallbox",
-                action="set_allow",
-                reason="manual_api_call",
-                success=True,
-                extra=result
-            )
-
-            # DEVICE STATE CHANGE 
             if old_state != new_state:
+                # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change(
                     device="wallbox",
                     old_state=old_state,
-                    new_state=new_state
+                    new_state=new_state,
+                    reason="Manuell über API"
                 )
 
             return self._json(result, 200)
 
         except Exception as e:
-            self.logger.api_error(
-                device="wallbox",
-                endpoint="/api/wallbox/setCharging",
-                error=e
-            )
+            self.logger.api_error(device="wallbox", endpoint="/api/wallbox/setCharging", error=e)
             return self._json({"error": str(e)}, 502)
+      
     
-     # POST JSON: { "amp": 6 | 10 | 12 | 14 | 16 }
+    # POST JSON: { "amp": 6 | 10 | 12 | 14 | 16 }
     def set_wallbox_current(self):
-        # Manual control disabled in automatic modes
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
-            return self._json(
-                {
-                    "error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"
-                },
-                403
-            )
+            return self._json({"error": "Manual wallbox control disabled in AUTOMATIC and TIME_CONTROLLED mode"}, 403)
 
+        # API expects JSON body: { "amp": 6 | 10 | 12 | 14 | 16 }
         payload = request.get_json(silent=True)
-
+        # VALIDATION: Check if payload is present and contains 'amp' field
         if not payload or "amp" not in payload:
             return self._json({"error": "Missing 'amp' field"}, 400)
 
         try:
             amp = int(payload["amp"])
 
-            # Old value for state-change logging
             old_data = self.wallbox_controller.fetch_data()
             old_amp = old_data.get("amp")
 
             result = self.wallbox_controller.set_charging_ampere(amp)
 
-            # New value for state-change logging
             new_data = self.wallbox_controller.fetch_data()
             new_amp = new_data.get("amp")
 
-            # CONTROL DECISION LOG
-            self.logger.control_decision(
-                device="wallbox",
-                action="set_ampere",
-                reason="manual_api_call",
-                success=True,
-                extra=result
-            )
-
-            # DEVICE STATE CHANGE LOG
             if old_amp != new_amp:
                 self.logger.device_state_change(
                     device="wallbox_ampere",
                     old_state=old_amp,
-                    new_state=new_amp
+                    new_state=new_amp,
+                    reason="Manuell über API gesetzt"
                 )
 
             return self._json(result, 200)
 
         except ValueError as e:
             return self._json({"error": str(e)}, 400)
-
         except Exception as e:
-            # API ERROR LOG
-            self.logger.api_error(
-                device="wallbox",
-                endpoint="/api/wallbox/setCurrent",
-                error=e
-            )
+            self.logger.api_error(device="wallbox", endpoint="/api/wallbox/setCurrent", error=e)
             return self._json({"error": str(e)}, 502)
 
     ############################
@@ -536,9 +498,11 @@ class ServiceManager:
     # GET /api/boiler/state - Get current boiler state (heating on/off + simulated or real)
     def get_boiler_state(self):
         try:
+            # Check if boiler bridge is properly initialized and has the required method
             if not hasattr(self.boiler_bridge, "get_state"):
                 return self._json({"error": "Boiler control not available"}, 502)
 
+            # Get the current state of the boiler (True for heating on, False for off)
             state = self.boiler_bridge.get_state()
             simulated = getattr(self.boiler_bridge, "relay", None) is None
 
@@ -561,20 +525,17 @@ class ServiceManager:
         
     # POST /api/boiler/control - Control the boiler (on/off/toggle)
     def control_boiler(self):
-
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):
-            return self._json(
-                {
-                    "error": "Manual boiler control disabled in AUTOMATIC and TIME_CONTROLLED mode"
-                },
-                403
-            )
+            return self._json({"error": "Manual boiler control disabled in AUTOMATIC and TIME_CONTROLLED mode"}, 403)
 
+        # API expects JSON body: { "action": "on" | "off" | "toggle" }
         payload = request.get_json(silent=True)
         if not payload:
             return self._json({"error": "Missing JSON body"}, 400)
 
+        # VALIDATION: Check if 'action' field is present and valid
         action = (payload.get("action") or "").lower()
+        # VALIDATION: Ensure action is one of the allowed values
         if action not in ("on", "off", "toggle"):
             return self._json({"error": "Invalid action. Use: on/off/toggle"}, 400)
 
@@ -582,38 +543,24 @@ class ServiceManager:
 
         if action == "on" and old_state is True:
             return self._json({"heating": True, "message": "already on"}, 200)
-
         if action == "off" and old_state is False:
             return self._json({"heating": False, "message": "already off"}, 200)
 
         self.boiler_bridge.control(action)
         new_state = self.boiler_bridge.get_state()
 
-        # CONTROL DECISION LOG
-        self.logger.control_decision(
-            device="boiler",
-            action=action,
-            reason="manual_api_call",
-            success=True
-        )
-
         if old_state != new_state:
             # DEVICE STATE CHANGE LOG
             self.logger.device_state_change(
                 device="boiler",
                 old_state=old_state,
-                new_state=new_state
+                new_state=new_state,
+                reason="Manuell über API"
             )
 
         simulated = getattr(self.boiler_bridge, "relay", None) is None
+        return self._json({"heating": new_state, "simulated": simulated}, 200)
 
-        return self._json(
-            {
-                "heating": new_state,
-                "simulated": simulated
-            },
-            200
-        )
     
 
     ########################
@@ -651,126 +598,75 @@ class ServiceManager:
 
     # GET / POST system mode
     def mode_endpoint(self):
-        # Get: current mode
         if request.method == 'GET':
-            return self._json({
-                "mode": self.mode_store.get().value
-            })
-        
-        # Post: set mode
+            return self._json({"mode": self.mode_store.get().value})
+
+        # POST: Change system mode - expects JSON body: { "mode": "AUTOMATIC" | "MANUAL" | "TIME_CONTROLLED" }
         payload = request.get_json(silent=True)
+        # VALIDATION: Check if payload is present and contains 'mode' field
         if not payload or "mode" not in payload:
             return self._json({"error": "Missing 'mode' field"}, 400)
-        
+
         try:
             mode = SystemMode(payload["mode"])
             self.mode_store.set(mode)
-
             # SYSTEM EVENT LOG
-            self.logger.system_event(
-                level="info",
-                source="mode",
-                message=f"System mode set to {mode.value}"
-            )
-
+            self.logger.system_event(level="info", source="modus", message=f"Systemmodus geändert auf: {mode.value}")
             return self._json({"mode": mode.value})
-        
         except ValueError:
-            return self._json({"error": "Invalid mode. Use AUTOMATIC | MANUAL | TIME_CONTROLLED"},400)
+            return self._json({"error": "Invalid mode. Use AUTOMATIC | MANUAL | TIME_CONTROLLED"}, 400)
         
     # GET /api/schedule - Get current schedule configuration
     def schedule_endpoint(self):
-        # GET: current schedule
         if request.method == "GET":
             return self._json(self.schedule_store.get_effective())
 
-        # PUT: Set override 
+        # PUT /api/schedule - Update schedule configuration - expects JSON body with schedule data
         if request.method == "PUT":
             payload = request.get_json(force=True)
             if not payload:
                 return self._json({"error": "Missing JSON body"}, 400)
-
             self.schedule_store.update(payload)
-
             # SYSTEM EVENT LOG
-            self.logger.system_event(
-                level="info",
-                source="schedule",
-                message="Schedule configuration updated"
-            )
-
+            self.logger.system_event(level="info", source="zeitplan", message="Zeitplan aktualisiert")
             return self._json({"status": "ok"})
 
-        # POST: RESET to default
+        # POST /api/schedule/reset - Reset schedule to default configuration
         if request.method == "POST":
             self.schedule_store.reset_to_default()
-
             # SYSTEM EVENT LOG
-            self.logger.system_event(
-                level="info",
-                source="schedule",
-                message="Schedule reset to default"
-            )
-
-            return self._json({
-                "status": "ok",
-                "message": "Schedule reset to default"
-            })
+            self.logger.system_event(level="info", source="zeitplan", message="Zeitplan auf Standard zurückgesetzt")
+            return self._json({"status": "ok", "message": "Schedule reset to default"})
     
     # POST /api/schedule/reset - Reset schedule to default configuration
     def schedule_reset_endpoint(self):
         self.schedule_store.reset_to_default()
-
-        self.logger.system_event(
-            level="info",
-            source="schedule",
-            message="Schedule reset to default configuration"
-        )
-
-        return self._json({
-            "status": "ok",
-            "message": "Schedule reset to default"
-        })
+        # SYSTEM EVENT LOG
+        self.logger.system_event(level="info", source="zeitplan", message="Zeitplan auf Standard zurückgesetzt")
+        return self._json({"status": "ok", "message": "Schedule reset to default"})
     
     # GET /api/automatic-config - Get current AUTOMATIC mode configuration
     def automatic_config_endpoint(self):
-        # GET: AUTOMATIC mode configuration
         if request.method == "GET":
             return self._json(self.automatic_config_store.get())
 
-        # PUT: Partial Update
+        # PUT /api/automatic-config - Update AUTOMATIC mode configuration - expects JSON body with config parameters
         if request.method == "PUT":
             payload = request.get_json(force=True)
             if not payload:
                 return self._json({"error": "Missing JSON body"}, 400)
-
             self.automatic_config_store.update(payload)
-
             # SYSTEM EVENT LOG
-            self.logger.system_event(
-                level="info",
-                source="automatic_config",
-                message="AUTOMATIC configuration updated"
-            )
-
+            self.logger.system_event(level="info", source="automatik_config", message="Automatik-Konfiguration aktualisiert")
             return self._json({"status": "ok"})
 
-        # POST: Reset to default
+        # POST /api/automatic-config/reset - Reset AUTOMATIC mode configuration to default
         if request.method == "POST":
             self.automatic_config_store.reset_to_default()
-
             # SYSTEM EVENT LOG
-            self.logger.system_event(
-                level="info",
-                source="automatic_config",
-                message="AUTOMATIC configuration reset to default"
-            )
+            self.logger.system_event(level="info", source="automatik_config", message="Automatik-Konfiguration auf Standard zurückgesetzt")
+            return self._json({"status": "ok", "message": "AUTOMATIC configuration reset to default"})
 
-            return self._json({
-                "status": "ok",
-                "message": "AUTOMATIC configuration reset to default"
-            })
-        
     # GET /api/forecast - Get PV forecast for today and tomorrow
     def get_forecast(self):
         try:
