@@ -23,10 +23,10 @@ type Props = {
 }
 
 const COLORS = {
-  pv: '#1EAFF3',
-  load: '#474646',
-  feedIn: '#2FBF71',
-  soc: '#F39C12',
+  pv: '#474646',
+  load:  '#1EAFF3',
+  feedIn: '#F39C12',
+  soc:  '#2FBF71',
 }
 
 type Mode = 'day' | 'month' | 'year'

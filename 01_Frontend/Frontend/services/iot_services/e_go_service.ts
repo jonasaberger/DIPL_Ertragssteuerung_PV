@@ -21,7 +21,7 @@ export async function fetchEGoData(): Promise<EGoData | null> {
     return {
       date,
       time,
-      energy: round1(data.eto),                // Gesamtenergie kWh
+      energy: round1(Number(data.eto ?? 0) / 10),                // Gesamtenergie kWh
       ampere: data.amp,                        // Ampere
       carConnected: data.car === 1,            // 1 = true, 0 = false
       isCharging: data.charging === 1,         // 1 = true, 0 = false
