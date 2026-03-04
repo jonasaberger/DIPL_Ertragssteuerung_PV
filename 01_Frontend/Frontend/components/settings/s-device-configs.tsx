@@ -1,6 +1,7 @@
 import * as Updates from 'expo-updates'
 import React, { useState, useEffect } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native'
+import Toast from 'react-native-toast-message'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import SettingsCard from '@/components/settings/settingscard'
 import SIPModal from '@/components/settings/s-ipmodal'
@@ -20,7 +21,11 @@ import {
 } from '@/services/setting_services/device-backend_configs/settings_service'
 import { resetAPIBase } from '@/services/helper'
 
+const showErrorToast = (message: string) =>
+  Toast.show({ type: 'error', text1: 'Fehler', text2: message, position: 'top', visibilityTime: 3000 })
 
+const showSuccessToast = (message: string) =>
+  Toast.show({ type: 'success', text1: 'Erfolg', text2: message, position: 'top', visibilityTime: 2000 })
 
 export type ServiceConfig = {
   ip: string
@@ -38,7 +43,7 @@ export default function SDeviceConfigs() {
   // Initiales Laden der Konfigurationen
   useEffect(() => { loadConfigs() }, [])
 
-  const loadConfigs = async () => {
+  const loadConfigs = async (showSuccess = false) => {
     try {
       // Lade Backend-Konfiguration (IP-Adresse / Port des Backends)
       setLoading(true)
@@ -52,9 +57,10 @@ export default function SDeviceConfigs() {
         console.warn('Could not fetch devices:', deviceError)
         setDevices({})
       }
+      if (showSuccess) showSuccessToast('Konfigurationen erfolgreich neu geladen.')
     } catch (error) {
       console.error('Error loading backend config:', error)
-      Alert.alert('Fehler', 'Backend-Konfiguration konnte nicht geladen werden')
+      showErrorToast('Backend-Konfiguration konnte nicht geladen werden.')
     } finally {
       setLoading(false)
     }
@@ -68,6 +74,7 @@ export default function SDeviceConfigs() {
       resetAPIBase()
       setOpenModal(null)
       setLoading(false)
+      // Alert bleibt hier, da ein Button für den Neustart benötigt wird
       Alert.alert(
         'Erfolg',
         'Backend-Konfiguration wurde gespeichert.\n\nDie App muss neu geladen werden, um die Änderungen zu übernehmen.',
@@ -86,13 +93,13 @@ export default function SDeviceConfigs() {
     } catch (error) {
       console.error('Error updating backend:', error)
       setLoading(false)
-      Alert.alert('Fehler', 'Backend-Konfiguration konnte nicht gespeichert werden')
+      showErrorToast('Backend-Konfiguration konnte nicht gespeichert werden.')
     }
   }
 
   const handleDeviceConfirm = async (deviceId: string, config: ServiceConfig) => {
     if (!password) {
-      Alert.alert('Fehler', 'Nicht autorisiert')
+      showErrorToast('Nicht autorisiert.')
       return
     }
     setOpenModal(null)
@@ -101,13 +108,13 @@ export default function SDeviceConfigs() {
       const baseUrl = buildDeviceUrl(config.ip, config.port, deviceId === 'epex')
       await updateDeviceConfig(deviceId, password, baseUrl, config.paths)
       await loadConfigs()
-      Alert.alert('Erfolg', `${deviceId.toUpperCase()} Konfiguration gespeichert`)
+      showSuccessToast(`${deviceId.toUpperCase()} Konfiguration gespeichert.`)
     } catch (error: any) {
       console.error('Error updating device:', error)
       if (error.message === 'Falsches Passwort') {
-        Alert.alert('Fehler', 'Falsches Passwort')
+        showErrorToast('Falsches Passwort.')
       } else {
-        Alert.alert('Fehler', 'Gerät konnte nicht aktualisiert werden')
+        showErrorToast('Gerät konnte nicht aktualisiert werden.')
       }
     } finally {
       setLoading(false)
@@ -115,6 +122,7 @@ export default function SDeviceConfigs() {
   }
 
   const handleReset = () => {
+    // Alert bleibt hier, da ein Bestätigungs-Dialog mit zwei Buttons benötigt wird
     Alert.alert(
       'Alles zurücksetzen?',
       'Die Backend-Konfiguration wird auf die Standardwerte zurückgesetzt und alle Geräte werden zurückgesetzt.',
@@ -131,10 +139,10 @@ export default function SDeviceConfigs() {
               if (!resetResult) throw new Error('API Reset fehlgeschlagen')
               resetAPIBase()
               await loadConfigs()
-              Alert.alert('Erfolg', 'Alle Konfigurationen wurden zurückgesetzt.')
+              showSuccessToast('Alle Konfigurationen wurden zurückgesetzt.')
             } catch (error) {
               console.error('Error resetting configs:', error)
-              Alert.alert('Fehler', 'Reset konnte nicht durchgeführt werden')
+              showErrorToast('Reset konnte nicht durchgeführt werden.')
             } finally {
               setLoading(false)
             }
@@ -218,7 +226,7 @@ export default function SDeviceConfigs() {
         {renderServiceItem('Wallbox', 'wallbox', getDeviceConfig('wallbox'), 'wallbox')}
 
         <View style={styles.actionRow}>
-          <TouchableOpacity style={[styles.actionButton, styles.syncButton]} activeOpacity={0.85} onPress={loadConfigs} disabled={loading}>
+          <TouchableOpacity style={[styles.actionButton, styles.syncButton]} activeOpacity={0.85} onPress={() => loadConfigs(true)} disabled={loading}>
             <MaterialCommunityIcons name="refresh" size={20} color="#474646" />
             <Text style={styles.actionLabel}>Neu laden</Text>
           </TouchableOpacity>

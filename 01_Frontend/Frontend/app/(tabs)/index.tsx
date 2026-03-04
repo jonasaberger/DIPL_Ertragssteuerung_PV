@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ScrollView, StyleSheet, Alert, View, Text, ActivityIndicator } from 'react-native'
+import { ScrollView, StyleSheet, View, Text, ActivityIndicator } from 'react-native'
 import Toast from 'react-native-toast-message'
 import { ThemedView } from '@/components/themed-view'
 
@@ -54,6 +54,12 @@ const clamp0 = (v: number) => {
 
   return v
 }
+
+const showErrorToast = (message: string) =>
+  Toast.show({ type: 'error', text1: 'Fehler', text2: message, position: 'top', visibilityTime: 3000 })
+
+const showSuccessToast = (message: string) =>
+  Toast.show({ type: 'success', text1: 'Erfolg', text2: message, position: 'top', visibilityTime: 2000 })
 
 export default function HomeScreen() {
   // KEY für Screen Remount
@@ -183,7 +189,7 @@ export default function HomeScreen() {
 
   // Sync wallbox setting from backend data
   useEffect(() => {
-    if (wallboxData?.isCharging !== undefined) {
+    if (wallboxData?.carState !== undefined) {
       const initialSetting: EGoWallboxSetting = wallboxData.carState === 2 ? 'MANUAL_ON' : 'MANUAL_OFF'
       setUiState((prev) => {
         if (prev.selectedWallboxSetting !== initialSetting) {
@@ -192,7 +198,7 @@ export default function HomeScreen() {
         return prev
       })
     }
-  }, [wallboxData?.isCharging])
+  }, [wallboxData?.carState === 2])
 
     // Sync ampere from backend data
   useEffect(() => {
@@ -255,7 +261,7 @@ export default function HomeScreen() {
     } else {
       console.warn('Failed to update wallbox setting on backend - reverting UI')
       setUiState((prev) => ({ ...prev, selectedWallboxSetting: previousSetting }))
-      Alert.alert('Fehler', 'Wallbox-Einstellung konnte nicht geändert werden')
+      showErrorToast('Wallbox-Einstellung konnte nicht geändert werden.')
     }
   }
 
@@ -270,7 +276,7 @@ export default function HomeScreen() {
     } else {
       console.warn('Failed to update ampere on backend - reverting UI')
       setUiState((prev) => ({ ...prev, ampere: previousAmpere }))
-      Alert.alert('Fehler', 'Ladestrom konnte nicht geändert werden')
+      showErrorToast('Ladestrom konnte nicht geändert werden.')
     }
   }
 
@@ -285,7 +291,7 @@ export default function HomeScreen() {
     } else {
       console.warn('Failed to update boiler setting on backend - reverting UI')
       setUiState((prev) => ({ ...prev, selectedBoilerSetting: previousSetting }))
-      Alert.alert('Fehler', 'Boiler-Einstellung konnte nicht geändert werden')
+      showErrorToast('Boiler-Einstellung konnte nicht geändert werden.')
     }
   }
 
@@ -297,12 +303,11 @@ export default function HomeScreen() {
 
     if (success) {
       console.log('Mode successfully changed to:', newMode)
-      showToastMessage(`Modus geändert zu ${newMode}`, true)
+      showSuccessToast(`Modus geändert zu ${newMode}`)
     } else {
       console.warn('Failed to update mode on backend - reverting UI')
-      showToastMessage('Modus konnte nicht geändert werden', false)
       setUiState((prev) => ({ ...prev, currentMode: previousMode }))
-      Alert.alert('Fehler', 'Modus konnte nicht geändert werden')
+      showErrorToast('Modus konnte nicht geändert werden.')
     }
   }
 
@@ -403,26 +408,6 @@ export default function HomeScreen() {
       </ScrollView>
     </ThemedView>
   )
-}
-
-const showToastMessage = (message: string, success: boolean) => {
-  if (success) {
-    Toast.show({
-      type: 'success',
-      text1: 'Erfolg',
-      text2: `${message}`,
-      position: 'bottom',
-      visibilityTime: 2000,
-    })
-  } else {
-    Toast.show({
-      type: 'error',
-      text1: 'Error',
-      text2: `${message}`,
-      position: 'bottom',
-      visibilityTime: 2000,
-    })
-  }
 }
 
 const styles = StyleSheet.create({
