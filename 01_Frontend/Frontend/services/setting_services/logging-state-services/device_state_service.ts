@@ -11,16 +11,36 @@ export interface DeviceStateLogEntry {
   device: string
   from: string
   to: string
+  details: string[] // ✅ Rest der Message (| und / => Zeilen)
   rawMessage: string
   rawTime: string
+}
+
+// ✅ macht aus "a | b / c | d" => ["a", "b", "c", "d"]
+function splitDetails(s: string): string[] {
+  return s
+    .split('|')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .flatMap(p => p.split('/').map(x => x.trim()).filter(Boolean))
 }
 
 function parseDeviceStateMessage(message: string): {
   device: string
   from: string
   to: string
+  details: string[]
 } | null {
-  const m = message.match(/^\s*([^:]+)\s*:\s*(.*?)\s*→\s*(.*?)\s*$/)
+  const msg = String(message ?? '').trim()
+  if (!msg) return null
+
+  // ✅ Erstes "|" trennt Zustandswechsel von Details
+  const pipeIdx = msg.indexOf('|')
+  const head = (pipeIdx >= 0 ? msg.slice(0, pipeIdx) : msg).trim()
+  const tail = (pipeIdx >= 0 ? msg.slice(pipeIdx + 1) : '').trim()
+
+  // ✅ Unterstützt "→" und "->"
+  const m = head.match(/^\s*([^:]+)\s*:\s*(.*?)\s*(?:→|->)\s*(.*?)\s*$/)
   if (!m) return null
 
   const device = (m[1] ?? '').trim()
@@ -28,7 +48,10 @@ function parseDeviceStateMessage(message: string): {
   const to = (m[3] ?? '').trim()
 
   if (!device || !from || !to) return null
-  return { device, from, to }
+
+  const details = tail ? splitDetails(tail) : []
+
+  return { device, from, to, details }
 }
 
 export async function fetchDeviceStateLogs(): Promise<DeviceStateLogEntry[]> {
@@ -53,6 +76,7 @@ export async function fetchDeviceStateLogs(): Promise<DeviceStateLogEntry[]> {
       device: parsed.device,
       from: parsed.from,
       to: parsed.to,
+      details: parsed.details, // ✅ Details mitnehmen
       rawMessage: row.message,
       rawTime: row.time,
     })

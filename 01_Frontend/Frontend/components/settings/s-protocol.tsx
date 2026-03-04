@@ -17,22 +17,43 @@ import {
   fmtDateShort,
   filterByDateRange,
   extractLogTimeMs,
-} from '@/components/settings/s-datePicker' 
+} from '@/components/settings/s-datePicker'
+import { MaterialCommunityIcons } from '@expo/vector-icons' 
 
 type ProtocolItem = {
   id: string
   date: string
   time: string
   rawTime?: string
-  title: string
-  reason?: string
-  success?: boolean
-  extra?: string
+  lines: string[]
 }
 
 // Funktion, um harte Trennzeichen in einem String durch weiche Trennzeichen zu ersetzen
 function softBreak(s: string): string {
   return s.replace(/([,;:{}\[\]\(\)])/g, '$1\u200B')
+}
+
+// Entfernt überflüssige Leerzeichen, Tabs und Zeilenumbrüche
+function normalizeSpaces(s: string): string {
+  return s.replace(/\s+/g, ' ').trim()
+}
+
+function messageToLines(message: string): string[] {
+  const cleaned = normalizeSpaces(message)
+
+  // Erst bei "|" splitten, dann jede Sektion zusätzlich bei "/" splitten
+  const parts = cleaned
+    .split('|')
+    .map(p => p.trim())
+    .filter(Boolean)
+    .flatMap(p => p.split('/').map(x => x.trim()).filter(Boolean))
+
+  if (parts.length === 0) return [cleaned]
+
+  // Zusätzlich auch für "|" und "/" und ":" 
+  return parts.map(line =>
+    softBreak(line).replace(/([|/:\-])/g, '$1\u200B'),
+  )
 }
 
 export default function SProtocol() {
@@ -45,6 +66,9 @@ export default function SProtocol() {
   const [toDate, setToDate] = useState<Date | null>(null)
   const [isFromOpen, setIsFromOpen] = useState(false)
   const [isToOpen, setIsToOpen] = useState(false)
+
+  // Sortierung: absteigend = neueste oben (Default)
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
   useEffect(() => {
     let alive = true
@@ -72,19 +96,19 @@ export default function SProtocol() {
   }, [])
 
   const items = useMemo<ProtocolItem[]>(() => {
-    return data.map((e, idx) => ({
-      id: `${(e as any).rawTime ?? (e as any).time ?? 'x'}-${idx}`,
-      date: (e as any).date,
-      time: (e as any).time,
-      rawTime: (e as any).rawTime,
-      title: `${(e as any).device ?? 'unknown'} • ${(e as any).action ?? 'unknown'}`,
-      reason: (e as any).reason,
-      success: (e as any).success,
-      extra:
-        (e as any).extra && (e as any).extra !== 'None'
-          ? softBreak(String((e as any).extra))
-          : undefined,
-    }))
+    return data.map((e, idx) => {
+      const anyE: any = e as any
+
+      const msg: string = String(anyE.message ?? anyE.rawMessage ?? '')
+
+      return {
+        id: `${anyE.rawTime ?? anyE.time ?? 'x'}-${idx}`,
+        date: anyE.date,
+        time: anyE.time,
+        rawTime: anyE.rawTime,
+        lines: messageToLines(msg),
+      }
+    })
   }, [data])
 
   const filteredItems = useMemo(() => {
@@ -99,6 +123,21 @@ export default function SProtocol() {
         }),
     )
   }, [items, fromDate, toDate])
+
+  const sortedItems = useMemo(() => {
+    // Sortieren immer über den echten Zeitstempel (ms)
+    const arr = [...filteredItems]
+    arr.sort((a, b) => {
+      const aMsRaw = extractLogTimeMs({ rawTime: a.rawTime, time: a.time, date: a.date })
+      const bMsRaw = extractLogTimeMs({ rawTime: b.rawTime, time: b.time, date: b.date })
+
+      const aMs = typeof aMsRaw === 'number' && Number.isFinite(aMsRaw) ? aMsRaw : 0
+      const bMs = typeof bMsRaw === 'number' && Number.isFinite(bMsRaw) ? bMsRaw : 0
+
+      return sortDir === 'desc' ? bMs - aMs : aMs - bMs
+    })
+    return arr
+  }, [filteredItems, sortDir])
 
   const hasFilter = !!fromDate || !!toDate
 
@@ -144,6 +183,23 @@ export default function SProtocol() {
         )}
       </View>
 
+      <View style={styles.sortRow}>
+        <Pressable
+          style={styles.sortBtn}
+          onPress={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+          hitSlop={8}
+        >
+          <MaterialCommunityIcons
+            name={sortDir === 'desc' ? 'sort-descending' : 'sort-ascending'}
+            size={18}
+            color="#474646"
+          />
+          <Text style={styles.sortText}>
+            {sortDir === 'desc' ? 'Neueste zuerst' : 'Älteste zuerst'}
+          </Text>
+        </Pressable>
+      </View>
+
       <SDatePicker
         visible={isFromOpen}
         title="Von-Datum auswählen"
@@ -176,7 +232,7 @@ export default function SProtocol() {
           <View style={styles.stateBox}>
             <Text style={[styles.stateText, styles.stateError]}>{error}</Text>
           </View>
-        ) : filteredItems.length === 0 ? (
+        ) : sortedItems.length === 0 ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateText}>
               {hasFilter ? 'Keine Einträge im Zeitraum' : 'Keine Einträge'}
@@ -190,7 +246,7 @@ export default function SProtocol() {
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"
           >
-            {filteredItems.map((it, idx) => (
+            {sortedItems.map((it, idx) => (
               <View key={it.id}>
                 <View style={styles.row}>
                   <View style={styles.leftCol}>
@@ -199,25 +255,18 @@ export default function SProtocol() {
                   </View>
 
                   <View style={styles.rightCol}>
-                    <Text style={styles.titleText}>{it.title}</Text>
-
-                    {it.reason ? (
-                      <Text style={styles.metaText}>reason: {it.reason}</Text>
-                    ) : null}
-
-                    {typeof it.success === 'boolean' ? (
-                      <Text style={styles.metaText}>
-                        success: {it.success ? 'true' : 'false'}
+                    {it.lines.map((line, i) => (
+                      <Text
+                        key={`${it.id}-line-${i}`}
+                        style={i === 0 ? styles.firstLineText : styles.lineText}
+                      >
+                        {line}
                       </Text>
-                    ) : null}
-
-                    {it.extra ? (
-                      <Text style={styles.extraText}>extra: {it.extra}</Text>
-                    ) : null}
+                    ))}
                   </View>
                 </View>
 
-                {idx !== filteredItems.length - 1 && <View style={styles.separator} />}
+                {idx !== sortedItems.length - 1 && <View style={styles.separator} />}
               </View>
             ))}
           </ScrollView>
@@ -268,6 +317,26 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#b91c1c',
     marginTop: -1,
+  },
+
+  sortRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+  },
+  sortBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F1F1F1',
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  sortText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#666',
   },
 
   listBox: {
@@ -327,20 +396,16 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  titleText: {
-    fontSize: 15,
+
+  firstLineText: {
+    fontSize: 14.5,
     fontWeight: '900',
     color: '#2d2d2d',
   },
-  metaText: {
+
+  lineText: {
     marginTop: 2,
-    fontSize: 12.5,
-    fontWeight: '800',
-    color: '#474646',
-  },
-  extraText: {
-    marginTop: 4,
-    fontSize: 12.5,
+    fontSize: 12.8,
     fontWeight: '800',
     color: '#333',
   },
