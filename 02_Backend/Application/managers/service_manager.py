@@ -561,8 +561,6 @@ class ServiceManager:
         simulated = getattr(self.boiler_bridge, "relay", None) is None
         return self._json({"heating": new_state, "simulated": simulated}, 200)
 
-    
-
     ########################
     #### EPEX Endpoints ####
     ########################
@@ -610,6 +608,8 @@ class ServiceManager:
         try:
             mode = SystemMode(payload["mode"])
             self.mode_store.set(mode)
+            self.scheduler.reset_automatic_state()
+            
             # SYSTEM EVENT LOG
             self.logger.system_event(level="info", source="modus", message=f"Systemmodus geändert auf: {mode.value}")
             return self._json({"mode": mode.value})

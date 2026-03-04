@@ -83,9 +83,9 @@ class DB_Bridge:
 
                 # Rename InfluxDB field names to application-level keys
                 # PVSurplusService expects: pv_power_kw, house_load_kw, battery_power_kw
-                cleaned["pv_power_kw"]      = cleaned.pop("pv_power",      0.0)
-                cleaned["house_load_kw"]    = cleaned.pop("load_power",     0.0)
-                cleaned["battery_power_kw"] = cleaned.pop("battery_power",  0.0)
+                cleaned["pv_power_kw"]      = (cleaned.pop("pv_power", 0.0) or 0.0) / 1000
+                cleaned["house_load_kw"]    = (cleaned.pop("load_power", 0.0) or 0.0) / 1000
+                cleaned["battery_power_kw"] = (cleaned.pop("battery_power", 0.0) or 0.0) / 1000
 
                 return cleaned
             return None
