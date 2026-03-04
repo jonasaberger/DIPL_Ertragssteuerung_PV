@@ -31,7 +31,7 @@ class EpexBridge:
             print(f"Error fetching EPEX data: {e}")
             return None
 
-    # Parse the raw EPEX data to extract relevant information
+    # Parse the raw EPEX data to extract relevant information and parse every 4th entry to get hourly data
     def parse_data(self, data):
         if not data:
             return None

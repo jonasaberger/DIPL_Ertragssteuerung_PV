@@ -10,7 +10,7 @@ from db_bridge import DB_Bridge
 
 
 def main():
-    # Load backend URL from environment
+    # Load Backend-URL from environment
     load_dotenv()
     backend_url = os.getenv("BACKEND_URL")
     if not backend_url:

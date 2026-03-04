@@ -8,15 +8,19 @@ class DeviceManager:
         """
         self.api_base_url = api_base_url.rstrip("/")
 
+    # Fetches the device information from the backend API
     def get_device(self, device_id: str) -> dict:
         url = f"{self.api_base_url}/get_device"
-        response = requests.get(
-            url,
-            params={"deviceId": device_id},
-            timeout=5
-        )
-        response.raise_for_status()
-        return response.json()
+        try:
+            response = requests.get(
+                url,
+                params={"deviceId": device_id},
+                timeout=5
+            )
+            response.raise_for_status() # Raises HTTPError for bad responses (4xx and 5xx)
+            return response.json()
+        except Exception as e:
+            raise Exception(f"Error fetching device '{device_id}': {e}") from e
 
     def get_device_url(self, device_id: str, endpoint_key: str) -> str:
         device = self.get_device(device_id)
@@ -24,6 +28,7 @@ class DeviceManager:
         base_url = device.get("baseUrl")
         endpoint = device.get("endpoints", {}).get(endpoint_key)
 
+        # Validate that both base_url and endpoint are present
         if not base_url or not endpoint:
             raise KeyError(
                 f"Missing endpoint '{endpoint_key}' for device '{device_id}'"
