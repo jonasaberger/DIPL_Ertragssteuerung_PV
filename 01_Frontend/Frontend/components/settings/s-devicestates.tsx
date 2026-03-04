@@ -17,7 +17,8 @@ import {
   fmtDateShort,
   filterByDateRange,
   extractLogTimeMs,
-} from '@/components/settings/s-datePicker' 
+} from '@/components/settings/s-datePicker'
+import { MaterialCommunityIcons } from '@expo/vector-icons' 
 
 type RowItem = {
   id: string
@@ -27,6 +28,7 @@ type RowItem = {
   device: string
   from: string
   to: string
+  details: string[] 
 }
 
 function stateKind(v: string): 'on' | 'off' | 'other' {
@@ -34,16 +36,24 @@ function stateKind(v: string): 'on' | 'off' | 'other' {
 
   if (
     s === 'on' ||
+    s === 'an' || 
     s === 'true' ||
     s === '1' ||
-    s === 'enabled'
+    s === 'enabled' ||
+    s === 'ein' ||
+    s === 'aktiv' || 
+    s === 'lädt' 
   ) return 'on'
 
   if (
     s === 'off' ||
+    s === 'aus' || 
     s === 'false' ||
     s === '0' ||
-    s === 'disabled'
+    s === 'disabled' ||
+    s === 'ausgeschaltet' || 
+    s === 'inaktiv' || 
+    s === 'pausiert' 
   ) return 'off'
 
   return 'other'
@@ -53,6 +63,22 @@ function badgeStyle(kind: 'on' | 'off' | 'other') {
   if (kind === 'on') return styles.badgeOn
   if (kind === 'off') return styles.badgeOff
   return styles.badgeOther
+}
+
+// harte Trennzeichen mit weichen Umbruchstellen versehen 
+function softBreak(s: string): string {
+  return s.replace(/([,;:{}\[\]\(\)])/g, '$1\u200B')
+}
+
+// Format: "Label: Text" -> Label fett, Rest normal
+function splitLabelValue(line: string): { label?: string; value: string } {
+  const t = String(line ?? '').trim()
+  const idx = t.indexOf(':')
+  if (idx <= 0) return { value: t }
+  const label = t.slice(0, idx).trim()
+  const value = t.slice(idx + 1).trim()
+  if (!label) return { value: t }
+  return { label, value }
 }
 
 export default function SDeviceStates() {
@@ -65,6 +91,9 @@ export default function SDeviceStates() {
   const [toDate, setToDate] = useState<Date | null>(null)
   const [isFromOpen, setIsFromOpen] = useState(false)
   const [isToOpen, setIsToOpen] = useState(false)
+
+  // Sortierung: absteigend = neueste oben (Default)
+  const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
   useEffect(() => {
     let alive = true
@@ -110,6 +139,7 @@ export default function SDeviceStates() {
         device: e.device!,
         from: e.from!,
         to: e.to!,
+        details: Array.isArray((e as any).details) ? (e as any).details : [], 
       }))
   }, [data])
 
@@ -125,6 +155,21 @@ export default function SDeviceStates() {
         }),
     )
   }, [items, fromDate, toDate])
+
+  const sortedItems = useMemo(() => {
+    // Sortieren immer über den echten Zeitstempel (ms)
+    const arr = [...filteredItems]
+    arr.sort((a, b) => {
+      const aMsRaw = extractLogTimeMs({ rawTime: a.rawTime, time: a.time, date: a.date })
+      const bMsRaw = extractLogTimeMs({ rawTime: b.rawTime, time: b.time, date: b.date })
+
+      const aMs = typeof aMsRaw === 'number' && Number.isFinite(aMsRaw) ? aMsRaw : 0
+      const bMs = typeof bMsRaw === 'number' && Number.isFinite(bMsRaw) ? bMsRaw : 0
+
+      return sortDir === 'desc' ? bMs - aMs : aMs - bMs
+    })
+    return arr
+  }, [filteredItems, sortDir])
 
   const hasFilter = !!fromDate || !!toDate
 
@@ -169,6 +214,23 @@ export default function SDeviceStates() {
         )}
       </View>
 
+      <View style={styles.sortRow}>
+        <Pressable
+          style={styles.sortBtn}
+          onPress={() => setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))}
+          hitSlop={8}
+        >
+          <MaterialCommunityIcons
+            name={sortDir === 'desc' ? 'sort-descending' : 'sort-ascending'}
+            size={18}
+            color="#474646"
+          />
+          <Text style={styles.sortText}>
+            {sortDir === 'desc' ? 'Neueste zuerst' : 'Älteste zuerst'}
+          </Text>
+        </Pressable>
+      </View>
+
       <SDatePicker
         visible={isFromOpen}
         title="Von-Datum auswählen"
@@ -201,7 +263,7 @@ export default function SDeviceStates() {
           <View style={styles.stateBox}>
             <Text style={[styles.stateText, styles.stateError]}>{error}</Text>
           </View>
-        ) : filteredItems.length === 0 ? (
+        ) : sortedItems.length === 0 ? (
           <View style={styles.stateBox}>
             <Text style={styles.stateText}>
               {hasFilter ? 'Keine Einträge im Zeitraum' : 'Keine gültigen Einträge'}
@@ -215,7 +277,7 @@ export default function SDeviceStates() {
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"
           >
-            {filteredItems.map((it, idx) => {
+            {sortedItems.map((it, idx) => {
               const fromKind = stateKind(it.from)
               const toKind = stateKind(it.to)
 
@@ -247,10 +309,30 @@ export default function SDeviceStates() {
                           <Text style={styles.badgeText}>{it.to}</Text>
                         </View>
                       </View>
+
+                      {Array.isArray(it.details) && it.details.length > 0 ? (
+                        <View style={styles.detailsBox}>
+                          {it.details.map((line, i) => {
+                            const { label, value } = splitLabelValue(line)
+                            return (
+                              <Text key={`${it.id}-d-${i}`} style={styles.detailText}>
+                                {label ? (
+                                  <Text style={styles.detailLabel}>
+                                    {softBreak(label)}:{' '}
+                                  </Text>
+                                ) : null}
+                                <Text style={styles.detailValue}>
+                                  {softBreak(value)}
+                                </Text>
+                              </Text>
+                            )
+                          })}
+                        </View>
+                      ) : null}
                     </View>
                   </View>
 
-                  {idx !== filteredItems.length - 1 && (
+                  {idx !== sortedItems.length - 1 && (
                     <View style={styles.separator} />
                   )}
                 </View>
@@ -304,6 +386,26 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#b91c1c',
     marginTop: -1,
+  },
+
+  sortRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+  },
+  sortBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F1F1F1',
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  sortText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#666',
   },
 
   listBox: {
@@ -401,6 +503,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     color: '#474646',
+  },
+
+  detailsBox: {
+    marginTop: 6,
+    gap: 2,
+  },
+  detailText: {
+    fontSize: 12.7,
+    fontWeight: '800',
+    color: '#333',
+  },
+  detailLabel: {
+    fontWeight: '900',
+    color: '#2d2d2d',
+  },
+  detailValue: {
+    fontWeight: '800',
+    color: '#333',
   },
 
   separator: {
