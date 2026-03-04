@@ -6,15 +6,23 @@ import {
   StyleSheet,
   Text,
   View,
+  Pressable,
 } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import SettingsCard from '@/components/settings/settingscard'
 import { ErrorLogEntry, fetchErrorLogs } from '@/services/setting_services/logging-state-services/error_service'
+import {
+  SDatePicker,
+  fmtDateShort,
+  filterByDateRange,
+  extractLogTimeMs,
+} from '@/components/settings/s-datePicker' 
 
 type ErrorItem = {
   id: string
   date: string
   time: string
+  rawTime?: string
   lines: string[]
 }
 
@@ -76,6 +84,12 @@ export default function SErrorLog() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Zeitraum-Filter
+  const [fromDate, setFromDate] = useState<Date | null>(null)
+  const [toDate, setToDate] = useState<Date | null>(null)
+  const [isFromOpen, setIsFromOpen] = useState(false)
+  const [isToOpen, setIsToOpen] = useState(false)
+
   useEffect(() => {
     let alive = true
 
@@ -103,15 +117,92 @@ export default function SErrorLog() {
 
   const items = useMemo<ErrorItem[]>(() => {
     return data.map((e, idx) => ({
-      id: `${e.rawTime}-${idx}`,
-      date: e.date,
-      time: e.time.slice(0, 5),
+      id: `${(e as any).rawTime ?? e.time}-${idx}`,
+      date: (e as any).date,
+      time: String((e as any).time ?? '').slice(0, 5),
+      rawTime: (e as any).rawTime,
       lines: splitMessageToLines(buildDisplayMessage(e)),
     }))
   }, [data])
 
+  const filteredItems = useMemo(() => {
+    return filterByDateRange(
+      items,
+      { from: fromDate, to: toDate },
+      it =>
+        extractLogTimeMs({
+          rawTime: it.rawTime,
+          time: it.time, 
+          date: it.date,
+        }),
+    )
+  }, [items, fromDate, toDate])
+
+  const hasFilter = !!fromDate || !!toDate
+
   return (
     <SettingsCard title="Error-Log">
+      <View style={styles.filterBar}>
+        <Pressable
+          style={[styles.filterPill, fromDate && styles.filterPillActive]}
+          onPress={() => {
+            setIsToOpen(false)
+            setIsFromOpen(true)
+          }}
+        >
+          <Text style={[styles.filterText, fromDate && styles.filterTextActive]}>
+            Von: {fromDate ? fmtDateShort(fromDate) : '—'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.filterPill, toDate && styles.filterPillActive]}
+          onPress={() => {
+            setIsFromOpen(false)
+            setIsToOpen(true)
+          }}
+        >
+          <Text style={[styles.filterText, toDate && styles.filterTextActive]}>
+            Bis: {toDate ? fmtDateShort(toDate) : '—'}
+          </Text>
+        </Pressable>
+
+        {hasFilter && (
+          <Pressable
+            onPress={() => {
+              setFromDate(null)
+              setToDate(null)
+            }}
+            style={styles.clearBtn}
+            hitSlop={10}
+          >
+            <Text style={styles.clearText}>✕</Text>
+          </Pressable>
+        )}
+      </View>
+
+      <SDatePicker
+        visible={isFromOpen}
+        title="Von-Datum auswählen"
+        initialDate={fromDate}
+        onCancel={() => setIsFromOpen(false)}
+        onConfirm={(d) => {
+          setFromDate(d)
+          setIsFromOpen(false)
+        }}
+      />
+
+      <SDatePicker
+        visible={isToOpen}
+        title="Bis-Datum auswählen"
+        initialDate={toDate}
+        onCancel={() => setIsToOpen(false)}
+        onConfirm={(d) => {
+          setToDate(d)
+          setIsToOpen(false)
+        }}
+      />
+
       <View style={styles.wrapper}>
         {loading ? (
           <View style={styles.stateBox}>
@@ -122,9 +213,11 @@ export default function SErrorLog() {
           <View style={styles.stateBox}>
             <Text style={[styles.stateText, styles.stateError]}>{error}</Text>
           </View>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <View style={styles.stateBox}>
-            <Text style={styles.stateText}>Keine Einträge</Text>
+            <Text style={styles.stateText}>
+              {hasFilter ? 'Keine Einträge im Zeitraum' : 'Keine Einträge'}
+            </Text>
           </View>
         ) : (
           <ScrollView
@@ -134,7 +227,7 @@ export default function SErrorLog() {
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"
           >
-            {items.map(it => (
+            {filteredItems.map(it => (
               <View key={it.id} style={styles.item}>
                 <View style={styles.topRow}>
                   <View style={styles.topLeft}>
@@ -169,6 +262,48 @@ export default function SErrorLog() {
 }
 
 const styles = StyleSheet.create({
+  filterBar: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  filterPill: {
+    backgroundColor: '#F1F1F1',
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  filterPillActive: {
+    backgroundColor: '#1EAFF3',
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#666',
+  },
+  filterTextActive: {
+    color: '#fff',
+  },
+
+  clearBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: '#ffe8e8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ffbcbc',
+  },
+  clearText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#b91c1c',
+    marginTop: -1,
+  },
+
   wrapper: {
     marginTop: 10,
   },

@@ -53,7 +53,7 @@ function parseMessage(message: string): {
 
 export async function fetchControlDecisionLogs(): Promise<ControlDecisionLogEntry[]> {
   const rows = await fetchJson<LoggingApiRow[]>(
-    '/logging?type=control_decision&limit=50'
+    '/logging?type=control_decision&limit=200'
   )
 
   return rows.map(row => {

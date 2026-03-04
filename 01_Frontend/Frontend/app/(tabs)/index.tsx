@@ -95,6 +95,9 @@ export default function HomeScreen() {
       setHealthCheckStatus('loading')
       const baseUrl = await getBackendBaseURL()
 
+      console.log("HEALTH baseUrl =", baseUrl)
+      console.log("HEALTH final URL =", `${baseUrl}/state`)
+
       // Manueller Timeout mit AbortController
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 Sekunden
@@ -229,6 +232,7 @@ export default function HomeScreen() {
   const gridToHouse = Math.min(gridImport, houseDeficitAfterPvAndBattery)             //Netz -> Haus; Netz deckt Rest ab
 
   const diagramData: DiagramData = {
+    time: pvData?.time,
     total: pvTotal,
     pvToHouse,
     pvToBattery,
@@ -430,6 +434,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   scrollContent: {
+    marginTop: 20,
     paddingBottom: 56,
   },
   centerContainer: {

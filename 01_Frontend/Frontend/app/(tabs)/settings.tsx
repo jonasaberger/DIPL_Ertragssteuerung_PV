@@ -1,5 +1,5 @@
-import React from 'react'
-import { ScrollView, StyleSheet, Alert } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { ScrollView, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import SDeviceConfigs from '@/components/settings/s-device-configs'
@@ -8,30 +8,36 @@ import SDeviceStates from '@/components/settings/s-devicestates'
 import SErrorLog from '@/components/settings/s-errorlog'
 import SPasswordModal from '@/components/settings/s-passwordmodal'
 import { useAuth } from '@/contexts/s-authcontext'
-import { verifyAdminPW } from '@/services/setting_services/device-backend_configs/settings_service'
+import { useIsFocused } from '@react-navigation/native'
 
 export default function SettingsScreen() {
   const router = useRouter()
   const { password, authorize, deauthorize } = useAuth()
   const authorized = password !== null
 
+  const isFocused = useIsFocused()
+  const [showPwModal, setShowPwModal] = useState(true)
+
+  useEffect(() => {
+    if (isFocused) setShowPwModal(true)
+  }, [isFocused])
+
   const handleCancel = () => {
+    setShowPwModal(false)
     deauthorize()
     router.replace('/')
   }
 
-  const handleSuccess = async (pw: string) => {
-    const valid = await verifyAdminPW(pw)
-    if (valid) authorize(pw) // Modal verschwindet automatisch
-    else Alert.alert('Falsches Passwort')
+  const handleSuccess = (pw: string) => {
+    authorize(pw) // Modal verschwindet automatisch
   }
 
   return (
     <>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView contentContainerStyle={styles.container} style={styles.scroll}>
         {authorized && (
           <>
-            <SDeviceConfigs/>
+            <SDeviceConfigs />
             <SProtocol />
             <SDeviceStates />
             <SErrorLog />
@@ -40,7 +46,7 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <SPasswordModal
-        visible={!authorized}
+        visible={isFocused && showPwModal && !authorized}
         onCancel={handleCancel}
         onSuccess={handleSuccess}
       />
@@ -49,5 +55,9 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16, marginTop: 30, gap: 12 }
+  container: { padding: 16, marginTop: 30, gap: 12 },
+  scroll: {
+    flex: 1,
+    backgroundColor: '#EDE9E9',
+  },
 })

@@ -5,17 +5,25 @@ import {
   StyleSheet,
   Text,
   View,
+  Pressable,
 } from 'react-native'
 import SettingsCard from '@/components/settings/settingscard'
 import {
   ControlDecisionLogEntry,
   fetchControlDecisionLogs,
 } from '@/services/setting_services/logging-state-services/control_decision_service'
+import {
+  SDatePicker,
+  fmtDateShort,
+  filterByDateRange,
+  extractLogTimeMs,
+} from '@/components/settings/s-datePicker' 
 
 type ProtocolItem = {
   id: string
   date: string
   time: string
+  rawTime?: string
   title: string
   reason?: string
   success?: boolean
@@ -31,6 +39,12 @@ export default function SProtocol() {
   const [data, setData] = useState<ControlDecisionLogEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Zeitraum-Filter
+  const [fromDate, setFromDate] = useState<Date | null>(null)
+  const [toDate, setToDate] = useState<Date | null>(null)
+  const [isFromOpen, setIsFromOpen] = useState(false)
+  const [isToOpen, setIsToOpen] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -59,19 +73,99 @@ export default function SProtocol() {
 
   const items = useMemo<ProtocolItem[]>(() => {
     return data.map((e, idx) => ({
-      id: `${e.rawTime}-${idx}`,
-      date: e.date,
-      time: e.time,
-      title: `${e.device ?? 'unknown'} • ${e.action ?? 'unknown'}`,
-      reason: e.reason,
-      success: e.success,
+      id: `${(e as any).rawTime ?? (e as any).time ?? 'x'}-${idx}`,
+      date: (e as any).date,
+      time: (e as any).time,
+      rawTime: (e as any).rawTime,
+      title: `${(e as any).device ?? 'unknown'} • ${(e as any).action ?? 'unknown'}`,
+      reason: (e as any).reason,
+      success: (e as any).success,
       extra:
-        e.extra && e.extra !== 'None' ? softBreak(String(e.extra)) : undefined,
+        (e as any).extra && (e as any).extra !== 'None'
+          ? softBreak(String((e as any).extra))
+          : undefined,
     }))
   }, [data])
 
+  const filteredItems = useMemo(() => {
+    return filterByDateRange(
+      items,
+      { from: fromDate, to: toDate },
+      (it) =>
+        extractLogTimeMs({
+          rawTime: it.rawTime,
+          time: it.time,
+          date: it.date,
+        }),
+    )
+  }, [items, fromDate, toDate])
+
+  const hasFilter = !!fromDate || !!toDate
+
   return (
     <SettingsCard title="Protokollierung">
+      <View style={styles.filterBar}>
+        <Pressable
+          style={[styles.filterPill, fromDate && styles.filterPillActive]}
+          onPress={() => {
+            // niemals beide offen haben
+            setIsToOpen(false)
+            setIsFromOpen(true)
+          }}
+        >
+          <Text style={[styles.filterText, fromDate && styles.filterTextActive]}>
+            Von: {fromDate ? fmtDateShort(fromDate) : '—'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.filterPill, toDate && styles.filterPillActive]}
+          onPress={() => {
+            setIsFromOpen(false)
+            setIsToOpen(true)
+          }}
+        >
+          <Text style={[styles.filterText, toDate && styles.filterTextActive]}>
+            Bis: {toDate ? fmtDateShort(toDate) : '—'}
+          </Text>
+        </Pressable>
+
+        {hasFilter && (
+          <Pressable
+            onPress={() => {
+              setFromDate(null)
+              setToDate(null)
+            }}
+            style={styles.clearBtn}
+            hitSlop={10}
+          >
+            <Text style={styles.clearText}>✕</Text>
+          </Pressable>
+        )}
+      </View>
+
+      <SDatePicker
+        visible={isFromOpen}
+        title="Von-Datum auswählen"
+        initialDate={fromDate}
+        onCancel={() => setIsFromOpen(false)}
+        onConfirm={(d) => {
+          setFromDate(d)
+          setIsFromOpen(false)
+        }}
+      />
+
+      <SDatePicker
+        visible={isToOpen}
+        title="Bis-Datum auswählen"
+        initialDate={toDate}
+        onCancel={() => setIsToOpen(false)}
+        onConfirm={(d) => {
+          setToDate(d)
+          setIsToOpen(false)
+        }}
+      />
+
       <View style={styles.listBox}>
         {loading ? (
           <View style={styles.stateBox}>
@@ -82,9 +176,11 @@ export default function SProtocol() {
           <View style={styles.stateBox}>
             <Text style={[styles.stateText, styles.stateError]}>{error}</Text>
           </View>
-        ) : items.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <View style={styles.stateBox}>
-            <Text style={styles.stateText}>Keine Einträge</Text>
+            <Text style={styles.stateText}>
+              {hasFilter ? 'Keine Einträge im Zeitraum' : 'Keine Einträge'}
+            </Text>
           </View>
         ) : (
           <ScrollView
@@ -94,7 +190,7 @@ export default function SProtocol() {
             nestedScrollEnabled
             keyboardShouldPersistTaps="handled"
           >
-            {items.map((it, idx) => (
+            {filteredItems.map((it, idx) => (
               <View key={it.id}>
                 <View style={styles.row}>
                   <View style={styles.leftCol}>
@@ -103,22 +199,10 @@ export default function SProtocol() {
                   </View>
 
                   <View style={styles.rightCol}>
-                    <Text
-                      style={styles.titleText}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {it.title}
-                    </Text>
+                    <Text style={styles.titleText}>{it.title}</Text>
 
                     {it.reason ? (
-                      <Text
-                        style={styles.metaText}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        reason: {it.reason}
-                      </Text>
+                      <Text style={styles.metaText}>reason: {it.reason}</Text>
                     ) : null}
 
                     {typeof it.success === 'boolean' ? (
@@ -128,18 +212,12 @@ export default function SProtocol() {
                     ) : null}
 
                     {it.extra ? (
-                      <Text
-                        style={styles.extraText}
-                        numberOfLines={2}
-                        ellipsizeMode="tail"
-                      >
-                        extra: {it.extra}
-                      </Text>
+                      <Text style={styles.extraText}>extra: {it.extra}</Text>
                     ) : null}
                   </View>
                 </View>
 
-                {idx !== items.length - 1 && <View style={styles.separator} />}
+                {idx !== filteredItems.length - 1 && <View style={styles.separator} />}
               </View>
             ))}
           </ScrollView>
@@ -150,6 +228,48 @@ export default function SProtocol() {
 }
 
 const styles = StyleSheet.create({
+  filterBar: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  filterPill: {
+    backgroundColor: '#F1F1F1',
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  filterPillActive: {
+    backgroundColor: '#1EAFF3',
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#666',
+  },
+  filterTextActive: {
+    color: '#fff',
+  },
+
+  clearBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: '#ffe8e8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ffbcbc',
+  },
+  clearText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#b91c1c',
+    marginTop: -1,
+  },
+
   listBox: {
     marginTop: 10,
     backgroundColor: '#eeeeee',

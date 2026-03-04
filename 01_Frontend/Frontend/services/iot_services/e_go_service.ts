@@ -21,7 +21,7 @@ export async function fetchEGoData(): Promise<EGoData | null> {
     return {
       date,
       time,
-      energy: round1(data.eto),
+      energy: round1(Number(data.eto ?? 0) / 10),
       ampere: data.amp,
       carState: data.car,
       carConnected: data.car_connected === 1,

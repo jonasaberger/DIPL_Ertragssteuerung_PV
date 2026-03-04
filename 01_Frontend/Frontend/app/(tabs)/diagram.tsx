@@ -1,11 +1,10 @@
- import React, { useState } from 'react'
-import { StyleSheet } from 'react-native'
+import React, { useState } from 'react'
+import { StyleSheet, ScrollView } from 'react-native'
 
 import { ThemedView } from '@/components/themed-view'
 import Card from '@/components/card'
 import { DDates, DateSelection } from '@/components/diagram/d-dates'
 import { DDiagram } from '@/components/diagram/d-diagram'
-
 
 export default function DiagramScreen() {
   const now = new Date()
@@ -14,18 +13,28 @@ export default function DiagramScreen() {
     // Start: heute als Tag
     year: now.getFullYear(),
     month: now.getMonth(),
-    day: now.getDate(), 
+    day: now.getDate(),
   })
+
+  const [chartTouchActive, setChartTouchActive] = useState(false)
 
   return (
     <ThemedView style={styles.container}>
-      <Card>
-        <DDates selection={selection} onChangeSelection={setSelection} />
-      </Card>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+        scrollEnabled={!chartTouchActive}
+        directionalLockEnabled
+      >
+        <Card>
+          <DDates selection={selection} onChangeSelection={setSelection} />
+        </Card>
 
-      <Card>
-        <DDiagram selection={selection} />
-      </Card>
+        <Card>
+          <DDiagram selection={selection} onChartTouchActiveChange={setChartTouchActive} />
+        </Card>
+      </ScrollView>
     </ThemedView>
   )
 }
@@ -35,5 +44,9 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     backgroundColor: '#EDE9E9',
+  },
+  content: {
+    gap: 12,
+    paddingBottom: 24,
   },
 })
