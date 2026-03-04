@@ -18,7 +18,8 @@ import {
   filterByDateRange,
   extractLogTimeMs,
 } from '@/components/settings/s-datePicker'
-import { MaterialCommunityIcons } from '@expo/vector-icons' 
+import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { useIsFocused } from '@react-navigation/native'
 
 type RowItem = {
   id: string
@@ -28,7 +29,7 @@ type RowItem = {
   device: string
   from: string
   to: string
-  details: string[] 
+  details: string[]
 }
 
 function stateKind(v: string): 'on' | 'off' | 'other' {
@@ -36,24 +37,24 @@ function stateKind(v: string): 'on' | 'off' | 'other' {
 
   if (
     s === 'on' ||
-    s === 'an' || 
+    s === 'an' ||
     s === 'true' ||
     s === '1' ||
     s === 'enabled' ||
     s === 'ein' ||
-    s === 'aktiv' || 
-    s === 'lädt' 
+    s === 'aktiv' ||
+    s === 'lädt'
   ) return 'on'
 
   if (
     s === 'off' ||
-    s === 'aus' || 
+    s === 'aus' ||
     s === 'false' ||
     s === '0' ||
     s === 'disabled' ||
-    s === 'ausgeschaltet' || 
-    s === 'inaktiv' || 
-    s === 'pausiert' 
+    s === 'ausgeschaltet' ||
+    s === 'inaktiv' ||
+    s === 'pausiert'
   ) return 'off'
 
   return 'other'
@@ -86,6 +87,8 @@ export default function SDeviceStates() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const isFocused = useIsFocused()
+
   // Zeitraum-Filter
   const [fromDate, setFromDate] = useState<Date | null>(null)
   const [toDate, setToDate] = useState<Date | null>(null)
@@ -96,6 +99,8 @@ export default function SDeviceStates() {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
   useEffect(() => {
+    if (!isFocused) return
+
     let alive = true
 
     ;(async () => {
@@ -118,7 +123,7 @@ export default function SDeviceStates() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [isFocused])
 
   const items = useMemo<RowItem[]>(() => {
     return data
@@ -139,7 +144,7 @@ export default function SDeviceStates() {
         device: e.device!,
         from: e.from!,
         to: e.to!,
-        details: Array.isArray((e as any).details) ? (e as any).details : [], 
+        details: Array.isArray((e as any).details) ? (e as any).details : [],
       }))
   }, [data])
 

@@ -17,6 +17,7 @@ import {
   filterByDateRange,
   extractLogTimeMs,
 } from '@/components/settings/s-datePicker' 
+import { useIsFocused } from '@react-navigation/native'
 
 type ErrorItem = {
   id: string
@@ -84,6 +85,8 @@ export default function SErrorLog() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const isFocused = useIsFocused()
+
   // Zeitraum-Filter
   const [fromDate, setFromDate] = useState<Date | null>(null)
   const [toDate, setToDate] = useState<Date | null>(null)
@@ -91,6 +94,8 @@ export default function SErrorLog() {
   const [isToOpen, setIsToOpen] = useState(false)
 
   useEffect(() => {
+    if (!isFocused) return
+
     let alive = true
 
     ;(async () => {
@@ -113,7 +118,7 @@ export default function SErrorLog() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [isFocused])
 
   const items = useMemo<ErrorItem[]>(() => {
     return data.map((e, idx) => ({
