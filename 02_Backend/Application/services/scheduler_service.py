@@ -59,6 +59,8 @@ class SchedulerService(threading.Thread):
         self.last_forecast_override_log_boiler = None
         self.last_forecast_override_log_wallbox = None
         self._last_charging_stable_log = None
+        self.boiler_last_turned_on = None
+        self.boiler_target_logged_date = None
 
     # Main loop of the scheduler thread, which calls tick() every interval seconds
     def run(self):
@@ -297,7 +299,7 @@ class SchedulerService(threading.Thread):
                             self.last_forecast_override_log_boiler = now
 
             # Failsafe: Deadline nähert sich
-            if not decision_on and remaining_min <= min_runtime:
+            if not decision_on and not boiler_on and remaining_min <= min_runtime:
                 decision_on = True
                 reason = "deadline_failsafe"
 
@@ -328,19 +330,29 @@ class SchedulerService(threading.Thread):
         # Entscheidung ausführen
         if decision_on and not boiler_on:
             self.boiler.control("on")
-            # DEVICE STATE CHANGE LOG
+            self.boiler_last_turned_on = now
             self.logger.device_state_change(
                 "boiler", False, True,
                 reason=f"Automatik: {reason_text()} | {current_temp}°C → Ziel {target_temp}°C | noch {round(remaining_min)}min bis {target_time}"
             )
 
         elif not decision_on and boiler_on:
+            if self.boiler_last_turned_on is not None:
+                on_since_min = (now - self.boiler_last_turned_on).total_seconds() / 60
+                if on_since_min < 10:
+                    return  # Mindestlaufzeit 10min noch nicht erreicht
             self.boiler.control("off")
-            # DEVICE STATE CHANGE LOG
             self.logger.device_state_change(
                 "boiler", True, False,
                 reason=f"Automatik: {reason_text()} | aktuell {current_temp}°C / Ziel {target_temp}°C"
             )
+        if reason == "target_temp_reached" and self.boiler_target_logged_date != now.date():
+            self.logger.system_event(
+                level="info",
+                source="boiler_automatik",
+                message=f"✓ Tagesziel erreicht: {current_temp}°C / Ziel {target_temp}°C bis {target_time} Uhr"
+            )
+            self.boiler_target_logged_date = now.date()
 
         self.boiler_last_reason = reason
 
@@ -430,6 +442,13 @@ class SchedulerService(threading.Thread):
                     "wallbox", True, False,
                     reason=f"Automatik: Ladeziel erreicht – {round(charged_kwh, 2)} / {target_kwh} kWh geladen"
                 )
+                
+                self.logger.system_event(
+                    level="info",
+                    source="wallbox_automatik",
+                    message=f"Ladeziel erreicht: {round(charged_kwh, 2)} / {target_kwh} kWh | Ziel: {target_time} Uhr"
+                )
+
                 self.wallbox_finished = True
                 self.wallbox_last_set_allow = False
             return
@@ -641,3 +660,15 @@ class SchedulerService(threading.Thread):
                 reason=f"Automatik: Kein PV, kein günstiger Strom, keine Prognose | {progress_info}"
             )
             self.wallbox_last_set_allow = False
+
+    def reset_automatic_state(self):
+        self.wallbox_eto_start = None
+        self.wallbox_finished = False
+        self.wallbox_last_set_allow = None
+        self.wallbox_session_logged = False
+        self.boiler_last_turned_on = None
+        self.last_epex_log_hour_boiler = None
+        self.last_epex_log_hour_wallbox = None
+        self.last_forecast_override_log_boiler = None
+        self.last_forecast_override_log_wallbox = None
+        self.boiler_target_logged_date = None
