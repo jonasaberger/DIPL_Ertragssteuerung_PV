@@ -19,6 +19,7 @@ import {
   extractLogTimeMs,
 } from '@/components/settings/s-datePicker'
 import { MaterialCommunityIcons } from '@expo/vector-icons' 
+import { useIsFocused } from '@react-navigation/native'
 
 type ProtocolItem = {
   id: string
@@ -61,6 +62,8 @@ export default function SProtocol() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const isFocused = useIsFocused()
+
   // Zeitraum-Filter
   const [fromDate, setFromDate] = useState<Date | null>(null)
   const [toDate, setToDate] = useState<Date | null>(null)
@@ -71,6 +74,8 @@ export default function SProtocol() {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
 
   useEffect(() => {
+    if (!isFocused) return
+
     let alive = true
 
     ;(async () => {
@@ -93,7 +98,7 @@ export default function SProtocol() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [isFocused])
 
   const items = useMemo<ProtocolItem[]>(() => {
     return data.map((e, idx) => {

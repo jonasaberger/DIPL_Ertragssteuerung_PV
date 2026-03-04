@@ -20,6 +20,7 @@ import {
   DevicesResponse
 } from '@/services/setting_services/device-backend_configs/settings_service'
 import { resetAPIBase } from '@/services/helper'
+import { useIsFocused } from '@react-navigation/native'
 
 const showErrorToast = (message: string) =>
   Toast.show({ type: 'error', text1: 'Fehler', text2: message, position: 'top', visibilityTime: 3000 })
@@ -40,8 +41,16 @@ export default function SDeviceConfigs() {
   const [backendConfig, setBackendConfig] = useState({ backend_ip: '', backend_port: 0, backend_path: '' })
   const [devices, setDevices] = useState<DevicesResponse>({})
 
+  const isFocused = useIsFocused()
+
   // Initiales Laden der Konfigurationen
   useEffect(() => { loadConfigs() }, [])
+
+  useEffect(() => {
+    if (!isFocused) return
+    if (openModal) return
+    loadConfigs()
+  }, [isFocused])
 
   const loadConfigs = async (showSuccess = false) => {
     try {
