@@ -47,10 +47,10 @@ export default function HTimeSchedule() {
   }
 
   const handleSave = async () => {
-    if (!config) return
+    if (!config || !originalConfig) return
 
     setSaving(true)
-    const success = await updateScheduleConfig(config)
+    const success = await updateScheduleConfig(config, originalConfig)
     setSaving(false)
 
     if (success) {

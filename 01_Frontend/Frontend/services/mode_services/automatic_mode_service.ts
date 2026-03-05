@@ -62,7 +62,7 @@ export async function fetchAutomaticConfig(): Promise<AutomaticConfig | null> {
 }
 
 /**
- * Update automatic configuration (supports partial updates)
+ * Update automatic configuration (partial update)
  */
 export async function updateAutomaticConfig(
   currentConfig: AutomaticConfig,
