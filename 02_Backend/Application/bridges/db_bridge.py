@@ -70,6 +70,7 @@ class DB_Bridge:
             r["_field"] == "rel_selfconsumption" or
             r["_field"] == "soc"
         )
+        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false, timeSrc: "_start")
         |> sort(columns: ["_time"], desc: true)
         |> limit(n:1)
         |> pivot(rowKey:["_time"], columnKey:["_field"], valueColumn:"_value")
@@ -121,7 +122,7 @@ class DB_Bridge:
         from(bucket: "{self.bucket}")
         |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
         |> filter(fn: (r) => r._measurement == "pv_measurements")
-        |> aggregateWindow( every: 15m, fn: mean, createEmpty: false)
+        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false, timeSrc: "_start")
         |> pivot(
             rowKey: ["_time"],
             columnKey: ["_field"],
@@ -167,7 +168,7 @@ class DB_Bridge:
         from(bucket: "{self.bucket}")
         |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
         |> filter(fn: (r) => r._measurement == "pv_measurements")
-        |> aggregateWindow( every: 15m, fn: mean, createEmpty: false)
+        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false, timeSrc: "_start")
         |> pivot(
             rowKey: ["_time"],
             columnKey: ["_field"],
@@ -205,7 +206,7 @@ class DB_Bridge:
         from(bucket: "{self.bucket}")
         |> range(start: {start_time.isoformat()}, stop: {end_time.isoformat()})
         |> filter(fn: (r) => r._measurement == "pv_measurements")
-        |> aggregateWindow( every: 2h,fn: mean,createEmpty: false)
+        |> aggregateWindow(every: 15m, fn: mean, createEmpty: false, timeSrc: "_start")
         |> pivot( rowKey: ["_time"],columnKey: ["_field"],valueColumn: "_value"
         )
         '''
