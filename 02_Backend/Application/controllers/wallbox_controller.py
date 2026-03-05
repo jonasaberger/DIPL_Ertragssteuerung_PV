@@ -79,6 +79,10 @@ class WallboxController:
                 "pha_count": sum(pha)
             }
 
+            if data["car"] == 4 and data["alw"] == 0:
+                data["car"] = 3
+                data["car_connected"] = 1 
+
             # Determine if charging is currently active
             data["charging"] = (
                 1 if data["car_connected"] == 1 and data["alw"] == 1 and data["amp"] > 0 else 0
