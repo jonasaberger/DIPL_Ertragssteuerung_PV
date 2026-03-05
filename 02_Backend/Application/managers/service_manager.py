@@ -315,9 +315,9 @@ class ServiceManager:
         # Rename _kw keys back to original field names for frontend compatibility
         # This allows us to keep the internal DB schema consistent while providing a clean API for the frontend
         frontend_data = {**data}
-        frontend_data["pv_power"] = frontend_data.pop("pv_power_kw", None)
-        frontend_data["load_power"] = frontend_data.pop("house_load_kw", None)
-        frontend_data["battery_power"] = frontend_data.pop("battery_power_kw", None)
+        frontend_data["pv_power"]      = (frontend_data.pop("pv_power_kw", 0) or 0) * 1000
+        frontend_data["load_power"]    = (frontend_data.pop("house_load_kw", 0) or 0) * 1000
+        frontend_data["battery_power"] = (frontend_data.pop("battery_power_kw", 0) or 0) * 1000
 
         frontend_data = {k: v for k, v in frontend_data.items() if v is not None}
 
