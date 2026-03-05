@@ -1,7 +1,7 @@
 import * as Updates from 'expo-updates'
 import React, { useState, useEffect } from 'react'
 import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from 'react-native'
-import Toast from 'react-native-toast-message'
+import { showToastMessage } from '@/services/helper'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import SettingsCard from '@/components/settings/settingscard'
 import SIPModal from '@/components/settings/s-ipmodal'
@@ -21,12 +21,6 @@ import {
 } from '@/services/setting_services/device-backend_configs/settings_service'
 import { resetAPIBase } from '@/services/helper'
 import { useIsFocused } from '@react-navigation/native'
-
-const showErrorToast = (message: string) =>
-  Toast.show({ type: 'error', text1: 'Fehler', text2: message, position: 'top', visibilityTime: 3000 })
-
-const showSuccessToast = (message: string) =>
-  Toast.show({ type: 'success', text1: 'Erfolg', text2: message, position: 'top', visibilityTime: 2000 })
 
 export type ServiceConfig = {
   ip: string
@@ -66,10 +60,10 @@ export default function SDeviceConfigs() {
         console.warn('Could not fetch devices:', deviceError)
         setDevices({})
       }
-      if (showSuccess) showSuccessToast('Konfigurationen erfolgreich neu geladen.')
+      if (showSuccess) showToastMessage('Erfolg', 'Konfigurationen erfolgreich neu geladen.', 1)
     } catch (error) {
       console.error('Error loading backend config:', error)
-      showErrorToast('Backend-Konfiguration konnte nicht geladen werden.')
+      showToastMessage('Fehler', 'Backend-Konfiguration konnte nicht geladen werden.', 0)
     } finally {
       setLoading(false)
     }
@@ -102,13 +96,13 @@ export default function SDeviceConfigs() {
     } catch (error) {
       console.error('Error updating backend:', error)
       setLoading(false)
-      showErrorToast('Backend-Konfiguration konnte nicht gespeichert werden.')
+      showToastMessage('Fehler', 'Backend-Konfiguration konnte nicht gespeichert werden.', 0)
     }
   }
 
   const handleDeviceConfirm = async (deviceId: string, config: ServiceConfig) => {
     if (!password) {
-      showErrorToast('Nicht autorisiert.')
+      showToastMessage('Nicht autorisiert.', 'Sie sind nicht autorisiert, um Geräte zu konfigurieren.', 0)
       return
     }
     setOpenModal(null)
@@ -117,13 +111,13 @@ export default function SDeviceConfigs() {
       const baseUrl = buildDeviceUrl(config.ip, config.port, deviceId === 'epex')
       await updateDeviceConfig(deviceId, password, baseUrl, config.paths)
       await loadConfigs()
-      showSuccessToast(`${deviceId.toUpperCase()} Konfiguration gespeichert.`)
+      showToastMessage('Erfolg', `${deviceId.toUpperCase()} Konfiguration gespeichert.`, 1)
     } catch (error: any) {
       console.error('Error updating device:', error)
       if (error.message === 'Falsches Passwort') {
-        showErrorToast('Falsches Passwort.')
+        showToastMessage('Falsches Passwort', 'Das eingegebene Passwort ist falsch.', 0)
       } else {
-        showErrorToast('Gerät konnte nicht aktualisiert werden.')
+        showToastMessage('Error', 'Gerät konnte nicht aktualisiert werden.', 0)
       }
     } finally {
       setLoading(false)
@@ -148,10 +142,10 @@ export default function SDeviceConfigs() {
               if (!resetResult) throw new Error('API Reset fehlgeschlagen')
               resetAPIBase()
               await loadConfigs()
-              showSuccessToast('Alle Konfigurationen wurden zurückgesetzt.')
+              showToastMessage('Erfolg', 'Alle Konfigurationen wurden zurückgesetzt.', 1)
             } catch (error) {
               console.error('Error resetting configs:', error)
-              showErrorToast('Reset konnte nicht durchgeführt werden.')
+              showToastMessage('Fehler', 'Reset konnte nicht durchgeführt werden.', 0)
             } finally {
               setLoading(false)
             }
@@ -185,9 +179,9 @@ export default function SDeviceConfigs() {
   ) => (
     <TouchableOpacity style={styles.item} activeOpacity={0.85} onPress={() => setOpenModal(modalKey)} disabled={loading}>
       <View style={styles.row}>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.label} numberOfLines={1}>{label}</Text>
         <View style={styles.right}>
-          <Text style={styles.value} numberOfLines={1}>
+          <Text style={styles.value} numberOfLines={1} ellipsizeMode="middle">
             {config.ip || 'nicht konfiguriert'}{config.ip && config.port ? `:${config.port}` : ''}
           </Text>
           <MaterialCommunityIcons name="chevron-right" size={20} color="#474646" />
@@ -263,9 +257,9 @@ export default function SDeviceConfigs() {
 const styles = StyleSheet.create({
   item: { backgroundColor: '#eeeeee', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, marginTop: 10 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  label: { fontSize: 18, fontWeight: '800', color: '#474646' },
-  right: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, justifyContent: 'flex-end' },
-  value: { fontSize: 16, fontWeight: '600', color: '#666', maxWidth: 180 },
+  label: { fontSize: 18, fontWeight: '800', color: '#474646', flexShrink: 0 },
+  right: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, justifyContent: 'flex-end', minWidth: 0 },
+  value: { fontSize: 16, fontWeight: '600', color: '#666', flexShrink: 1, textAlign: 'right', minWidth: 0 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 10 },
   actionButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14, gap: 8 },
   actionLabel: { fontSize: 16, fontWeight: '800', color: '#474646' },

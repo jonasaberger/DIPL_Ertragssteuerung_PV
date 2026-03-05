@@ -39,7 +39,6 @@ export default function HWallbox({
   available,
   showControls = true,
 }: Props) {
-  const isCharging = carState === 2
   const [showAmpereModal, setShowAmpereModal] = useState(false)
   const [tempAmpere, setTempAmpere] = useState(ampere)
 

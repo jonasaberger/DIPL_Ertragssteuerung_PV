@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { View, StyleSheet, ScrollView, Platform, ActivityIndicator, Text, TouchableOpacity } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
-import Toast from 'react-native-toast-message'
+import { showToastMessage } from '@/services/helper'
 import { timeStringToDate, dateToTimeString } from '@/services/helper'
 import {
   fetchScheduleConfig,
@@ -41,12 +41,7 @@ export default function HTimeSchedule() {
       setConfig(data)
       setOriginalConfig(data)
     } else {
-      Toast.show({
-        type: 'error',
-        text1: 'Fehler',
-        text2: 'Zeitplan konnte nicht geladen werden',
-        position: 'bottom',
-      })
+      showToastMessage('Schedule-Error', 'Zeitplan konnte nicht geladen werden.', 0)
     }
     setLoading(false)
   }
@@ -60,19 +55,9 @@ export default function HTimeSchedule() {
 
     if (success) {
       setOriginalConfig(config)
-      Toast.show({
-        type: 'success',
-        text1: 'Erfolg',
-        text2: 'Zeitplan erfolgreich gespeichert',
-        position: 'bottom',
-      })
+      showToastMessage('Schedule-Success', 'Zeitplan erfolgreich gespeichert.', 1)
     } else {
-      Toast.show({
-        type: 'error',
-        text1: 'Fehler',
-        text2: 'Zeitplan konnte nicht gespeichert werden',
-        position: 'bottom',
-      })
+      showToastMessage('Schedule-Error', 'Zeitplan konnte nicht gespeichert werden.', 0)
     }
   }
 
@@ -80,13 +65,7 @@ export default function HTimeSchedule() {
     if (!originalConfig) return
 
     setConfig(originalConfig)
-    Toast.show({
-      type: 'info',
-      text1: 'Abgebrochen',
-      text2: 'Änderungen verworfen',
-      position: 'bottom',
-      visibilityTime: 1500,
-    })
+    showToastMessage('Abgebrochen', 'Änderungen verworfen', 2)
   }
 
   const handleReset = async () => {
@@ -96,19 +75,10 @@ export default function HTimeSchedule() {
 
     if (success) {
       await loadScheduleConfig()
-      Toast.show({
-        type: 'success',
-        text1: 'Erfolg',
-        text2: 'Zeitplan auf Standard zurückgesetzt',
-        position: 'bottom',
-      })
+      showToastMessage('Erfolg', 'Zeitplan auf Standard zurückgesetzt', 1)
+
     } else {
-      Toast.show({
-        type: 'error',
-        text1: 'Fehler',
-        text2: 'Zeitplan konnte nicht zurückgesetzt werden',
-        position: 'bottom',
-      })
+      showToastMessage('Fehler', 'Zeitplan konnte nicht zurückgesetzt werden', 0)
     }
   }
 

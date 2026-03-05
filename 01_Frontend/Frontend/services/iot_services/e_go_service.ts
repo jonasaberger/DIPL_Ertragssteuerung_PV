@@ -18,6 +18,7 @@ export async function fetchEGoData(): Promise<EGoData | null> {
 
     const { date, time } = parseInfluxTime(data._time)
 
+    console.log(data)
     return {
       date,
       time,
@@ -28,6 +29,7 @@ export async function fetchEGoData(): Promise<EGoData | null> {
       phases: data.pha_count,
       alwaysAllowed: data.alw === 1,
     }
+
   } catch (error) {
     console.error('Failed to fetch e-Go Wallbox data:', error)
     return null

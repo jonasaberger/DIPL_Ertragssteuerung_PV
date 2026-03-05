@@ -31,13 +31,15 @@ class WallboxController:
         endpoints = wallbox_config.get("endpoints", {})
 
         self.status_url, self.api_status_url, self.mqtt_url = (
-        f"{base_url}{endpoints.get('status', '/status')}",
-        f"{base_url}{endpoints.get('api', '/api/status')}",
-        f"{base_url}{endpoints.get('mqtt', '/mqtt')}"
+            f"{base_url}{endpoints.get('status', '/status')}",
+            f"{base_url}{endpoints.get('api', '/api/status')}",
+            f"{base_url}{endpoints.get('mqtt', '/mqtt')}"
         )
-        
+
         # Prevents log spam when the wallbox resets alw=1 on its own
         self._intended_allow = None
+        # Tracks expected car state until hardware catches up
+        self._intended_car = None
 
     # Safely convert a value to Decimal (avoids None or invalid numbers)
     def safe_decimal(self, value):
@@ -65,6 +67,13 @@ class WallboxController:
             # car_connected: 1 if a car is physically connected (states 2, 3, 4), 0 otherwise
             car_raw = int(status_data.get("car", 0))
 
+            # If hardware hasn't caught up yet, use intended state
+            if self._intended_car is not None:
+                if car_raw == self._intended_car:
+                    self._intended_car = None  # Hardware has caught up, reset
+                else:
+                    car_raw = self._intended_car
+
             data = {
                 "_time": datetime.now(ZoneInfo("Europe/Vienna")).isoformat(),
                 "amp": int(status_data.get("amp", 0)),
@@ -81,7 +90,7 @@ class WallboxController:
 
             if data["car"] == 4 and data["alw"] == 0:
                 data["car"] = 3
-                data["car_connected"] = 1 
+                data["car_connected"] = 1
 
             # Determine if charging is currently active
             data["charging"] = (
@@ -104,8 +113,9 @@ class WallboxController:
             timeout=5
         ).raise_for_status()
 
-        # Update intended state immediately after successful command
+        # Update intended states immediately after successful command
         self._intended_allow = allow
+        self._intended_car = 2 if allow else 3  # 2=Charging, 3=WaitCar
 
         return {
             "alw": alw_value,

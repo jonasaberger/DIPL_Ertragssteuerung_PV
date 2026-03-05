@@ -11,7 +11,7 @@ import {
 } from 'react-native'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import DateTimePicker from '@react-native-community/datetimepicker'
-import Toast from 'react-native-toast-message'
+import { showToastMessage } from '@/services/helper'
 import { timeStringToDate, dateToTimeString } from '@/services/helper'
 import {
   fetchAutomaticConfig,
@@ -75,21 +75,11 @@ export default function HAutomaticSettings() {
         setConfig(validatedConfig)
         setOriginalConfig(JSON.parse(JSON.stringify(validatedConfig)))
       } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Fehler',
-          text2: 'Automatik-Konfiguration konnte nicht geladen werden',
-          position: 'bottom',
-        })
+        showToastMessage('Automatik-Konfiguration', 'Automatik-Konfiguration konnte nicht geladen werden.', 0)
       }
     } catch (error) {
       console.error('Error loading config:', error)
-      Toast.show({
-        type: 'error',
-        text1: 'Fehler',
-        text2: 'Automatik-Konfiguration konnte nicht geladen werden',
-        position: 'bottom',
-      })
+      showToastMessage('Automatik-Konfiguration', 'Automatik-Konfiguration konnte nicht geladen werden.', 0)
     } finally {
       setLoading(false)
     }
@@ -104,32 +94,16 @@ export default function HAutomaticSettings() {
 
     if (success) {
       setOriginalConfig(JSON.parse(JSON.stringify(config)))
-      Toast.show({
-        type: 'success',
-        text1: 'Erfolg',
-        text2: 'Automatik-Konfiguration erfolgreich gespeichert',
-        position: 'bottom',
-      })
+      showToastMessage('Automatik-Konfiguration', 'Automatik-Konfiguration erfolgreich gespeichert.', 1)
     } else {
-      Toast.show({
-        type: 'error',
-        text1: 'Fehler',
-        text2: 'Automatik-Konfiguration konnte nicht gespeichert werden',
-        position: 'bottom',
-      })
+      showToastMessage('Automatik-Konfiguration', 'Automatik-Konfiguration konnte nicht gespeichert werden.', 0)
     }
   }
 
   const handleCancel = () => {
     if (!originalConfig) return
     setConfig(JSON.parse(JSON.stringify(originalConfig)))
-    Toast.show({
-      type: 'info',
-      text1: 'Abgebrochen',
-      text2: 'Änderungen verworfen',
-      position: 'bottom',
-      visibilityTime: 1500,
-    })
+    showToastMessage('Abgebrochen', 'Änderungen verworfen', 2)
   }
 
   const handleReset = async () => {
@@ -139,19 +113,9 @@ export default function HAutomaticSettings() {
 
     if (success) {
       await loadAutomaticConfig()
-      Toast.show({
-        type: 'success',
-        text1: 'Erfolg',
-        text2: 'Automatik-Konfiguration auf Standard zurückgesetzt',
-        position: 'bottom',
-      })
+      showToastMessage('Erfolg', 'Automatik-Konfiguration auf Standard zurückgesetzt', 1)
     } else {
-      Toast.show({
-        type: 'error',
-        text1: 'Fehler',
-        text2: 'Automatik-Konfiguration konnte nicht zurückgesetzt werden',
-        position: 'bottom',
-      })
+      showToastMessage('Fehler', 'Automatik-Konfiguration konnte nicht zurückgesetzt werden', 0)
     }
   }
 

@@ -114,22 +114,46 @@ export function dateToTimeString (date: Date): string {
   return `${hours}:${minutes}`
 }
 
-export const showToastMessage = (message: string, success: boolean) => {
-  if (success) {
-    Toast.show({
-      type: 'success',
-      text1: 'Erfolg',
-      text2: `${message}`,
-      position: 'bottom',
-      visibilityTime: 2000,
-    })
-  } else {
-    Toast.show({
-      type: 'error',
-      text1: 'Error',
-      text2: `${message}`,
-      position: 'bottom',
-      visibilityTime: 2000,
-    })
+
+
+// success: 2 = info, 1 = success, 0 = error
+export const showToastMessage = (header: string, message: string, success: number, ) => {
+
+  switch(success) {
+    case 2:
+      Toast.show({
+        type: 'info',
+        text1: header,
+        text2: `${message}`,
+        position: 'top',
+        visibilityTime: 2000,
+      })
+      break
+    case 1:
+      Toast.show({
+        type: 'success',
+        text1: header,
+        text2: `${message}`,
+        position: 'top',
+        visibilityTime: 2000,
+      })
+      break
+    case 0:
+      Toast.show({
+        type: 'error',
+        text1: header,
+        text2: `${message}`,
+        position: 'top',
+        visibilityTime: 2000,
+      })
+      break
+    default:
+      Toast.show({
+        type: 'info',
+        text1: header,
+        text2: `${message}`,
+        position: 'top',
+        visibilityTime: 2000,
+      })
   }
 }

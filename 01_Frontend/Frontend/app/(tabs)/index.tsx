@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { ScrollView, StyleSheet, View, Text, ActivityIndicator } from 'react-native'
-import Toast from 'react-native-toast-message'
+import { showToastMessage } from '@/services/helper'
 import { ThemedView } from '@/components/themed-view'
 
 import HDiagram, { DiagramData } from '@/components/homePage/h-diagram'
@@ -54,12 +54,6 @@ const clamp0 = (v: number) => {
 
   return v
 }
-
-const showErrorToast = (message: string) =>
-  Toast.show({ type: 'error', text1: 'Fehler', text2: message, position: 'top', visibilityTime: 3000 })
-
-const showSuccessToast = (message: string) =>
-  Toast.show({ type: 'success', text1: 'Erfolg', text2: message, position: 'top', visibilityTime: 2000 })
 
 export default function HomeScreen() {
   // KEY für Screen Remount
@@ -261,7 +255,7 @@ export default function HomeScreen() {
     } else {
       console.warn('Failed to update wallbox setting on backend - reverting UI')
       setUiState((prev) => ({ ...prev, selectedWallboxSetting: previousSetting }))
-      showErrorToast('Wallbox-Einstellung konnte nicht geändert werden.')
+      showToastMessage('Wallbox-Error', 'Wallbox-Einstellung konnte nicht geändert werden.', 0)
     }
   }
 
@@ -276,7 +270,7 @@ export default function HomeScreen() {
     } else {
       console.warn('Failed to update ampere on backend - reverting UI')
       setUiState((prev) => ({ ...prev, ampere: previousAmpere }))
-      showErrorToast('Ladestrom konnte nicht geändert werden.')
+      showToastMessage('Wallbox-Error', 'Ampere-Einstellung konnte nicht geändert werden.', 0)
     }
   }
 
@@ -291,7 +285,7 @@ export default function HomeScreen() {
     } else {
       console.warn('Failed to update boiler setting on backend - reverting UI')
       setUiState((prev) => ({ ...prev, selectedBoilerSetting: previousSetting }))
-      showErrorToast('Boiler-Einstellung konnte nicht geändert werden.')
+      showToastMessage('Boiler-Error', 'Boiler-Einstellung konnte nicht geändert werden.', 0)
     }
   }
 
@@ -303,11 +297,11 @@ export default function HomeScreen() {
 
     if (success) {
       console.log('Mode successfully changed to:', newMode)
-      showSuccessToast(`Modus geändert zu ${newMode}`)
+      showToastMessage('Modus geändert', `Modus geändert zu ${newMode}`, 1)
     } else {
       console.warn('Failed to update mode on backend - reverting UI')
       setUiState((prev) => ({ ...prev, currentMode: previousMode }))
-      showErrorToast('Modus konnte nicht geändert werden.')
+      showToastMessage('Modus-Error', 'Modus konnte nicht geändert werden.', 0)
     }
   }
 
