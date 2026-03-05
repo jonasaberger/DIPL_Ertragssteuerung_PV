@@ -8,7 +8,7 @@ def test_get_latest_pv_data_mocked(mocker):
 
     fake_record = {
         "_time": fake_time,
-        "pv_power": 1234
+        "pv_power": 3000
     }
 
     fake_record_obj = mocker.Mock()
@@ -31,7 +31,7 @@ def test_get_latest_pv_data_mocked(mocker):
     assert data is not None
     # pv_power wird in get_latest_pv_data() zu pv_power_kw umbenannt
     assert "pv_power" not in data
-    assert data["pv_power_kw"] == 1234
+    assert data["pv_power_kw"] == 3.0
 
 # Simulates a scenario where the InfluxDB query raises an exception and checks that get_latest_pv_data() handles
 # it gracefully by returning None
