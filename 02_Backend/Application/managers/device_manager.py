@@ -61,9 +61,11 @@ class DeviceManager:
         return results
 
     # -------- READ METHODS --------
+    # Get the device config for al devices as a dict
     def get_devices(self) -> dict:
         return self._config["devices"]
 
+    # Get a specific device's configuration by deviceId query parameter
     def get_device(self):
         device_id = request.args.get("deviceId")
         device = self._config["devices"].get(device_id)

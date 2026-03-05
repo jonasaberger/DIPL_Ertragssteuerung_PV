@@ -72,9 +72,6 @@ class ServiceManager:
         # Initialize forecast service
         self.pv_forecast_service = PVForecastService()
 
-        # Initialize the IP-/Device-Manager
-        self.device_manager = DeviceManager()
-
         # Initialize and START the scheduler service
         self.scheduler = SchedulerService(
             mode_store=self.mode_store,
