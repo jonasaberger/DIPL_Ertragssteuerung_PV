@@ -1,4 +1,4 @@
-import { fetchJson, postJson, parseInfluxTime, round1 } from '@/services/helper'
+import { fetchJson, postJson, parseInfluxTime, round1, showToastMessage } from '@/services/helper'
 
 export interface BoilerData {
   date: string
@@ -21,6 +21,7 @@ export async function fetchBoilerData(): Promise<BoilerData | null> {
       heating: Boolean(stateData.heating),
     }
   } catch (error) {
+    showToastMessage('Boiler-Error', 'Boiler Daten konnten nicht geladen werden!', 0)
     console.error('Failed to fetch Boiler data:', error)
     return null
   }

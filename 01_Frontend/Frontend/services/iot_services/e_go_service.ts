@@ -1,4 +1,4 @@
-import { fetchJson, postJson, parseInfluxTime, round1 } from '@/services/helper'
+import { fetchJson, postJson, parseInfluxTime, round1, showToastMessage } from '@/services/helper'
 
 export interface EGoData {
   date: string
@@ -31,6 +31,7 @@ export async function fetchEGoData(): Promise<EGoData | null> {
     }
 
   } catch (error) {
+    showToastMessage('Boiler-Error', 'Boiler Daten konnten nicht geladen werden!', 0)
     console.error('Failed to fetch e-Go Wallbox data:', error)
     return null
   }

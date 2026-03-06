@@ -1,5 +1,5 @@
 // helper/epex.ts
-import { fetchJson, putJson, parseInfluxTime, round1 } from '@/services/helper'
+import { fetchJson, putJson, parseInfluxTime, round1, showToastMessage } from '@/services/helper'
 export interface EpexData {
   date: string
   time: string
@@ -21,6 +21,7 @@ export async function fetchEpexData(): Promise<EpexData | null> {
       pricePerKWh: round1(data.price),
     }
   } catch (error) {
+    showToastMessage('EPEX-Error', 'EPEX Daten konnten nicht geladen werden!', 0)
     console.error('Failed to fetch EPEX data:', error)
     return null
   }

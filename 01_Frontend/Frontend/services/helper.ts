@@ -3,6 +3,7 @@ import Toast from 'react-native-toast-message'
 
 // Make API_BASE async-aware
 let API_BASE: string | null = null
+const DEFAULT_TIMEOUT_MS = 5000
 
 async function ensureAPIBase(): Promise<string> {
   if (!API_BASE) {
@@ -11,21 +12,24 @@ async function ensureAPIBase(): Promise<string> {
   return API_BASE
 }
 
-// Fetch - Helper
+function fetchWithTimeout(url: string, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timeoutId))
+}
+
 export async function fetchJson<T>(path: string): Promise<T> {
   const baseUrl = await ensureAPIBase()
-  const response = await fetch(`${baseUrl}${path}`)
+  const response = await fetchWithTimeout(`${baseUrl}${path}`)
 
   console.log("API_BASE:", baseUrl)
   console.log("PATH:", path)
   console.log("FINAL URL:", response.url)
 
-
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    throw new Error(
-      `API ${path} failed: ${response.status} ${response.statusText} ${text}`
-    )
+    throw new Error(`API ${path} failed: ${response.status} ${response.statusText} ${text}`)
   }
   return response.json() as Promise<T>
 }

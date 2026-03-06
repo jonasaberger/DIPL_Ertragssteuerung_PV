@@ -55,15 +55,25 @@ const clamp0 = (v: number) => {
   return v
 }
 
+
+
 export default function HomeScreen() {
   // KEY für Screen Remount
   const [key, setKey] = useState(0)
 
-  const { pvData, boilerData, epexData, wallboxData, systemState, forecastData, refetchBoilerData, refetchEGoData, refetchEpexData } = useUpdateDataScheduler()
-
   const [healthCheckStatus, setHealthCheckStatus] = useState<'loading' | 'ok' | 'error'>('loading')
   const [showEmergencyConfig, setShowEmergencyConfig] = useState(false)
   const [healthError, setHealthError] = useState<string>('')
+
+  const triggerEmergency = () => {
+    setHealthError('Backend nicht erreichbar')
+    setHealthCheckStatus('error')
+    setShowEmergencyConfig(true)
+  }
+
+  const { pvData, boilerData, epexData, wallboxData, systemState, forecastData, refetchBoilerData, refetchEGoData, refetchEpexData } = useUpdateDataScheduler(() => {
+    triggerEmergency()
+  })
 
   const available = {
     influx: systemState?.influx === 'ok',

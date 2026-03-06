@@ -1,4 +1,4 @@
-import { fetchJson } from '@/services/helper'
+import { fetchJson, showToastMessage } from '@/services/helper'
 
 export interface ForecastData {
   best_hour_today: string
@@ -9,5 +9,13 @@ export interface ForecastData {
 }
 
 export async function fetchForecastData(): Promise<ForecastData | null> {
-  return fetchJson<ForecastData>('/forecast')
+  try {
+    const data = await fetchJson<ForecastData>('/forecast')
+    return data
+  }
+  catch (error) {
+    showToastMessage('Wettervorhersage-Error', 'Wetterdaten konnten nicht geladen werden', 0)
+    console.error('Failed to fetch Forecast data:', error)
+  }
+  return null
 }

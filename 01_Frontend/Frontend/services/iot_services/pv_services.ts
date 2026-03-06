@@ -1,4 +1,4 @@
-import { fetchJson, parseInfluxTime, round1 } from '@/services/helper'
+import { fetchJson, parseInfluxTime, round1, showToastMessage } from '@/services/helper'
 export interface PV_Data {
   date: string
   time: string
@@ -30,6 +30,7 @@ export async function fetchLatestPVData(): Promise<PV_Data | null> {
       rel_selfconsumption: round1(data.rel_selfconsumption),
     }
   } catch (error) {
+    showToastMessage('PV-Error', 'PV-Daten konnten nicht geladen werden!', 0)
     console.error('Failed to fetch PV data:', error)
     return null
   }

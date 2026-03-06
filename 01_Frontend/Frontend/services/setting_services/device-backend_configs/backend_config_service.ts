@@ -33,28 +33,42 @@ export async function setBackendConfigLocal(
 }
 
 export async function getBackendConfig(): Promise<BackendConfig> {
+
+  // Standardkonfiguration als Fallback, falls keine gespeicherte Konfiguration vorhanden ist
   const defaultConfig: BackendConfig = {
     backend_ip: '100.120.107.71',
     backend_port: 5050,
     backend_path: '/api',
   }
+
   try {
+    // Gespeicherte Konfiguration aus dem lokalen Speicher laden
     const json = await AsyncStorage.getItem(CONFIG_KEY)
+
+    // Wenn kein Eintrag vorhanden oder leer: Standardkonfiguration speichern und zurückgeben
     if (!json || json.trim() === '') {
       console.log('No config in storage, using and saving default')
       await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(defaultConfig))
       return defaultConfig
     }
+
+    // Gespeicherten JSON-String in ein BackendConfig-Objekt umwandeln
     const parsed = JSON.parse(json)
     console.log('Loaded config from storage:', parsed)
     return parsed
+
   } catch (error) {
+    // Fehler beim Lesen (z.B. korrupte Daten): Standardkonfiguration als Fallback verwenden
     console.error('Config error - using default:', error)
+
     try {
+      // Standardkonfiguration neu speichern, um den fehlerhaften Eintrag zu überschreiben
       await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(defaultConfig))
     } catch (saveError) {
+      // Auch das Speichern ist fehlgeschlagen (z.B. Speicher voll oder gesperrt)
       console.error('Could not save default config:', saveError)
     }
+
     return defaultConfig
   }
 }
