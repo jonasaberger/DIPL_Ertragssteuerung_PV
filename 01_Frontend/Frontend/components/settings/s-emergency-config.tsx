@@ -110,7 +110,7 @@ export function EmergencyConfigModal ({
       onConfirm={handleSave}
       confirmDisabled={false}
       cancelText="Abbrechen"
-      confirmText="Speichern & Neu starten"
+      confirmText={`Speichern &\nNeu starten`}
     >
       <View style={styles.content}>
         {/* Error Message from Parent */}

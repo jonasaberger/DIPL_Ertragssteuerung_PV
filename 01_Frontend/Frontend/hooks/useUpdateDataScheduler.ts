@@ -5,6 +5,7 @@
   import { fetchSystemState, SystemState } from '@/services/setting_services/logging-state-services/state_service'
   import { fetchEGoData, EGoData } from '@/services/iot_services/e_go_service'
   import { fetchForecastData, ForecastData } from '@/services/ext_services/weatherforecast_service'
+import { showToastMessage } from '@/services/helper'
 
 
   // Berechnet die Millisekunden bis zur nächsten vollen Viertelstunde (z.B. :00, :15, :30, :45).
@@ -71,9 +72,13 @@
           setSystemState(state)
           return state
         } catch (err: any) {
-          console.error('Error fetching system state:', err)
+          // Wenn es ein AbortError oder Nrf ist dann mit onConnectionLost den EmergencyScreen invoken
           if (isMounted && (err.name === 'AbortError' || err.message?.includes('Network request failed'))) {
             onConnectionLost?.()
+          }
+          else { // Bei einem anderen Error dann als Toast anzeigen und loggen
+            console.error('Error fetching system state:', err)
+            showToastMessage('Status-Error', err, 0)
           }
           return null
         }
@@ -135,7 +140,12 @@
         }
       }
       /* -------- Wettervorhersage abrufen -------- */
-      const fetchForecast = async () => {
+      const fetchForecast = async (state: SystemState | null) => {
+        if (!state) return
+        if (state.forecast !== 'ok') {
+          setForecastData(null)
+          return
+        }
         try {
           const data = await fetchForecastData()
           if (!isMounted) return
@@ -156,7 +166,7 @@
           fetchPVAndBoiler(state),
           fetchEpex(state),
           fetchWallbox(state),
-          fetchForecast(),
+          fetchForecast(state),
         ])
       }
       initialize()
@@ -182,7 +192,8 @@
 
       // Wettervorhersage: wartet bis zur nächsten vollen Stunde + 2 Minuten Puffer => danach stündlich.
       forecastTimeout = setTimeout(async () => {
-        await fetchForecast()
+        const state = await fetchState()
+        await fetchForecast(state)
         forecastInterval = setInterval(fetchForecast, 60 * 60 * 1000)
       }, msUntilNextHourWithBuffer(2))
 
