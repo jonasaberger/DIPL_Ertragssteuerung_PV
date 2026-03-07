@@ -29,26 +29,35 @@ export default function HPrices({
     available,
     onOffsetUpdate
 }: Props) {
+    // Für die Steuerung ob die Speichern / Abbrechen Buttons angezeigt werden
     const [isEditing, setIsEditing] = useState(false)
     const [editOffset, setEditOffset] = useState(String(Math.round(priceOffset)))
-    const [isSaving, setIsSaving] = useState(false)
+    const [isSaving, setIsSaving] = useState(false) // Steuert ob der Lade-Spinner im Button angezeigt wird
 
     const handleSave = async () => {
+        // Eingabe in Integer umwandeln
         const newOffset = parseInt(editOffset)
+        
+        // Ungültige Eingabe (NaN) => alten Wert wiederherstellen und Edit-Modus beenden
         if (isNaN(newOffset)) {
             setEditOffset(String(Math.round(priceOffset)))
             setIsEditing(false)
             return
         }
 
+        // Spinner einblenden - Buttons deaktivieren
         setIsSaving(true)
         try {
+            // Callback in HomeScreen aufrufen => PUT-Request /epex/price-offset
             await onOffsetUpdate?.(newOffset)
+            // Erfolg => Edit-Modus schließen
             setIsEditing(false)
         } catch (error) {
+            // Fehler => alten Wert wiederherstellen - Edit-Modus bleibt offen
             console.error('Failed to update offset:', error)
             setEditOffset(String(Math.round(priceOffset)))
         } finally {
+            // Saving-Spinner immer ausblenden
             setIsSaving(false)
         }
     }
