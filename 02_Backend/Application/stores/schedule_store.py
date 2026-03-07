@@ -27,11 +27,12 @@ class ScheduleStore:
     def get_effective(self) -> dict:
         result = copy.deepcopy(self._default)
 
-        # Merge overrides into the default schedule, so that any user-defined overrides take precedence over the default values,
         for device, seasons in self._override.items():
             result.setdefault(device, {})
             for season, values in seasons.items():
-                result[device][season] = values
+                result[device].setdefault(season, {})
+                for field, value in values.items():  # fieldwise merge
+                    result[device][season][field] = value
 
         return result
 
@@ -41,7 +42,9 @@ class ScheduleStore:
         for device, seasons in new_config.items():
             self._override.setdefault(device, {})
             for season, values in seasons.items():
-                self._override[device][season] = values
+                self._override[device].setdefault(season, {})
+                for field, value in values.items():  # start/end merge single
+                    self._override[device][season][field] = value
         self.save()
 
     # Saves the current override schedule to the JSON file, creating parent directories if necessary
