@@ -6,15 +6,10 @@ class FakeLogger:
     def control_decision(self, *a, **k): pass
     def device_state_change(self, *a, **k): pass
 
-# A simple fake schedule manager that always returns "winter" as the current season, allowing us to test the automatic control 
-# logic of the SchedulerService without needing to implement actual season determination logic
 class FakeScheduleManager:
     def determine_season(self):
         return "winter"
 
-# A simple fake boiler class that allows 
-# testing the automatic control logic of the SchedulerService without needing to interact with actual hardware. 
-# The get_state method returns the current state of the boiler, and the control method allows us to simulate turning the boiler on and off
 class FakeBoiler:
     def __init__(self):
         self.state = False
@@ -28,11 +23,10 @@ class FakeBoiler:
         elif action == "off":
             self.state = False
 
-# A simple fake wallbox class that allows testing the automatic control logic of the SchedulerService without needing to interact with actual hardware
 class FakeWallbox:
     def __init__(self):
         self.allow = False
-        self.data = {"car": 2, "car_connected": 1, "eto": 0}  # car=2 (Charging/Connected), car_connected=1
+        self.data = {"car": 2, "car_connected": 1, "eto": 0}
 
     def fetch_data(self):
         return self.data
@@ -49,7 +43,6 @@ class FakeWallbox:
     def get_current_ampere(self):
         return 0
 
-# Fake DB for boiler temperature
 class FakeDB:
     def __init__(self, temp=40):
         self.temp = temp
@@ -57,17 +50,25 @@ class FakeDB:
     def get_latest_boiler_data(self):
         return {"boiler_temp": self.temp}
 
-# A simple fake PV surplus service that allows us to set a fixed surplus value and boiler
-# temperature for testing the automatic control logic of the SchedulerService
 class FakePVSurplus:
-    def __init__(self, value, temp=40):
+    def __init__(self, value, temp=40, soc=50.0):
         self.value = value
+        self._soc = soc
         self.db_bridge = FakeDB(temp)
 
     def get_surplus_kw(self):
         return self.value
 
-# A simple fake forecast class that allows
+    # FIX: scheduler_service calls get_pv_state(), not get_surplus_kw()
+    def get_pv_state(self):
+        return {
+            "surplus_kw":      self.value,
+            "pv_power_kw":     max(self.value, 0),
+            "house_load_kw":   0.3,
+            "battery_power_kw": 0.0,
+            "soc":             self._soc,
+        }
+
 class FakeForecast:
     def __init__(self, today=False, tomorrow=False):
         self.today = today
@@ -79,7 +80,6 @@ class FakeForecast:
             "pv_tomorrow": self.tomorrow
         }
 
-# A simple fake configuration class that allows us to pass a dictionary of configuration values to the SchedulerService for testing purposes
 class FakeConfig:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -97,22 +97,23 @@ def make_scheduler(boiler, wallbox, pv, forecast, config):
         db_bridge=pv.db_bridge if hasattr(pv, "db_bridge") else FakeDB(),
         logger=FakeLogger()
     )
-
     s.pv_service = pv
     s.pv_forecast = forecast
     s.automatic_config = config
     return s
 
-# Tests for the automatic control logic of the SchedulerService, ensuring that it
-# correctly decides when to turn on the boiler and allow wallbox charging based on PV surplus and forecast data
+
+# --- TESTS ---
+
 def test_automatic_boiler_turns_on_with_pv():
+    """Boiler schaltet EIN wenn PV-Überschuss > 1.5 kW und SOC >= 12%."""
     boiler = FakeBoiler()
 
     scheduler = make_scheduler(
         boiler=boiler,
         wallbox=None,
-        # temp below target
-        pv=FakePVSurplus(1.2, temp=40),  
+        # FIX: surplus=2.0 (> BOILER_PV_MIN_KW=1.5), soc=50 (>= BOILER_SOC_START=12)
+        pv=FakePVSurplus(2.0, temp=40, soc=50.0),
         forecast=FakeForecast(),
         config=FakeConfig({
             "boiler": {
@@ -129,15 +130,66 @@ def test_automatic_boiler_turns_on_with_pv():
     scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
     assert boiler.get_state() is True
 
-# Tests that the automatic boiler control does not turn on the boiler if the forecast indicates no PV production for today,
-# even if there is currently a PV surplus
-def test_automatic_boiler_waits_for_forecast():
+
+def test_automatic_boiler_does_not_turn_on_below_threshold():
+    """Boiler bleibt AUS wenn Surplus < 1.5 kW."""
     boiler = FakeBoiler()
 
     scheduler = make_scheduler(
         boiler=boiler,
         wallbox=None,
-        pv=FakePVSurplus(0.0, temp=40),
+        pv=FakePVSurplus(1.2, temp=40, soc=50.0),
+        forecast=FakeForecast(),
+        config=FakeConfig({
+            "boiler": {
+                "winter": {
+                    "enabled": True,
+                    "target_time": "23:59",
+                    "target_temp_c": 55,
+                    "min_runtime_min": 60
+                }
+            }
+        })
+    )
+
+    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
+    assert boiler.get_state() is False
+
+
+def test_automatic_boiler_does_not_turn_on_low_soc():
+    """Boiler bleibt AUS wenn SOC < 12%, auch bei ausreichend PV."""
+    boiler = FakeBoiler()
+
+    scheduler = make_scheduler(
+        boiler=boiler,
+        wallbox=None,
+        # SOC 8% → unter BOILER_SOC_START=12
+        pv=FakePVSurplus(2.5, temp=40, soc=8.0),
+        forecast=FakeForecast(),
+        config=FakeConfig({
+            "boiler": {
+                "winter": {
+                    "enabled": True,
+                    "target_time": "23:59",
+                    "target_temp_c": 55,
+                    "min_runtime_min": 60
+                }
+            }
+        })
+    )
+
+    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
+    assert boiler.get_state() is False
+
+
+def test_automatic_boiler_waits_for_forecast():
+    """Boiler wartet auf PV-Prognose wenn kein aktueller Surplus aber PV erwartet."""
+    boiler = FakeBoiler()
+
+    scheduler = make_scheduler(
+        boiler=boiler,
+        wallbox=None,
+        pv=FakePVSurplus(0.0, temp=40, soc=50.0),
         forecast=FakeForecast(today=True),
         config=FakeConfig({
             "boiler": {
@@ -154,14 +206,43 @@ def test_automatic_boiler_waits_for_forecast():
     scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
     assert boiler.get_state() is False
 
-# Tests that the automatic boiler control does not turn on the boiler if the forecast indicates no PV production for today, even if there is currently a PV surplus
+
+def test_automatic_boiler_off_at_target_temp():
+    """Boiler bleibt AUS wenn Zieltemperatur bereits erreicht."""
+    boiler = FakeBoiler()
+    boiler.state = True  # war AN
+
+    scheduler = make_scheduler(
+        boiler=boiler,
+        wallbox=None,
+        # temp=55 == target_temp_c=55 → bereits erreicht
+        pv=FakePVSurplus(3.0, temp=55, soc=50.0),
+        forecast=FakeForecast(),
+        config=FakeConfig({
+            "boiler": {
+                "winter": {
+                    "enabled": True,
+                    "target_time": "23:59",
+                    "target_temp_c": 55,
+                    "min_runtime_min": 60
+                }
+            }
+        })
+    )
+
+    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
+    assert boiler.get_state() is False
+
+
 def test_automatic_wallbox_charges_with_pv():
+    """Wallbox lädt wenn PV-Überschuss > 1.4 kW."""
     wallbox = FakeWallbox()
 
     scheduler = make_scheduler(
         boiler=None,
         wallbox=wallbox,
-        pv=FakePVSurplus(2.0),
+        # FIX: get_pv_state() jetzt verfügbar via FakePVSurplus
+        pv=FakePVSurplus(2.0, soc=50.0),
         forecast=FakeForecast(),
         config=FakeConfig({
             "wallbox": {
@@ -176,18 +257,18 @@ def test_automatic_wallbox_charges_with_pv():
     )
 
     scheduler.automatic_wallbox(scheduler.pv_forecast.get_forecast())
-
     assert wallbox.get_allow_state() is True
 
-# Tests that the automatic wallbox control does not allow charging if there is no PV surplus and night grid is not allowed, even if the forecast indicates PV production for today
+
 def test_automatic_wallbox_uses_night_grid():
+    """Wallbox-Zustand bleibt boolean (kein Fehler) wenn kein PV und kein Netz-Laden."""
     wallbox = FakeWallbox()
     wallbox.allow = True
 
     scheduler = make_scheduler(
         boiler=None,
         wallbox=wallbox,
-        pv=FakePVSurplus(0.0),
+        pv=FakePVSurplus(0.0, soc=50.0),
         forecast=FakeForecast(today=False, tomorrow=False),
         config=FakeConfig({
             "wallbox": {
@@ -202,6 +283,4 @@ def test_automatic_wallbox_uses_night_grid():
     )
 
     scheduler.automatic_wallbox(scheduler.pv_forecast.get_forecast())
-
-    # Depending on the time of the test, this could be True or False, but it should not raise an error and should be a boolean value
     assert wallbox.get_allow_state() in (True, False)
