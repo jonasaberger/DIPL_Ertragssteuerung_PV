@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.5.2 Chrome/142.0.7444.265 Electron/39.6.1 Safari/537.36" version="29.5.2">
   <diagram name="Seite-1" id="gUVK3oWYtmrEZGqbZk0d">
-    <mxGraphModel dx="2990" dy="1322" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="2481" dy="1011" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -116,7 +116,7 @@
         <mxCell id="bY-R1fXAZtOmmpZO5mQn-37" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 1 – PV-SURPLUS&lt;/b&gt;" vertex="1">
           <mxGeometry height="30" width="171.25" x="170" y="30" as="geometry" />
         </mxCell>
-        <mxCell id="bY-R1fXAZtOmmpZO5mQn-38" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rhombus;whiteSpace=wrap;html=1;" value="PV-Überschuss &amp;gt; 0.5 kW" vertex="1">
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-38" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rhombus;whiteSpace=wrap;html=1;" value="PV-Überschuss &amp;gt; 1.5 kW&lt;br&gt;&amp;amp;&amp;amp;&amp;nbsp;SOC ≥ 12%" vertex="1">
           <mxGeometry height="110" width="150.64" x="180.3" y="160" as="geometry" />
         </mxCell>
         <mxCell id="bY-R1fXAZtOmmpZO5mQn-39" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-36" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="bY-R1fXAZtOmmpZO5mQn-38" value="">
@@ -240,8 +240,8 @@
         <mxCell id="bY-R1fXAZtOmmpZO5mQn-76" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;b&gt;PRIORITY 5 – DEADLINE FAILSAFE&lt;/b&gt;" vertex="1">
           <mxGeometry height="30" width="171.55" x="170" y="1260" as="geometry" />
         </mxCell>
-        <mxCell id="bY-R1fXAZtOmmpZO5mQn-77" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rhombus;whiteSpace=wrap;html=1;" value="Verbleibende Zeit ≤ Mindestlaufzeit" vertex="1">
-          <mxGeometry height="110" width="150.64" x="180.45" y="1300" as="geometry" />
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-77" parent="bY-R1fXAZtOmmpZO5mQn-34" style="rhombus;whiteSpace=wrap;html=1;" value="Verbleibende Zeit ≤ Mindestlaufzeit&lt;div&gt;(90 min Winter / 60 min Sommer)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="120" width="169.55" x="172" y="1300" as="geometry" />
         </mxCell>
         <mxCell id="bY-R1fXAZtOmmpZO5mQn-78" parent="bY-R1fXAZtOmmpZO5mQn-34" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;b&gt;BOILER EIN&lt;/b&gt;&lt;/div&gt;" vertex="1">
           <mxGeometry height="70" width="120" x="20" y="1320" as="geometry" />
@@ -260,9 +260,9 @@
         <mxCell id="bY-R1fXAZtOmmpZO5mQn-83" parent="bY-R1fXAZtOmmpZO5mQn-34" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="Reason: deadline_failsafe" vertex="1">
           <mxGeometry height="30" width="160" x="9.700000000000003" y="1390" as="geometry" />
         </mxCell>
-        <mxCell id="bY-R1fXAZtOmmpZO5mQn-84" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" style="endArrow=classic;html=1;rounded=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" value="">
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-84" edge="1" parent="bY-R1fXAZtOmmpZO5mQn-34" source="bY-R1fXAZtOmmpZO5mQn-77" style="endArrow=classic;html=1;rounded=0;" value="">
           <mxGeometry height="50" relative="1" width="50" as="geometry">
-            <mxPoint x="255.36" y="1410" as="sourcePoint" />
+            <mxPoint x="260" y="1440" as="sourcePoint" />
             <mxPoint x="255.36" y="1490" as="targetPoint" />
           </mxGeometry>
         </mxCell>
@@ -406,7 +406,7 @@
         <mxCell id="bY-R1fXAZtOmmpZO5mQn-172" parent="bY-R1fXAZtOmmpZO5mQn-135" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="&lt;p data-start=&quot;1061&quot; data-end=&quot;1093&quot;&gt;&lt;b&gt;PRIORITY 5 – NIGHT FAILSAFE&lt;/b&gt;&lt;/p&gt;&lt;br/&gt;&lt;p data-start=&quot;1095&quot; data-end=&quot;1113&quot;&gt;&lt;/p&gt;" vertex="1">
           <mxGeometry height="30" width="171.55" x="167" y="1320" as="geometry" />
         </mxCell>
-        <mxCell id="bY-R1fXAZtOmmpZO5mQn-173" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rhombus;whiteSpace=wrap;html=1;" value="Verbleibende Zeit ≤ 2h&lt;br data-start=&quot;1137&quot; data-end=&quot;1140&quot;&gt;&lt;br/&gt;UND allow_night = true" vertex="1">
+        <mxCell id="bY-R1fXAZtOmmpZO5mQn-173" parent="bY-R1fXAZtOmmpZO5mQn-135" style="rhombus;whiteSpace=wrap;html=1;" value="Verbleibende Zeit ≤ 2h&lt;br data-start=&quot;1137&quot; data-end=&quot;1140&quot;&gt;&lt;br&gt;&amp;amp;&amp;amp;&amp;nbsp; allow_night = true" vertex="1">
           <mxGeometry height="104" width="198.09" x="153.71" y="1340" as="geometry" />
         </mxCell>
         <mxCell id="bY-R1fXAZtOmmpZO5mQn-174" parent="bY-R1fXAZtOmmpZO5mQn-135" style="ellipse;shape=doubleEllipse;whiteSpace=wrap;html=1;" value="&lt;b&gt;Wallbox ein&lt;/b&gt;" vertex="1">
