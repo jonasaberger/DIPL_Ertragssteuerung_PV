@@ -127,7 +127,7 @@ def test_automatic_boiler_turns_on_with_pv():
         })
     )
 
-    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
+    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast(), scheduler.pv_service.get_pv_state())
     assert boiler.get_state() is True
 
 
@@ -152,7 +152,7 @@ def test_automatic_boiler_does_not_turn_on_below_threshold():
         })
     )
 
-    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
+    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast(), scheduler.pv_service.get_pv_state())
     assert boiler.get_state() is False
 
 
@@ -178,7 +178,7 @@ def test_automatic_boiler_does_not_turn_on_low_soc():
         })
     )
 
-    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
+    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast(), scheduler.pv_service.get_pv_state())
     assert boiler.get_state() is False
 
 
@@ -203,7 +203,7 @@ def test_automatic_boiler_waits_for_forecast():
         })
     )
 
-    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
+    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast(), scheduler.pv_service.get_pv_state())
     assert boiler.get_state() is False
 
 
@@ -230,7 +230,7 @@ def test_automatic_boiler_off_at_target_temp():
         })
     )
 
-    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast())
+    scheduler.automatic_boiler(scheduler.pv_forecast.get_forecast(), scheduler.pv_service.get_pv_state())
     assert boiler.get_state() is False
 
 
@@ -256,7 +256,7 @@ def test_automatic_wallbox_charges_with_pv():
         })
     )
 
-    scheduler.automatic_wallbox(scheduler.pv_forecast.get_forecast())
+    scheduler.automatic_wallbox(scheduler.pv_forecast.get_forecast(), scheduler.pv_service.get_pv_state())
     assert wallbox.get_allow_state() is True
 
 
@@ -282,5 +282,5 @@ def test_automatic_wallbox_uses_night_grid():
         })
     )
 
-    scheduler.automatic_wallbox(scheduler.pv_forecast.get_forecast())
+    scheduler.automatic_wallbox(scheduler.pv_forecast.get_forecast(), scheduler.pv_service.get_pv_state())
     assert wallbox.get_allow_state() in (True, False)
