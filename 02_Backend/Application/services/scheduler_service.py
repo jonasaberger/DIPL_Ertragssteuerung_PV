@@ -18,6 +18,9 @@ BOILER_PV_MIN_KW = 1.5
 # Minimaler SOC um Boiler per PV zu starten (Hysterese: 2%)
 BOILER_SOC_START = 12.0
 BOILER_SOC_STOP  = 10.0
+# Hysterese für Boiler-Temperaturentscheidung (°C)
+# Zustand beibehalten wenn Temperatur zwischen (target - HYSTERESIS) und target liegt
+HYSTERESIS = 2
 
 class SchedulerService(threading.Thread):
     def __init__(self, mode_store, schedule_manager, boiler, wallbox, db_bridge, logger, interval=60):
@@ -58,6 +61,8 @@ class SchedulerService(threading.Thread):
         self.wallbox_eto_start = None
         self.wallbox_finished = False
         self.wallbox_last_set_allow = None
+        self.wallbox_failsafe_until = None  # Wenn gesetzt: Wallbox lädt fix bis Zielzeit
+        self.wallbox_deadline_missed = False  # Nach Deadline ohne Ziel: nur noch EPEX-Notfall erlaubt
 
         # Logging throttle state
         self.boiler_session_logged_date = None
@@ -69,6 +74,9 @@ class SchedulerService(threading.Thread):
         self._last_charging_stable_log = None
         self.boiler_last_turned_on = None
         self.boiler_target_logged_date = None
+        self.boiler_failsafe_until = None  # Wenn gesetzt: Boiler läuft fix bis zu diesem Zeitpunkt
+        self.boiler_failsafe_logged_today = False  # FIX #9: Erstes ⚠-Log pro Tag, Folge-Verlängerungen separat
+        self.boiler_failsafe_done_today = False    # Einmalig 2h – danach kein weiterer Failsafe bis 00:00
 
     # Main loop of the scheduler thread, which calls tick() every interval seconds
     def run(self):
@@ -163,11 +171,30 @@ class SchedulerService(threading.Thread):
     # AUTOMATIC
     def run_automatic(self):
         forecast = self.pv_forecast.get_forecast()
-        self.automatic_boiler(forecast)
-        self.automatic_wallbox(forecast)
+
+        # Einmal abrufen – beide Geräte nutzen denselben Snapshot
+        try:
+            pv_state = self.pv_service.get_pv_state()
+        except Exception:
+            pv_state = None
+
+        self.automatic_boiler(forecast, pv_state)
+
+        # Wallbox bekommt angepassten Surplus: Boiler-Last abziehen wenn er läuft
+        # Boiler zieht ~2 kW → würde sonst Wallbox fälschlicherweise auch starten
+        BOILER_LOAD_KW = 2.0
+        if pv_state is not None and self.boiler.get_state():
+            adjusted_pv_state = {
+                **pv_state,
+                "surplus_kw": pv_state["surplus_kw"] - BOILER_LOAD_KW
+            }
+        else:
+            adjusted_pv_state = pv_state
+
+        self.automatic_wallbox(forecast, adjusted_pv_state)
 
     # AUTOMATIC – Boiler
-    def automatic_boiler(self, forecast):
+    def automatic_boiler(self, forecast, pv_state=None):
         config = self.automatic_config.get()
         season = self.schedule_manager.determine_season()
         boiler_cfg = config.get("boiler", {}).get(season, {})
@@ -190,11 +217,14 @@ class SchedulerService(threading.Thread):
             return
 
         now = datetime.now(ZoneInfo("Europe/Vienna"))
-        deadline = datetime.combine(
+        deadline_today = datetime.combine(
             now.date(),
             datetime.strptime(target_time, "%H:%M").time(),
             tzinfo=ZoneInfo("Europe/Vienna")
         )
+        # deadline_today = heutiges Ziel (z.B. 16:00), auch wenn bereits überschritten
+        # deadline = für remaining_min Berechnung: springt auf morgen wenn überschritten
+        deadline = deadline_today
         if deadline < now:
             deadline += timedelta(days=1)
         remaining_min = (deadline - now).total_seconds() / 60
@@ -209,13 +239,31 @@ class SchedulerService(threading.Thread):
                         f"Saison: {season} | Mindestlaufzeit: {min_runtime}min"
             )
             self.boiler_session_logged_date = now.date()
+            self.boiler_failsafe_logged_today = False  # FIX #9: täglich zurücksetzen
+            self.boiler_failsafe_done_today = False     # Einmalig-Failsafe täglich freigeben
 
-        HYSTERESIS = 2
         decision_on = False
         reason = "idle"
         pv_surplus = 0.0
         soc = None  # FIX #6: None statt 0.0 – bei DB-Fehler nicht als "SOC: 0%" loggen
         epex_stats = {}
+
+        # Failsafe-2h: Wenn aktiv → Boiler fix AN bis Zeitfenster abläuft
+        if self.boiler_failsafe_until is not None:
+            if now < self.boiler_failsafe_until:
+                if not boiler_on:
+                    self.boiler.control("on")
+                    self.boiler_last_turned_on = now
+                    self.logger.device_state_change(
+                        "boiler", False, True,
+                        reason=f"[Boiler] Deadline-Failsafe: Fix-Laden bis {self.boiler_failsafe_until.strftime('%H:%M')} Uhr"
+                    )
+                self.boiler_last_reason = "deadline_failsafe"
+                return
+            else:
+                # Zeitfenster abgelaufen → einmalig fertig, kein erneutes Starten heute
+                self.boiler_failsafe_until = None
+                self.boiler_failsafe_done_today = True
 
         # Fall 1: Zieltemperatur erreicht
         if current_temp >= target_temp:
@@ -225,14 +273,19 @@ class SchedulerService(threading.Thread):
         # Fall 2: Temperatur unter Ziel -> Heizung nötig
         elif current_temp <= target_temp - HYSTERESIS:
 
-            try:
-                pv_state = self.pv_service.get_pv_state()
-                pv_surplus = pv_state["surplus_kw"]
-                soc = pv_state["soc"]
-                pv_valid = True
-            except Exception:
+            # pv_state wurde von run_automatic() übergeben → kein zweiter DB-Call
+            if pv_state is not None:
+                try:
+                    pv_surplus = pv_state["surplus_kw"]
+                    soc = pv_state["soc"]
+                    pv_valid = True
+                except Exception:
+                    pv_surplus = 0.0
+                    soc = None
+                    pv_valid = False
+            else:
                 pv_surplus = 0.0
-                soc = None  # FIX #6: klar als unbekannt markieren
+                soc = None
                 pv_valid = False
 
             pv_today = forecast.get("pv_today", False)
@@ -313,7 +366,7 @@ class SchedulerService(threading.Thread):
                             )
                             self.last_forecast_override_log_boiler = now
 
-            # Failsafe: Deadline nähert sich → erzwinge Einschalten unabhängig von Vorlogik
+            # Failsafe: Deadline nähert sich → normal einschalten (kein Fix-Laden)
             if not decision_on and not boiler_on and remaining_min <= min_runtime:
                 decision_on = True
                 reason = "deadline_failsafe"
@@ -341,8 +394,11 @@ class SchedulerService(threading.Thread):
                 return "Warte auf PV laut Prognose"
             elif reason == "hysteresis_hold":
                 return "Hysterese: Zustand beibehalten"
+            elif reason == "wait":
+                return f"Warte (kein PV, kein günstiger Strom, {round(remaining_min)}min bis {target_time})"
             else:
-                return "Kein Einschaltgrund"
+                # FIX #8: Fallback gibt reason-Code aus statt irreführendem "Kein Einschaltgrund"
+                return f"Grund: {reason}"
 
         # Entscheidung ausführen
         if decision_on and not boiler_on:
@@ -374,10 +430,26 @@ class SchedulerService(threading.Thread):
             )
             self.boiler_target_logged_date = now.date()
 
+        # Post-Deadline Failsafe: Zielzeit überschritten und Temperatur noch nicht erreicht
+        # → einmalig 2h Fix-Laden, danach kein weiterer Failsafe bis 00:00
+        # Nach dem 2h-Fenster bleibt der Boiler aus – außer EPEX-Notfall greift (Prio 2)
+        if (now >= deadline_today and current_temp < target_temp
+                and self.boiler_failsafe_until is None
+                and not self.boiler_failsafe_done_today
+                and self.boiler_target_logged_date != now.date()):
+            self.boiler_failsafe_until = now + timedelta(hours=2)
+            self.boiler_failsafe_logged_today = True
+            self.logger.system_event(
+                level="info",
+                source="boiler_automatik",
+                message=f"[Boiler] ⚠ Zielzeit {target_time} überschritten, {current_temp:.1f}°C < {target_temp}°C "
+                        f"→ Netz-Failsafe gestartet (bis {self.boiler_failsafe_until.strftime('%H:%M')} Uhr, einmalig)"
+            )
+
         self.boiler_last_reason = reason
 
     # AUTOMATIC – Wallbox
-    def automatic_wallbox(self, forecast):
+    def automatic_wallbox(self, forecast, pv_state=None):
         config = self.automatic_config.get()
         season = self.schedule_manager.determine_season()
         wb_cfg = config.get("wallbox", {}).get(season, {})
@@ -469,17 +541,22 @@ class SchedulerService(threading.Thread):
                 )
                 self.wallbox_finished = True
                 self.wallbox_last_set_allow = False
+                self.wallbox_failsafe_until = None  # FIX #10: Failsafe-State bereinigen
             return
 
         allow = self.wallbox.get_allow_state()
 
-        # PV-Zustand abrufen (surplus + soc in einem Call)
-        try:
-            pv_state = self.pv_service.get_pv_state()
-            pv_surplus = pv_state["surplus_kw"]
-            battery_soc = pv_state["soc"]
-            battery_power_kw = pv_state["battery_power_kw"]
-        except Exception:
+        # PV-Zustand: wurde von run_automatic() übergeben (bereits Boiler-Last abgezogen)
+        if pv_state is not None:
+            try:
+                pv_surplus = pv_state["surplus_kw"]
+                battery_soc = pv_state["soc"] if pv_state["soc"] is not None else 50.0
+                battery_power_kw = pv_state["battery_power_kw"]
+            except Exception:
+                pv_surplus = 0.0
+                battery_soc = 50.0
+                battery_power_kw = 0.0
+        else:
             pv_surplus = 0.0
             battery_soc = 50.0
             battery_power_kw = 0.0
@@ -497,6 +574,21 @@ class SchedulerService(threading.Thread):
         if deadline < now:
             deadline += timedelta(days=1)
         remaining_hours = (deadline - now).total_seconds() / 3600
+
+        # Wenn Deadline heute bereits überschritten wurde ohne Ziel → Flag setzen
+        # (deadline wurde oben auf morgen verschoben, also: jetzt > heutige Deadline)
+        deadline_today_wb = deadline - timedelta(days=1) if deadline.date() > now.date() else deadline
+        if now > deadline_today_wb and not self.wallbox_finished:
+            if not self.wallbox_deadline_missed:
+                self.wallbox_deadline_missed = True
+                self.logger.system_event(
+                    level="info",
+                    source="wallbox_automatik",
+                    message=f"[Wallbox] ⚠ Deadline {target_time} verpasst ohne Ladeziel – "
+                            f"ab jetzt nur noch EPEX-Notfall erlaubt"
+                )
+        elif self.wallbox_finished:
+            self.wallbox_deadline_missed = False  # Ziel erreicht → kein Missed-State
 
         PV_MIN_KW = 1.4
 
@@ -654,7 +746,11 @@ class SchedulerService(threading.Thread):
                     )
                     self.last_forecast_override_log_wallbox = now
 
-            if allow:
+            # FIX #7: Prio-4 darf Wallbox nicht AUS schalten wenn Failsafe bereits aktiv ist.
+            # Ohne Guard: Prio-4 setzt allow=False, Failsafe re-enabled sofort → AUS-Log jede Minute (Spam).
+            # allow lokal auf False setzen damit Failsafe-Check (not allow) korrekt re-enabled.
+            failsafe_active = (self.wallbox_failsafe_until is not None and now < self.wallbox_failsafe_until)
+            if allow and not failsafe_active:
                 self.wallbox.set_allow_charging(False)
                 # DEVICE STATE CHANGE LOG
                 self.logger.device_state_change(
@@ -662,13 +758,25 @@ class SchedulerService(threading.Thread):
                     reason=f"[Wallbox] Automatik: Warte auf PV (heute: {pv_today}, morgen: {pv_tomorrow}) | {progress_info}"
                 )
                 self.wallbox_last_set_allow = False
+                allow = False  # lokale Variable aktualisieren für Prio-5-Check
             # FIX #1: KEIN return – Priorität 5 darf greifen
 
         # Priorität 5: Nacht-Failsafe (Deadline nähert sich)
-        # FIX #1: Greift jetzt auch wenn pv_today=True (Forecast veraltet, kein PV mehr)
-        if allow_night and remaining_hours <= 2.0 and not allow:
+        # Einmal getriggert → wallbox_failsafe_until setzen → bleibt stabil AN bis Deadline
+        # Verhindert AN/AUS-Flapping durch Prio-4-AUS im nächsten Tick
+        if self.wallbox_failsafe_until is not None:
+            if now < self.wallbox_failsafe_until:
+                # Failsafe aktiv → AN halten, nicht mehr prüfen
+                if not allow:
+                    self.wallbox.set_allow_charging(True)
+                    self.wallbox_last_set_allow = True
+                return
+            else:
+                self.wallbox_failsafe_until = None  # Abgelaufen
+
+        if allow_night and remaining_hours <= 2.0 and remaining_hours > 0 and not allow:
+            self.wallbox_failsafe_until = deadline  # Bis Zielzeit laden
             self.wallbox.set_allow_charging(True)
-            # DEVICE STATE CHANGE LOG
             self.logger.device_state_change(
                 "wallbox", False, True,
                 reason=f"[Wallbox] Automatik: Deadline-Failsafe Netzstrom – "
@@ -700,3 +808,8 @@ class SchedulerService(threading.Thread):
         self.last_forecast_override_log_wallbox = None
         self.boiler_target_logged_date = None
         self.boiler_session_logged_date = None  # Reset so session log fires again after mode switch
+        self.boiler_failsafe_until = None
+        self.boiler_failsafe_logged_today = False  # FIX #9
+        self.boiler_failsafe_done_today = False
+        self.wallbox_failsafe_until = None
+        self.wallbox_deadline_missed = False
