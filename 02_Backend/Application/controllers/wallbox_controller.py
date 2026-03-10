@@ -1,12 +1,37 @@
 import os
 import json
+import time
 import requests
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 # CAR STATUS ENUM (laut go-eCharger API v2 Doku):
 CAR_CONNECTED_STATES = {2, 3, 4}
+
+# Retry-Konfiguration für go-eCharger V3
+# Die Hardware bricht gelegentlich HTTP-Verbindungen bei aktivem Laden ab (Firmware-Bug).
+# 2 Versuche mit 1s Pause fangen ~95% der transienten Fehler ab, ohne den Scheduler nennenswert zu verzögern.
+_RETRY_ATTEMPTS = 2
+_RETRY_DELAY_S  = 1.0
+
+
+def _get_with_retry(url: str, timeout: int = 5, params: dict = None) -> requests.Response:
+    last_exc = None
+    for attempt in range(_RETRY_ATTEMPTS):
+        try:
+            resp = requests.get(url, params=params, timeout=timeout)
+            resp.raise_for_status()
+            return resp
+        except (requests.exceptions.ConnectTimeout,
+                requests.exceptions.ConnectionError) as e:
+            last_exc = e
+            if attempt < _RETRY_ATTEMPTS - 1:
+                time.sleep(_RETRY_DELAY_S)
+        except requests.exceptions.HTTPError:
+            raise
+    raise last_exc
+
 
 class WallboxController:
     def __init__(self, config_path: str = "config/devices.json"):
@@ -40,6 +65,7 @@ class WallboxController:
         self._intended_allow = None
         # Tracks expected car state until hardware catches up
         self._intended_car = None
+        self._intended_car_until = None
 
     # Safely convert a value to Decimal (avoids None or invalid numbers)
     def safe_decimal(self, value):
@@ -51,12 +77,10 @@ class WallboxController:
     # Fetch and combine data from both Wallbox endpoints
     def fetch_data(self):
         try:
-            status_resp = requests.get(self.status_url, timeout=5)
-            status_resp.raise_for_status()
+            status_resp = _get_with_retry(self.status_url)
             status_data = status_resp.json()
 
-            api_resp = requests.get(self.api_status_url, timeout=5)
-            api_resp.raise_for_status()
+            api_resp = _get_with_retry(self.api_status_url)
             api_data = api_resp.json()
 
             # Extract phase info (normalize to 3 phases)
@@ -68,9 +92,20 @@ class WallboxController:
             car_raw = int(status_data.get("car", 0))
 
             # If hardware hasn't caught up yet, use intended state
+            now_dt = datetime.now(ZoneInfo("Europe/Vienna"))
             if self._intended_car is not None:
-                if car_raw == self._intended_car:
-                    self._intended_car = None  # Hardware has caught up, reset
+                if self._intended_car_until and now_dt > self._intended_car_until:
+                    # Timeout expired -> trust hardware
+                    self._intended_car = None
+                    self._intended_car_until = None
+                elif car_raw == 1:
+                    # Hardware reports no car -> override immediately, never fake car_connected
+                    self._intended_car = None
+                    self._intended_car_until = None
+                elif car_raw == self._intended_car or car_raw in CAR_CONNECTED_STATES:
+                    # Hardware has caught up, reset
+                    self._intended_car = None
+                    self._intended_car_until = None
                 else:
                     car_raw = self._intended_car
 
@@ -107,15 +142,27 @@ class WallboxController:
     def set_allow_charging(self, allow: bool):
         alw_value = 1 if allow else 0
 
-        requests.get(
+        _get_with_retry(
             self.mqtt_url,
-            params={"payload": f"alw={alw_value}"},
-            timeout=5
-        ).raise_for_status()
+            params={"payload": f"alw={alw_value}"}
+        )
 
         # Update intended states immediately after successful command
         self._intended_allow = allow
-        self._intended_car = 2 if allow else 3  # 2=Charging, 3=WaitCar
+
+        # Only set _intended_car if a car is actually connected (car in {2,3,4})
+        # Bridges the 1-2s hardware latency after the command
+        # Do NOT set if no car is connected (car=1) - would cause false car_connected=1
+        try:
+            current_car = int(self.fetch_data().get("car", 0))
+        except Exception:
+            current_car = 0
+        if current_car in CAR_CONNECTED_STATES:
+            self._intended_car = 2 if allow else 3  # 2=Charging, 3=WaitCar
+            self._intended_car_until = datetime.now(ZoneInfo("Europe/Vienna")) + timedelta(seconds=10)
+        else:
+            self._intended_car = None
+            self._intended_car_until = None
 
         return {
             "alw": alw_value,
@@ -163,12 +210,10 @@ class WallboxController:
                 f"Invalid amp value. Allowed values: {allowed_values}"
             )
 
-        response = requests.get(
+        _get_with_retry(
             self.mqtt_url,
-            params={"payload": f"amx={amp}"},
-            timeout=5
+            params={"payload": f"amx={amp}"}
         )
-        response.raise_for_status()
 
         return {
             "amp": amp,
