@@ -1,4 +1,3 @@
-// components/settings/s-errorlog.tsx
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,

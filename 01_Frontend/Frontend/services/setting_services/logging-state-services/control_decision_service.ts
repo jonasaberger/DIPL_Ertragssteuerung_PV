@@ -15,7 +15,7 @@ export interface ControlDecisionLogEntry {
 
 export async function fetchControlDecisionLogs(): Promise<ControlDecisionLogEntry[]> {
   const rows = await fetchJson<LoggingApiRow[]>(
-    '/logging?type=system_event&limit=200', 
+    '/logging?type=system_event&limit=100', 
   )
 
   return rows.map((row) => {

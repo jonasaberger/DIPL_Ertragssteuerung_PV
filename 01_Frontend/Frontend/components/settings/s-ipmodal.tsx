@@ -13,8 +13,6 @@ type Props = {
 
 type IpOctets = { first: string; second: string; third: string; fourth: string }
 
-// --- Hilfsfunktionen ---
-
 // IP-Adresse in vier Oktetten aufteilen
 function splitIpIntoOctets(ip: string): IpOctets {
   const parts = ip.split('.')

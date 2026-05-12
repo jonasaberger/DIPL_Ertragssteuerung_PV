@@ -11,12 +11,11 @@ export interface DeviceStateLogEntry {
   device: string
   from: string
   to: string
-  details: string[] // ✅ Rest der Message (| und / => Zeilen)
+  details: string[] 
   rawMessage: string
   rawTime: string
 }
 
-// ✅ macht aus "a | b / c | d" => ["a", "b", "c", "d"]
 function splitDetails(s: string): string[] {
   return s
     .split('|')
@@ -34,12 +33,10 @@ function parseDeviceStateMessage(message: string): {
   const msg = String(message ?? '').trim()
   if (!msg) return null
 
-  // ✅ Erstes "|" trennt Zustandswechsel von Details
   const pipeIdx = msg.indexOf('|')
   const head = (pipeIdx >= 0 ? msg.slice(0, pipeIdx) : msg).trim()
   const tail = (pipeIdx >= 0 ? msg.slice(pipeIdx + 1) : '').trim()
 
-  // ✅ Unterstützt "→" und "->"
   const m = head.match(/^\s*([^:]+)\s*:\s*(.*?)\s*(?:→|->)\s*(.*?)\s*$/)
   if (!m) return null
 
@@ -56,7 +53,7 @@ function parseDeviceStateMessage(message: string): {
 
 export async function fetchDeviceStateLogs(): Promise<DeviceStateLogEntry[]> {
   const rows = await fetchJson<LoggingApiRow[]>(
-    '/logging?type=device_state_change&limit=200'
+    '/logging?type=device_state_change&limit=100'
   )
 
   const out: DeviceStateLogEntry[] = []
@@ -76,7 +73,7 @@ export async function fetchDeviceStateLogs(): Promise<DeviceStateLogEntry[]> {
       device: parsed.device,
       from: parsed.from,
       to: parsed.to,
-      details: parsed.details, // ✅ Details mitnehmen
+      details: parsed.details,
       rawMessage: row.message,
       rawTime: row.time,
     })
