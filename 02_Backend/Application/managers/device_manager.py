@@ -120,7 +120,6 @@ class DeviceManager:
                 return jsonify({"error": str(e)}), 404
 
     # -------- ADMIN METHODS --------
-
     def check_password(self, password: str) -> bool:
         return password == self.admin_pw
 

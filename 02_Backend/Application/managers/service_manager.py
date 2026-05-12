@@ -515,7 +515,6 @@ class ServiceManager:
             )
             return self._json({"error": str(e)}, 500)
 
-        
     # POST /api/boiler/control - Control the boiler (on/off/toggle)
     def control_boiler(self):
         if self.mode_store.get() in (SystemMode.TIME_CONTROLLED, SystemMode.AUTOMATIC):

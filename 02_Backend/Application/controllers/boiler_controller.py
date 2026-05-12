@@ -24,7 +24,7 @@ class BoilerController:
             except Exception:
                 self.relay = None
 
-        # simulation state for non-Pi environments (Windows, CI, ...)
+        # simulation state for non-Pi environments
         self._sim_state = False
 
         # logical boiler state
@@ -33,7 +33,7 @@ class BoilerController:
     # Relay Logic 
     def _apply_logic(self, logical_on: bool):
        
-        # Hardware relay available (Pi)
+        # Hardware relay available
         if self.relay:
             physical_on = not logical_on if self.inverted_logic else logical_on
 

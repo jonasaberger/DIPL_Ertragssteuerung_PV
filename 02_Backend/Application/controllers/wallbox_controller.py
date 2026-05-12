@@ -10,11 +10,10 @@ from zoneinfo import ZoneInfo
 CAR_CONNECTED_STATES = {2, 3, 4}
 
 # Retry-Konfiguration für go-eCharger V3
-# Die Hardware bricht gelegentlich HTTP-Verbindungen bei aktivem Laden ab (Firmware-Bug).
-# 2 Versuche mit 1s Pause fangen ~95% der transienten Fehler ab, ohne den Scheduler nennenswert zu verzögern.
+# Die Hardware bricht gelegentlich HTTP-Verbindungen bei aktivem Laden ab (Firmware-Bug)
+# 2 Versuche mit 1s Pause fangen 95% der transienten Fehler ab, ohne den Scheduler nennenswert zu verzögern
 _RETRY_ATTEMPTS = 2
 _RETRY_DELAY_S  = 1.0
-
 
 def _get_with_retry(url: str, timeout: int = 5, params: dict = None) -> requests.Response:
     last_exc = None

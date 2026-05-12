@@ -28,13 +28,12 @@ class LoggingBridge:
         self.write_api.write(bucket=self.bucket, org=self.org, record=point)
 
     # 1) SYSTEM EVENT
-    #    Für: Start/Stop, Modus-Wechsel, Zeitplan-Updates,
-    #         EPEX-Analysen, Sitzungs-Start, Prognose-Overrides, Scheduler-Fehler
+    #    Für: Start/Stop, Modus-Wechsel, Zeitplan-Updates, EPEX-Analysen, Sitzungs-Start, Prognose-Overrides, Scheduler-Fehler
     def system_event(self, level: str, source: str, message: str):
         point = (
             Point("system_event")
             .tag("level", level)     # info / warning / error
-            .tag("source", source)   # backend / modus / zeitplan / boiler_automatik / wallbox_automatik / ...
+            .tag("source", source)   # Backend / Modus / Zeitplan / Boiler_automatik / Wallbox_automatik / ...
             .field("message", message)
             .time(datetime.now(timezone.utc), WritePrecision.NS)
         )
@@ -53,7 +52,7 @@ class LoggingBridge:
         self._write(point)
 
     # 3) DEVICE STATE CHANGE
-    #    Für: Alle Zustandsänderungen von Boiler und Wallbox,
+    #    Für: Alle Zustandsänderungen von Boiler und Wallbox
     def device_state_change(self, device: str, old_state, new_state, reason: str = "unbekannt"):
         if old_state is None or new_state is None:
             return
