@@ -119,7 +119,6 @@ const badge = StyleSheet.create({
 export default function HForecast({ data, available = true }: HForecastProps) {
   return (
     <View style={styles.card}>
-      {/* Header row - immer anzeigen */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>Solar Prognose</Text>
