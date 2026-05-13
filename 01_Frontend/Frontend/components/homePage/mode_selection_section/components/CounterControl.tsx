@@ -19,12 +19,17 @@ export default function CounterControl({
 }: CounterControlProps) {
   return (
     <View style={styles.container}>
+      {/* Button zum Verringern des Zählers */}
       <TouchableOpacity style={styles.button} onPress={onDecrement} activeOpacity={0.7}>
         <MaterialCommunityIcons name="minus" size={20} color="#1EAFF3" />
       </TouchableOpacity>
+
+      {/* Anzeige des aktuellen Zählerwerts mit Einheit */}
       <Text style={[styles.value, changed && styles.valueChanged]}>
         {value} {unit}
       </Text>
+
+      {/* Button zum Erhöhen des Zählers */}
       <TouchableOpacity style={styles.button} onPress={onIncrement} activeOpacity={0.7}>
         <MaterialCommunityIcons name="plus" size={20} color="#1EAFF3" />
       </TouchableOpacity>

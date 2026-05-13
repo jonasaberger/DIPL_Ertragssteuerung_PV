@@ -26,7 +26,7 @@ export function EmergencyConfigModal ({
   useEffect(() => {
     if (!visible) return
     
-    // Reset state when modal opens
+    // Reset state
     setError('')
     loadCurrentConfig()
   }, [visible])
@@ -81,7 +81,7 @@ export function EmergencyConfigModal ({
                   'Manueller Neustart nötig',
                   'Die App konnte nicht automatisch neu gestartet werden.\nBitte manuell neu laden (R in Expo Go drücken oder App neu starten).'
                 )
-                // Optional: Callback, um State in App neu zu setzen
+                // Callback um State in App neu zu setzen
                 onConfigSaved()
               }
             }
@@ -113,7 +113,7 @@ export function EmergencyConfigModal ({
       confirmText={`Speichern &\nNeu starten`}
     >
       <View style={styles.content}>
-        {/* Error Message from Parent */}
+        {/* Error Message // Parent */}
         {errorMessage && (
           <View style={styles.errorBox}>
             <Text style={styles.errorBoxIcon}>⚠️</Text>

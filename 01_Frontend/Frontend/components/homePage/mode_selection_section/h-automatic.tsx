@@ -20,7 +20,6 @@ import {
   AutomaticConfig,
 } from '@/services/mode_services/automatic_mode_service'
 
-// Import Components
 import SeasonToggle from './components/SeasonToggle'
 import DeviceCard from './components/DeviceCard'
 import SettingRow from './components/SettingRow'
@@ -41,6 +40,7 @@ export default function HAutomaticSettings() {
     loadAutomaticConfig()
   }, [])
 
+  // Lädt die Automatik-Konfiguration aus dem Backend und validiert fehlende Felder
   const loadAutomaticConfig = async () => {
     setLoading(true)
     try {
@@ -85,6 +85,7 @@ export default function HAutomaticSettings() {
     }
   }
 
+  // Speichert die aktuelle Konfiguration und aktualisiert die Vergleichsbasis
   const handleSave = async () => {
     if (!config || !originalConfig) return
 
@@ -100,6 +101,7 @@ export default function HAutomaticSettings() {
     }
   }
 
+  // Setzt alle Änderungen zurück auf die zuletzt gespeicherte Konfiguration
   const handleCancel = () => {
     if (!originalConfig) return
     setConfig(JSON.parse(JSON.stringify(originalConfig)))
@@ -119,6 +121,7 @@ export default function HAutomaticSettings() {
     }
   }
 
+  // Aktualisiert die Zielzeit für das ausgewählte Gerät und schliesst Zeitpicker
   const updateTargetTime = (device: 'boiler' | 'wallbox', time: Date) => {
     if (!config) return
     const timeString = dateToTimeString(time)
@@ -212,13 +215,14 @@ export default function HAutomaticSettings() {
     })
   }
 
-  // Prüft, ob ein Feld verändert wurde
+  // Überprüfung - ob ein bestimmtes Feld verändert wurde
   const isFieldChanged = (device: 'boiler' | 'wallbox', field: string) => {
     if (!config || !originalConfig) return false
     return (config[device][selectedSeason] as any)[field] !==
            (originalConfig[device][selectedSeason] as any)[field]
   }
 
+  // Enthält Konfiguration insgesamt Änderungen?
   const hasAnyChanges = (): boolean => {
     if (!config || !originalConfig) return false
     return JSON.stringify(config) !== JSON.stringify(originalConfig)
@@ -321,7 +325,7 @@ export default function HAutomaticSettings() {
           </View>
         </DeviceCard>
 
-        {/* Save/Cancel Buttons */}
+        {/* Save/Cancel */}
         {hasAnyChanges() && (
           <View style={styles.buttonContainer}>
             <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>

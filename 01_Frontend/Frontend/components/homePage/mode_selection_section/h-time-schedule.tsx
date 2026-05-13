@@ -12,7 +12,6 @@ import {
   Season,
 } from '@/services/mode_services/time_schedule_mode_service'
 
-// Import Components
 import SeasonToggle from './components/SeasonToggle'
 import DeviceCard from './components/DeviceCard'
 import SettingRow from './components/SettingRow'
@@ -34,6 +33,7 @@ export default function HTimeSchedule() {
     loadScheduleConfig()
   }, [])
 
+  // Lädt die Zeitplan-Konfiguration aus dem Backend
   const loadScheduleConfig = async () => {
     setLoading(true)
     const data = await fetchScheduleConfig()
@@ -46,6 +46,7 @@ export default function HTimeSchedule() {
     setLoading(false)
   }
 
+  // Speichert Änderungen und aktualisiert die Temp-Konfiguration
   const handleSave = async () => {
     if (!config || !originalConfig) return
 
@@ -61,6 +62,7 @@ export default function HTimeSchedule() {
     }
   }
 
+  // Setzt die Konfiguration auf den zuletzt gespeicherten Zustand zurück
   const handleCancel = () => {
     if (!originalConfig) return
 
@@ -82,6 +84,7 @@ export default function HTimeSchedule() {
     }
   }
 
+  // Aktualisiert die Start- oder Endzeit für das ausgewählte Gerät und die Jahreszeit
   const updateTime = (
     device: 'boiler' | 'wallbox',
     season: Season,
@@ -107,6 +110,7 @@ export default function HTimeSchedule() {
     setShowTimePicker({ device: null, timeType: null, season: null })
   }
 
+  // Prüft, ob ein bestimmter Zeitwert geändert wurde
   const isChanged = (
     device: 'boiler' | 'wallbox',
     season: Season,
@@ -116,6 +120,7 @@ export default function HTimeSchedule() {
     return config[device][season][timeType] !== originalConfig[device][season][timeType]
   }
 
+  // Wurde die aktuelle Konfiguration allgemein verändert?
   const hasAnyChanges = (): boolean => {
     if (!config || !originalConfig) return false
     return JSON.stringify(config) !== JSON.stringify(originalConfig)

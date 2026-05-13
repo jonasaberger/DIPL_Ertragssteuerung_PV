@@ -2,9 +2,9 @@ import { fetchJson, postJson, putJson } from '@/services/helper'
 
 export interface SeasonConfig {
   target_time: string
-  target_temp_c?: number // nur für Boiler
+  target_temp_c?: number    // nur für Boiler
   min_runtime_min?: number // nur für Boiler
-  energy_kwh?: number // nur für Wallbox
+  energy_kwh?: number         // nur für Wallbox
   allow_night_grid?: boolean // nur für Wallbox
 }
 
@@ -39,7 +39,7 @@ export interface AutomaticConfig {
   wallbox: WallboxAutomaticConfig
 }
 
-// Partial types for updates
+// Partial Types für Aktualisierung
 export type PartialBoilerConfig = Partial<BoilerAutomaticConfig>
 export type PartialWallboxConfig = Partial<WallboxAutomaticConfig>
 
@@ -48,9 +48,7 @@ export interface PartialAutomaticConfig {
   wallbox?: PartialWallboxConfig
 }
 
-/**
- * Fetch current automatic configuration
- */
+// Aktuelle AUTOMATIC-Konfiguration abrufen
 export async function fetchAutomaticConfig(): Promise<AutomaticConfig | null> {
   try {
     const data = await fetchJson<AutomaticConfig>('/automatic-config')
@@ -61,22 +59,20 @@ export async function fetchAutomaticConfig(): Promise<AutomaticConfig | null> {
   }
 }
 
-/**
- * Update automatic configuration (partial update)
- */
+// AUTOMATIC-Konfiguration aktualisieren (Partial Update)
 export async function updateAutomaticConfig(
   currentConfig: AutomaticConfig,
   originalConfig: AutomaticConfig
 ): Promise<boolean> {
   try {
-    // Build partial update payload with only changed fields
+    // Partial Update-Payload mit nur geänderten Feldern erstellen
     const payload: PartialAutomaticConfig = {}
 
-    // Check boiler changes
+    // Boiler-Änderungen prüfen
     const boilerChanges: any = {}
     
     
-    // Check summer changes
+    // Sommer-Änderungen prüfen
     const summerChanges: any = {}
     if (currentConfig.boiler.summer.target_time !== originalConfig.boiler.summer.target_time) {
       summerChanges.target_time = currentConfig.boiler.summer.target_time
@@ -91,7 +87,7 @@ export async function updateAutomaticConfig(
       boilerChanges.summer = summerChanges
     }
     
-    // Check winter changes
+    // Winter-Änderungen prüfen
     const winterChanges: any = {}
     if (currentConfig.boiler.winter.target_time !== originalConfig.boiler.winter.target_time) {
       winterChanges.target_time = currentConfig.boiler.winter.target_time
@@ -110,10 +106,10 @@ export async function updateAutomaticConfig(
       payload.boiler = boilerChanges
     }
 
-    // Check wallbox changes
+    // Wallbox-Änderungen prüfen
     const wallboxChanges: any = {}
     
-    // Check summer changes
+    // Sommer-Änderungen prüfen
     const wallboxSummerChanges: any = {}
     if (currentConfig.wallbox.summer.target_time !== originalConfig.wallbox.summer.target_time) {
       wallboxSummerChanges.target_time = currentConfig.wallbox.summer.target_time
@@ -128,7 +124,7 @@ export async function updateAutomaticConfig(
       wallboxChanges.summer = wallboxSummerChanges
     }
     
-    // Check winter changes
+    // Winter-Änderungen prüfen
     const wallboxWinterChanges: any = {}
     if (currentConfig.wallbox.winter.target_time !== originalConfig.wallbox.winter.target_time) {
       wallboxWinterChanges.target_time = currentConfig.wallbox.winter.target_time
@@ -147,7 +143,7 @@ export async function updateAutomaticConfig(
       payload.wallbox = wallboxChanges
     }
 
-    // Send partial update
+    // Partial Update
     await putJson('/automatic-config', payload)
     return true
   } catch (error) {
@@ -156,9 +152,7 @@ export async function updateAutomaticConfig(
   }
 }
 
-/**
- * Reset automatic configuration to default
- */
+// AUTOMATIC-Konfiguration auf Standard zurücksetzen
 export async function resetAutomaticConfig(): Promise<boolean> {
   try {
     await postJson('/automatic-config', {})

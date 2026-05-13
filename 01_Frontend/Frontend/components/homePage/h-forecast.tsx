@@ -10,7 +10,7 @@ interface HForecastProps {
 
 const SunIcon = ({ size = 18, active }: { size?: number; active: boolean }) => (
   <View style={[sunIconStyles.wrapper, { width: size, height: size }]}>
-    {/* Rays */}
+    {/* Strahlen des Sonnen-Icons erstellen */}
     {[0, 45, 90, 135, 180, 225, 270, 315].map((deg, i) => (
       <View
         key={i}
@@ -24,7 +24,7 @@ const SunIcon = ({ size = 18, active }: { size?: number; active: boolean }) => (
         ]}
       />
     ))}
-    {/* Core */}
+    {/* Sonnen-Kern */}
     <View
       style={[
         sunIconStyles.core,

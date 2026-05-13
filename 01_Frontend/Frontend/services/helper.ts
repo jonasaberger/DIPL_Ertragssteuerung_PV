@@ -1,7 +1,6 @@
 import { getBackendBaseURL } from "./setting_services/device-backend_configs/backend_config_service"
 import Toast from 'react-native-toast-message'
 
-// Make API_BASE async-aware
 let API_BASE: string | null = null
 const DEFAULT_TIMEOUT_MS = 5000
 
@@ -82,12 +81,11 @@ export async function putJson<T = any>(
   return response.json() as Promise<T>
 }
 
-// Helper to reset API_BASE (useful if backend config changes)
+// Hilfsfunktion zum Zurücksetzen von API_BASE (nützlich, wenn sich die Backend-Konfiguration ändert)
 export function resetAPIBase(): void {
   API_BASE = null
 }
 
-// Rest of your helpers remain the same...
 export function parseInfluxTime(rawTime: string): {
   date: string
   time: string

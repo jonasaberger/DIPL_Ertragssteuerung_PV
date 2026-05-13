@@ -44,9 +44,8 @@ export async function fetchScheduleConfig(): Promise<ScheduleConfig | null> {
   }
 }
 
-/**
- * Zeitplan-Konfiguration aktualisieren (Partial-Update)
- */
+
+// Zeitplan-Konfiguration aktualisieren (Partial-Update)
 export async function updateScheduleConfig(
   currentConfig: ScheduleConfig, // Aktualisierte Konfiguration aus dem Formular
   originalConfig: ScheduleConfig // Ursprüngliche Konfiguration vor den Änderungen
@@ -95,9 +94,7 @@ export async function updateScheduleConfig(
   }
 }
 
-/**
- * Reset schedule configuration to default
- */
+// Zeitplan-Konfiguration auf Standard zurücksetzen
 export async function resetScheduleConfig(): Promise<boolean> {
   try {
     await postJson('/schedule', {})

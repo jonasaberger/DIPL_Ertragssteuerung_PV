@@ -9,9 +9,11 @@ interface SeasonToggleProps {
   onSeasonChange: (season: Season) => void
 }
 
+// Toggle für die Auswahl zwischen Sommer- und Wintermodus
 export default function SeasonToggle({ selectedSeason, onSeasonChange }: SeasonToggleProps) {
   return (
     <View style={styles.container}>
+      {/* Sommer-Button, wird bei Auswahl hervorgehoben */}
       <TouchableOpacity
         style={[
           styles.seasonButton,
@@ -35,6 +37,7 @@ export default function SeasonToggle({ selectedSeason, onSeasonChange }: SeasonT
         </Text>
       </TouchableOpacity>
 
+      {/* Winter-Button, wird bei Auswahl hervorgehoben */}
       <TouchableOpacity
         style={[
           styles.seasonButton,

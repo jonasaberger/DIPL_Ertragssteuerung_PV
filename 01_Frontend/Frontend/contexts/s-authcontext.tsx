@@ -6,6 +6,7 @@ type AuthContextType = {
   deauthorize: () => void
 }
 
+// Kontext für die Authentifizierung - speichert das Passwort im State
 const AuthContext = createContext<AuthContextType>({
   password: null,
   authorize: () => {},
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext)
 
+// Provider-Komponente stellt Auth-Kontext für Child Komponenten bereit
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [password, setPassword] = useState<string | null>(null)
 
@@ -21,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setPassword(pw)
   }, [])
 
+  // Entfernt das gespeicherte Passwort und gibt die Authentifizierung frei
   const deauthorize = useCallback(() => {
     setPassword(null)
   }, [])

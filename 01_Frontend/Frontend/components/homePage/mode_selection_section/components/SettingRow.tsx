@@ -11,6 +11,7 @@ interface SettingRowProps {
   children?: React.ReactNode
 }
 
+// Einstellungszeile mit optionalem Wert und Klickbarkeit
 export default function SettingRow({
   icon,
   label,
@@ -27,9 +28,11 @@ export default function SettingRow({
       </View>
       {children || (
         <View style={styles.rightContent}>
+          {/* Zeigt den aktuellen Wert an, falls vorhanden */}
           {value && (
             <Text style={[styles.value, changed && styles.valueChanged]}>{value}</Text>
           )}
+          {/* Anzeige eines Chevron-Symbols, wenn die Zeile anklickbar ist */}
           {onPress && <MaterialCommunityIcons name="chevron-right" size={20} color="#C7C7CC" />}
         </View>
       )}
@@ -44,6 +47,7 @@ export default function SettingRow({
     )
   }
 
+  // Gibt die statische Zeile ohne TouchableOpacity zurück, wenn kein onPress gesetzt ist
   return content
 }
 
